@@ -6,27 +6,26 @@
 
 ```
 pantry-panel/
+├── .claude/rules/  # 設計・ルール定義
 ├── specs/          # 仕様書
 ├── frontend/       # Next.js フロントエンド（未作成）
 └── backend/        # Go バックエンド API（未作成）
 ```
 
-## 技術スタック
+## 設計・ルール
 
-| 役割 | 技術 |
-|------|------|
-| Frontend | Next.js |
-| Backend API | Go |
+アーキテクチャや技術スタックの詳細は `.claude/rules/` 配下を参照。
+
+| ファイル | 内容 |
+|---------|------|
+| `overview.md` | 全体構成・アーキテクチャ・リアルタイム同期の仕組み |
+| `general.md` | frontend/backend 共通ルール |
+| `frontend.md` | Next.js (TypeScript) に関する設計 |
+| `backend.md` | Go (Echo) + Aurora PostgreSQL に関する設計 |
 
 ## 仕様
 
 旧製品の仕様は `specs/old-product.md` を参照。新製品の仕様は決まり次第 `specs/` 配下に追加する。
-
-## 開発ツール
-
-- [mise](https://mise.jdx.dev/) — ランタイム管理（Node.js, Go）
-- [gh](https://cli.github.com/) — GitHub CLI
-- [jq](https://jqlang.github.io/jq/) — JSON 処理
 
 ## 開発ルール
 
