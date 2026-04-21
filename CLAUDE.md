@@ -22,8 +22,19 @@ pantry-panel/
 
 旧製品の仕様は `specs/old-product.md` を参照。新製品の仕様は決まり次第 `specs/` 配下に追加する。
 
+## 開発ツール
+
+- [mise](https://mise.jdx.dev/) — ランタイム管理（Node.js, Go）
+- [gh](https://cli.github.com/) — GitHub CLI
+- [jq](https://jqlang.github.io/jq/) — JSON 処理
+
 ## 開発ルール
 
 - フロントエンドのコードは `frontend/` 配下に置く
 - バックエンドのコードは `backend/` 配下に置く
 - 仕様変更・設計決定は `specs/` 配下のドキュメントに記録する
+
+## Git
+
+- コミットメッセージは英語で100文字以内にする
+- コミットメッセージに Co-Authored-By などの Author 情報は付けない
