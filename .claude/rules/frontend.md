@@ -21,6 +21,14 @@
 
 - **Biome** — ESLint + Prettier の代替。設定が最小限で高速。
 
+## ドキュメント参照
+
+| ツール | URL | 備考 |
+|--------|-----|------|
+| Next.js | https://nextjs.org/docs/llms-full.txt | llms-full.txt（AI 向け全文ドキュメント） |
+| Biome | https://biomejs.dev/reference/configuration/ | 公式ドキュメント（llms.txt 未提供） |
+| Tailwind CSS | https://tailwindcss.com/docs | 公式ドキュメント（llms.txt 未提供） |
+
 ## 旧製品からの移行ポイント
 
 - Nuxt.js 2 (Vue 2) → Next.js (React) への移行
