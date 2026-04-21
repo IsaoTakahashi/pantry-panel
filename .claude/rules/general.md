@@ -36,12 +36,12 @@ AWS マネージドサービスを利用する。
 
 ### ci.yml — push to main / pull_request
 
-frontend-ci と backend-ci を**並列ジョブ**で実行。各ジョブ内は lint → test の順で直列（lint 失敗で早期終了）。
+frontend と backend を**並列ジョブ**で実行。各ジョブ内は lint → test の順で直列（lint 失敗で早期終了）。
 
 | Job | Steps |
 |-----|-------|
-| frontend-ci | Biome (lint + format) → tsc (型チェック) → Vitest (unit test) |
-| backend-ci | golangci-lint → go test (unit) → testcontainers + PG (integration) |
+| frontend | Biome (lint + format) → tsc (型チェック) → Vitest (unit test) |
+| backend | golangci-lint → go test (unit) → testcontainers + PG (integration) |
 
 ### e2e.yml — pull_request (main へのマージ時のみ)
 
