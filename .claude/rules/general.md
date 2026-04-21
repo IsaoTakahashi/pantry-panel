@@ -47,6 +47,26 @@ frontend-ci と backend-ci を**並列ジョブ**で実行。各ジョブ内は 
 
 backend + DB (testcontainers) + frontend を起動し、Playwright で E2E テストを実行。実行コストが高いため main への PR 時のみに限定する。
 
+## ブランチ・Issue・PR の運用
+
+### フロー
+
+| Step | 作業 | 担当 |
+|------|------|------|
+| 1 | やりたいことを提示 | ユーザー |
+| 2 | 意図の深堀り・goal 提案 | Claude |
+| 3 | goal 合意 → GitHub Issue 作成 | Claude |
+| 4 | Issue ベースでブランチ作成 | Claude |
+| 5 | 作業開始、早期に Draft PR 作成 | 協業 |
+| 6 | goal 変更時は Issue を更新 | 都度 |
+| 7 | PR マージで Issue 自動クローズ | Claude |
+
+### ルール
+
+- ブランチ名: `{issue番号}-{概要}`（例: `4-stock-item-crud`）
+- PR 本文に `Closes #N` を記載し、マージ時に Issue を自動クローズする
+- 作業が長期化する場合は Draft PR を早めに作成し、CI 実行と進捗の可視化に活用する
+
 ## 旧仕様の参照
 
 旧製品の仕様は `specs/old-product.md` を参照。新製品で再現すべき機能の原典となる。
