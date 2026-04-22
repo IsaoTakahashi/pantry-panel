@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:18
+    container_name: pantry-panel-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: pantry
+      POSTGRES_PASSWORD: pantry
+      POSTGRES_DB: pantry_panel
+    volumes:
+      - db-data:/var/lib/postgresql
+
+volumes:
+  db-data:
