@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -e
+
+# Frontend: Biome check
+if git diff --cached --name-only | grep -q '^frontend/'; then
+    echo "Running frontend lint..."
+    (cd frontend && npx biome check .)
+fi
+
+# Backend: golangci-lint
+if git diff --cached --name-only | grep -q '^backend/'; then
+    echo "Running backend lint..."
+    (cd backend && golangci-lint run ./...)
+fi
