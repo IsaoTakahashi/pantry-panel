@@ -18,7 +18,9 @@ func TestConnectAndPing(t *testing.T) {
 		postgres.WithPassword("test"),
 		postgres.BasicWaitStrategies())
 	require.NoError(t, err)
-	defer container.Terminate(ctx)
+	defer func() {
+		require.NoError(t, container.Terminate(ctx))
+	}()
 
 	dsn, err := container.ConnectionString(ctx, "sslmode=disable")
 	require.NoError(t, err)
