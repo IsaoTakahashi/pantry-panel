@@ -26,6 +26,15 @@
 
 - **golangci-lint** — Go の標準的なリンターアグリゲータ。
 
+## ドキュメント参照
+
+| ツール | URL | 備考 |
+|--------|-----|------|
+| Echo | https://echo.labstack.com/docs | 公式ドキュメント（llms.txt 未提供） |
+| pgx | https://pkg.go.dev/github.com/jackc/pgx/v5 | Go Packages API リファレンス |
+| testcontainers-go | https://golang.testcontainers.org/ | 公式ドキュメント |
+| golangci-lint | https://golangci-lint.run/docs/ | 公式ドキュメント |
+
 ## リアルタイム同期フロー
 
 1. REST API でデータ更新を受け付ける
