@@ -7,6 +7,7 @@ import (
 	"github.com/IsaoTakahashi/pantry-panel/backend/db"
 	"github.com/IsaoTakahashi/pantry-panel/backend/handler"
 	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 )
 
 func main() {
@@ -25,6 +26,9 @@ func main() {
 	}
 
 	e := echo.New()
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"http://localhost:3000"},
+	}))
 
 	e.GET("/health", handler.HealthCheck(conn))
 
