@@ -1,0 +1,218 @@
+openapi: 3.1.0
+info:
+  title: Pantry Panel API
+  version: 0.1.0
+  description: 家庭の食品・日用品の在庫管理 API
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Backend and DB are healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/stock-items:
+    get:
+      summary: List all stock items
+      operationId: listStockItems
+      responses:
+        "200":
+          description: List of stock items ordered by updatedAt descending
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StockItem"
+
+    post:
+      summary: Create a stock item
+      operationId: createStockItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStockItemRequest"
+      responses:
+        "201":
+          description: Stock item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockItem"
+        "400":
+          description: Validation error (missing name or category)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Duplicate name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/stock-items/{id}:
+    patch:
+      summary: Update a stock item
+      operationId: updateStockItem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStockItemRequest"
+      responses:
+        "200":
+          description: Stock item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockItem"
+        "404":
+          description: Stock item not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Duplicate name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      summary: Delete a stock item
+      operationId: deleteStockItem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Stock item deleted
+        "404":
+          description: Stock item not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Cannot delete (wantToBuy is true)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    StockItem:
+      type: object
+      required:
+        - id
+        - name
+        - category
+        - wantToBuy
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        category:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        wantToBuy:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateStockItemRequest:
+      type: object
+      required:
+        - name
+        - category
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          minLength: 1
+
+    UpdateStockItemRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          minLength: 1
+        wantToBuy:
+          type: boolean
+        imageUrl:
+          type: string
+          nullable: true
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - db
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+            - error
+        db:
+          type: string
+          enum:
+            - connected
+            - disconnected
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
