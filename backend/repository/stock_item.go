@@ -19,6 +19,7 @@ type StockItem struct {
 
 type StockItemRepository interface {
 	List(ctx context.Context) ([]StockItem, error)
+	Get(ctx context.Context, id uuid.UUID) (*StockItem, error)
 	Create(ctx context.Context, name, category string) (*StockItem, error)
 	Update(ctx context.Context, id uuid.UUID, params UpdateParams) (*StockItem, error)
 	Delete(ctx context.Context, id uuid.UUID) error
