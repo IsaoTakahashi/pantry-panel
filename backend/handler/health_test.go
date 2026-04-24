@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -16,7 +17,7 @@ type mockPinger struct {
 	err error
 }
 
-func (m *mockPinger) Ping() error {
+func (m *mockPinger) Ping(ctx context.Context) error {
 	return m.err
 }
 

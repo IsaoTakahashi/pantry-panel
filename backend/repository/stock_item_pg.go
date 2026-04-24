@@ -22,6 +22,14 @@ func (r *PgStockItemRepository) List(ctx context.Context) ([]StockItem, error) {
 	return pgx.CollectRows(rows, pgx.RowToStructByName[StockItem])
 }
 
+func (r *PgStockItemRepository) Get(ctx context.Context, id uuid.UUID) (*StockItem, error) {
+	rows, _ := r.pool.Query(ctx,
+		"SELECT id, name, category, image_url, want_to_buy, created_at, updated_at FROM stock_items WHERE id = $1",
+		id)
+
+	return pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[StockItem])
+}
+
 func (r *PgStockItemRepository) Create(ctx context.Context, name, category string) (*StockItem, error) {
 	rows, _ := r.pool.Query(ctx,
 		"INSERT INTO stock_items (name, category) VALUES ($1, $2) RETURNING id, name, category, image_url, want_to_buy, created_at, updated_at",
