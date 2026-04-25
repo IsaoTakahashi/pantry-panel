@@ -29,7 +29,8 @@ func TestMain(m *testing.M) {
 		postgres.WithUsername("test"),
 		postgres.WithPassword("test"),
 		testcontainers.WithWaitStrategy(
-			wait.ForListeningPort("5432/tcp"),
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2),
 		),
 	)
 	if err != nil {
