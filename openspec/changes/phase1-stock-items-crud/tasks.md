@@ -21,9 +21,9 @@
 
 ## 4. Frontend — API クライアント・型定義
 
-- [ ] 4.1 TypeScript の型定義を作成する（StockItem, CreateStockItemRequest 等）
-- [ ] 4.2 API クライアント関数を実装する（fetchStockItems, createStockItem, deleteStockItem）
-- [ ] 4.3 API クライアントのテストを設計・実装する
+- [x] 4.1 TypeScript の型定義を作成する（StockItem, CreateStockItemRequest 等）
+- [x] 4.2 API クライアント関数を実装する（fetchStockItems, createStockItem, deleteStockItem）
+- [x] 4.3 API クライアントのテストを設計・実装する
 
 ## 5. Frontend — 商品一覧ページ
 
