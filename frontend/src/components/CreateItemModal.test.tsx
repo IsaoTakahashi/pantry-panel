@@ -67,4 +67,48 @@ describe("CreateItemModal", () => {
       expect(screen.getByText("その商品は登録済みです")).toBeInTheDocument();
     });
   });
+
+  it("キャンセルボタンを押すと onClose が呼ばれる", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(
+      <CreateItemModal isOpen={true} onClose={onClose} onCreate={vi.fn()} />,
+    );
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("キャンセル後に再度開くと入力がリセットされる", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <CreateItemModal isOpen={true} onClose={vi.fn()} onCreate={vi.fn()} />,
+    );
+    await user.type(screen.getByLabelText("名前"), "醤油");
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+    rerender(
+      <CreateItemModal isOpen={false} onClose={vi.fn()} onCreate={vi.fn()} />,
+    );
+    rerender(
+      <CreateItemModal isOpen={true} onClose={vi.fn()} onCreate={vi.fn()} />,
+    );
+    expect(screen.getByLabelText("名前")).toHaveValue("");
+  });
+
+  it("送信成功後に再度開くと入力がリセットされる", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    const { rerender } = render(
+      <CreateItemModal isOpen={true} onClose={vi.fn()} onCreate={onCreate} />,
+    );
+    await user.type(screen.getByLabelText("名前"), "醤油");
+    await user.selectOptions(screen.getByLabelText("カテゴリ"), "調味料");
+    await user.click(screen.getByRole("button", { name: "追加" }));
+    rerender(
+      <CreateItemModal isOpen={false} onClose={vi.fn()} onCreate={onCreate} />,
+    );
+    rerender(
+      <CreateItemModal isOpen={true} onClose={vi.fn()} onCreate={onCreate} />,
+    );
+    expect(screen.getByLabelText("名前")).toHaveValue("");
+  });
 });
