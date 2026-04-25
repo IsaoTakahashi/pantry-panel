@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchHealth } from "./api";
+import {
+  createStockItem,
+  deleteStockItem,
+  fetchHealth,
+  fetchStockItems,
+  updateStockItem,
+} from "./api";
 
 describe("fetchHealth", () => {
   afterEach(() => {
@@ -31,5 +37,129 @@ describe("fetchHealth", () => {
     );
 
     await expect(fetchHealth()).rejects.toThrow("Failed to fetch");
+  });
+});
+
+describe("fetchStockItems", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("正常レスポンスで StockItem[] を返す", async () => {
+    const items = [
+      {
+        id: "1",
+        name: "醤油",
+        category: "調味料",
+        imageUrl: null,
+        wantToBuy: false,
+        createdAt: "2024-01-01T00:00:00Z",
+        updatedAt: "2024-01-01T00:00:00Z",
+      },
+    ];
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(items), { status: 200 }),
+    );
+
+    const result = await fetchStockItems();
+    expect(result).toEqual(items);
+  });
+
+  it("エラーレスポンスでthrowされる", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 500 }),
+    );
+
+    await expect(fetchStockItems()).rejects.toThrow("HTTP 500");
+  });
+});
+
+describe("createStockItem", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("正常レスポンスで StockItem を返す", async () => {
+    const item = {
+      id: "1",
+      name: "醤油",
+      category: "調味料",
+      imageUrl: null,
+      wantToBuy: false,
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+    };
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(item), { status: 201 }),
+    );
+
+    const result = await createStockItem({ name: "醤油", category: "調味料" });
+    expect(result).toEqual(item);
+  });
+
+  it("409レスポンスでthrowされる", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 409 }),
+    );
+
+    await expect(
+      createStockItem({ name: "醤油", category: "調味料" }),
+    ).rejects.toThrow("HTTP 409");
+  });
+});
+
+describe("updateStockItem", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("正常レスポンスで StockItem を返す", async () => {
+    const item = {
+      id: "1",
+      name: "醤油",
+      category: "調味料",
+      imageUrl: null,
+      wantToBuy: false,
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+    };
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(item), { status: 200 }),
+    );
+
+    const result = await updateStockItem("1", { name: "こいくち醤油" });
+    expect(result).toEqual(item);
+  });
+
+  it("404レスポンスでthrowされる", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 404 }),
+    );
+
+    await expect(
+      updateStockItem("999", { name: "こいくち醤油" }),
+    ).rejects.toThrow("HTTP 404");
+  });
+
+  describe("deleteStockItem", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("正常レスポンスで void を返す", async () => {
+      vi.spyOn(global, "fetch").mockResolvedValue(
+        new Response(null, { status: 204 }),
+      );
+
+      await expect(deleteStockItem("1")).resolves.toBeUndefined();
+    });
+
+    it("404レスポンスでthrowされる", async () => {
+      vi.spyOn(global, "fetch").mockResolvedValue(
+        new Response(null, { status: 404 }),
+      );
+
+      await expect(deleteStockItem("999")).rejects.toThrow("HTTP 404");
+    });
   });
 });
