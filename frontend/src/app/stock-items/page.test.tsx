@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import StockItemsPage from "@/app/stock-items/page";
 
 vi.mock("@/lib/api");
@@ -26,6 +27,11 @@ const mockItems = [
 ];
 
 describe("StockItemsPage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks(); // spyOn の復元
+    vi.clearAllMocks(); // vi.mock 自動モックの呼び出し履歴クリア
+  });
+
   it("ローディング中にloadingが表示される", async () => {
     const { fetchStockItems } = await import("@/lib/api");
     vi.mocked(fetchStockItems).mockReturnValue(new Promise(() => {})); // 解決しないPromiseを返す
@@ -65,5 +71,47 @@ describe("StockItemsPage", () => {
         screen.getByText("商品を取得できませんでした"),
       ).toBeInTheDocument();
     });
+  });
+
+  it("削除ボタンをクリックし確認すると商品が削除される", async () => {
+    const { fetchStockItems, deleteStockItem } = await import("@/lib/api");
+    vi.mocked(fetchStockItems)
+      .mockResolvedValueOnce(mockItems)
+      .mockResolvedValueOnce([mockItems[1]]); // 削除後は味噌だけ
+    vi.mocked(deleteStockItem).mockResolvedValue(undefined);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "削除" }));
+
+    await waitFor(() => {
+      expect(deleteStockItem).toHaveBeenCalledWith("1");
+      expect(screen.queryByText("醤油")).not.toBeInTheDocument();
+    });
+  });
+
+  it("削除確認でキャンセルすると削除されない", async () => {
+    const { fetchStockItems, deleteStockItem } = await import("@/lib/api");
+    vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+    vi.mocked(deleteStockItem).mockResolvedValue(undefined);
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "削除" }));
+
+    expect(deleteStockItem).not.toHaveBeenCalled();
+    expect(screen.getByText("醤油")).toBeInTheDocument();
   });
 });
