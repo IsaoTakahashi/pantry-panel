@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"log"
 	"os"
 	"testing"
 
@@ -17,7 +18,9 @@ import (
 func strPtr(s string) *string { return &s }
 func boolPtr(b bool) *bool    { return &b }
 
-func setupTestDB(t *testing.T) *pgxpool.Pool {
+var testPool *pgxpool.Pool
+
+func TestMain(m *testing.M) {
 	ctx := context.Background()
 
 	pgContainer, err := postgres.Run(ctx,
@@ -26,43 +29,54 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 		postgres.WithUsername("test"),
 		postgres.WithPassword("test"),
 		testcontainers.WithWaitStrategy(
-			wait.ForListeningPort("5432/tcp"),
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2),
 		),
 	)
 	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := pgContainer.Terminate(ctx); err != nil {
-			t.Logf("failed to terminate test container: %v", err)
-		}
-	})
-	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
-	pool, err := pgxpool.New(context.Background(), connStr)
+	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
-		t.Fatalf("failed to connect to test database: %v", err)
+		log.Fatal(err)
 	}
-	t.Cleanup(func() { pool.Close() })
+
+	testPool, err = pgxpool.New(context.Background(), connStr)
+	if err != nil {
+		log.Fatalf("failed to connect to test database: %v", err)
+	}
 
 	sqlBytes, err := os.ReadFile("../db/migrations/001_create_stock_items.sql")
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
-	_, err = pool.Exec(context.Background(), string(sqlBytes))
+	_, err = testPool.Exec(context.Background(), string(sqlBytes))
 	if err != nil {
-		t.Fatalf("failed to apply migration: %v", err)
+		log.Fatalf("failed to apply migration: %v", err)
 	}
 
-	_, err = pool.Exec(ctx, "TRUNCATE stock_items")
+	_, err = testPool.Exec(ctx, "TRUNCATE stock_items")
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
-	return pool
+	code := m.Run()
+
+	testPool.Close()
+	if err := pgContainer.Terminate(ctx); err != nil {
+		log.Printf("failed to terminate test container: %v", err)
+	}
+
+	os.Exit(code)
+}
+
+func setupTestDB(t *testing.T) *pgxpool.Pool {
+	_, err := testPool.Exec(context.Background(), "TRUNCATE stock_items")
+	if err != nil {
+		t.Fatalf("failed to truncate stock_items: %v", err)
+	}
+	return testPool
 }
 
 func TestCreate_Success(t *testing.T) {

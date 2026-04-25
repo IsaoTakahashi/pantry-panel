@@ -1,0 +1,22 @@
+POST http://localhost:8080/api/stock-items
+Content-Type: application/json
+
+{
+  "name": "Milk",
+  "category": "Dairy"
+}
+
+###
+GET http://localhost:8080/api/stock-items
+
+###
+PATCH http://localhost:8080/api/stock-items/f4f53642-837d-4b72-8b18-e21f04379c51
+Content-Type: application/json
+
+{
+  "name": "Almond Milk",
+  "category": "Dairy Alternatives"
+}
+
+###
+DELETE http://localhost:8080/api/stock-items/f4f53642-837d-4b72-8b18-e21f04379c51
