@@ -1,14 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import CreateItemModal from "@/components/CreateItemModal";
 import ItemCard from "@/components/ItemCard";
-import { fetchStockItems } from "@/lib/api";
+import { createStockItem, fetchStockItems } from "@/lib/api";
 import type { StockItem } from "@/types/stockItem";
 
 export default function StockItemsPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const handleCreate = async (name: string, category: string) => {
+    await createStockItem({ name, category });
+    const data = await fetchStockItems();
+    setItems(data);
+  };
 
   useEffect(() => {
     fetchStockItems()
@@ -26,14 +34,26 @@ export default function StockItemsPage() {
   if (error) {
     return <p>商品を取得できませんでした</p>;
   }
-  if (items.length === 0) {
-    return <p>商品がありません</p>;
-  }
+
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-      {items.map((item) => (
-        <ItemCard key={item.id} item={item} onDelete={() => {}} />
-      ))}
+    <div>
+      <button type="button" onClick={() => setIsModalOpen(true)}>
+        商品を追加
+      </button>
+      <CreateItemModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onCreate={handleCreate}
+      />
+      {items.length === 0 ? (
+        <p>商品がありません</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {items.map((item) => (
+            <ItemCard key={item.id} item={item} onDelete={() => {}} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
