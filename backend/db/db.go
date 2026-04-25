@@ -1,20 +1,20 @@
 package db
 
 import (
-	"database/sql"
+	"context"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Connect(dsn string) (*sql.DB, error) {
-	db, err := sql.Open("pgx", dsn)
+func Connect(dsn string) (*pgxpool.Pool, error) {
+	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	return db, nil
+	return pool, nil
 }
 
-func Ping(db *sql.DB) error {
-	return db.Ping()
+func Ping(pool *pgxpool.Pool) error {
+	return pool.Ping(context.Background())
 }
