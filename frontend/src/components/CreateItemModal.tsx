@@ -17,11 +17,19 @@ export default function CreateItemModal({
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const handleClose = () => {
+    setName("");
+    setCategory("");
+    setError(null);
+    onClose();
+  };
+
   if (!isOpen) return null;
   return (
     <div
       role="dialog"
-      className={`fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 ${"block"}`}
+      className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
     >
       <div className="bg-white p-6 rounded shadow-md w-80">
         <h2 className="text-xl font-bold mb-4">商品を追加</h2>
@@ -29,10 +37,14 @@ export default function CreateItemModal({
           onSubmit={(e) => {
             e.preventDefault();
             onCreate(name, category)
-              .then(onClose)
+              .then(handleClose)
               .catch((err) => {
-                if (err.message.includes("409")) {
-                  setError(err.message);
+                const error =
+                  err instanceof Error ? err : new Error(String(err));
+                if (error.message.includes("409")) {
+                  setError("その商品は登録済みです");
+                } else {
+                  setError(error.message || "エラーが発生しました");
                 }
               });
           }}
@@ -74,14 +86,23 @@ export default function CreateItemModal({
               ))}
             </select>
           </div>
-          <button
-            disabled={!name || !category}
-            type="submit"
-            className="w-full bg-blue-500 text-white py-2 rounded disabled:bg-gray-300"
-          >
-            追加
-          </button>
-          {error && <p className="text-red-500 mt-2">その商品は登録済みです</p>}
+          <div className="flex gap-2">
+            <button
+              disabled={!name || !category}
+              type="submit"
+              className="w-full mt-2 bg-blue-500 text-white py-2 rounded disabled:bg-gray-300"
+            >
+              追加
+            </button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="w-full mt-2 bg-gray-500 text-white py-2 rounded"
+            >
+              キャンセル
+            </button>
+          </div>
+          {error && <p className="text-red-500 mt-2">{error}</p>}
         </form>
       </div>
     </div>
