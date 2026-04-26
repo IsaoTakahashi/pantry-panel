@@ -66,3 +66,19 @@ The system SHALL provide a fixed list of categories for selection.
 - **WHEN** the user opens the category selector (in creation modal or elsewhere)
 - **THEN** the following categories are available: ★, 洗面, 100均, KALDI, 調味料, 飲み物, 缶詰, おかず, おかずの素, おやつ, その他
 
+### Requirement: カードクリックで編集モーダルを開く
+ユーザーは商品カードをクリックすることで、その商品の編集モーダルを開くことができる SHALL。削除ボタンのクリックは編集モーダルを開かない MUST。
+
+#### Scenario: カードクリックで編集モーダルが開く
+- **WHEN** ユーザーが商品カードをクリックする (削除ボタン以外の領域)
+- **THEN** その商品の編集モーダルが、現在の name と category を初期値として開く
+
+#### Scenario: 削除ボタンのクリックは編集モーダルを開かない
+- **WHEN** ユーザーが商品カード内の「削除」ボタンをクリックする
+- **THEN** 削除確認ダイアログが表示される
+- **AND** 編集モーダルは開かない
+
+#### Scenario: キーボード操作
+- **WHEN** ユーザーがキーボードでカードにフォーカスし Enter または Space を押す
+- **THEN** 編集モーダルが開く
+
