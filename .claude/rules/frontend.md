@@ -3,12 +3,14 @@
 ## 技術スタック
 
 - **Next.js** (TypeScript)
-- デプロイ先: AWS Amplify または CloudFront + S3
+- デプロイ先: **Vercel**（無料枠で十分。Next.js native）
 
 ## API 連携
 
 - REST API を使用して CRUD 操作を行う
-- WebSocket 接続でリアルタイムにデータ変更を受信する
+- リアルタイム購読:
+  - Phase 3: Go バックエンドの自前 WebSocket に接続（学習目的、後に学習ログ化）
+  - Phase 3.5 以降: **Supabase Realtime** クライアントで直接購読（本番）
 
 ## テスト
 
@@ -32,5 +34,5 @@
 ## 旧製品からの移行ポイント
 
 - Nuxt.js 2 (Vue 2) → Next.js (React) への移行
-- vuexfire によるリアルタイムバインド → WebSocket による変更通知で再現
-- Buefy (Bulma) → UI ライブラリは未定
+- vuexfire によるリアルタイムバインド → Supabase Realtime で再現（Phase 3 のみ自前 WebSocket を学習実装）
+- Buefy (Bulma) → Tailwind CSS（旧プロダクトの teal カラーを再現済み。詳細は `openspec/specs/ui-style-guide/spec.md`）
