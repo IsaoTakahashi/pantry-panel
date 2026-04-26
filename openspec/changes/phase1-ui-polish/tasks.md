@@ -35,4 +35,4 @@
 
 - [x] 5.1 `npx vitest run` で全テスト pass を確認
 - [x] 5.2 `npx biome check --apply` で lint/format を整える
-- [ ] 5.3 ブランチを切って commit、PR を作成
+- [x] 5.3 ブランチを切って commit、PR を作成
