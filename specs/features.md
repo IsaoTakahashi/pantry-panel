@@ -45,11 +45,39 @@
 | 5 | E. 買い物リスト | wantToBuy トグル + 更新時刻リフレッシュ。このアプリの中心的な価値 |
 | 6 | F. フィルタリング | テキスト検索・カテゴリ・wantToBuy の AND 条件。フロントエンド中心 |
 
+### Phase 2.5: 初回デプロイ — 本番環境の立ち上げ
+
+Phase 3 で WebSocket を本番で検証するために、その手前で常時稼働するデプロイ環境を用意する。
+
+| 構成要素 | サービス | 備考 |
+|----------|----------|------|
+| Frontend | Vercel | Next.js native、無料枠で十分 |
+| Backend | AWS App Runner | コンテナ push で常駐稼働、WebSocket OK |
+| DB | Supabase Postgres | 無料枠、LISTEN/NOTIFY は direct connection で可 |
+| CI/CD | GitHub Actions → 各サービス | PR 単位の preview は別 change で検討 |
+
+この時点では Phase 1–2 の機能が本番で動くことを目標とする。認証は wishlist 扱いで導入しない (旧仕様の「認証なし・家族共用」を維持)。
+
 ### Phase 3: リアルタイム
 
 | 順 | 機能 | 理由 |
 |----|------|------|
 | 7 | G. リアルタイム同期 | REST API が安定した段階で WebSocket + LISTEN/NOTIFY を導入 |
+
+### Phase 3.5: Supabase Realtime への切替 — 自前 WebSocket 実装の学習ログ化
+
+Phase 3 で実装した自前 WebSocket + LISTEN/NOTIFY を、本番では Supabase Realtime に置き換える。自前実装は学習ログとして残し、CI でのみ動作確認する。
+
+**目的:**
+- 本番では Supabase Realtime のみが通る (自前実装は production bundle に含めない)
+- 自前実装はプロダクション・テスト両方をリポジトリに保持し、学習ログとして閲覧可能にする
+- 依存更新で学習ログが壊れた場合は CI で検出・修正する
+
+**実装方針:**
+- Backend: `backend/learning/websocket/` に隔離、`//go:build learning` build tag で通常ビルドから除外。CI は `-tags=learning` で別 job 実行
+- Frontend: `frontend/src/learning/websocket-client/` に隔離、`*.learning.test.ts` 命名と vitest 別 config で通常開発からは除外。CI は別 job 実行
+- 各ディレクトリに `README.md` で「学習ログである」「変更は依存追従のみ」を明示
+- Phase 3 終了時点に `git tag learning-archive-v1` を打ってスナップショットを残す
 
 ### Phase 4: 表示・付加機能
 
