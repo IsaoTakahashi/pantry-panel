@@ -44,6 +44,12 @@ jobs:
         run: npx playwright install chromium
         working-directory: frontend
 
+      - name: Apply DB migrations
+        run: |
+          for f in backend/db/migrations/*.sql; do
+            psql "postgres://pantry:pantry@localhost:5432/pantry_panel?sslmode=disable" -f "$f"
+          done
+
       - name: Start backend
         run: go run . &
         working-directory: backend
