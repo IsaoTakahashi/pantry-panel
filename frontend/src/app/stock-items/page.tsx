@@ -2,18 +2,40 @@
 
 import { useEffect, useState } from "react";
 import CreateItemModal from "@/components/CreateItemModal";
+import EditItemModal from "@/components/EditItemModal";
 import ItemCard from "@/components/ItemCard";
-import { createStockItem, deleteStockItem, fetchStockItems } from "@/lib/api";
+import {
+  createStockItem,
+  deleteStockItem,
+  fetchStockItems,
+  updateStockItem,
+} from "@/lib/api";
 import type { StockItem } from "@/types/stockItem";
 
 export default function StockItemsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [items, setItems] = useState<StockItem[]>([]);
+  const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const handleCreate = async (name: string, category: string) => {
     await createStockItem({ name, category });
+    const data = await fetchStockItems();
+    setItems(data);
+  };
+
+  const handleOpenEdit = (item: StockItem) => {
+    setEditingItem(item);
+  };
+
+  const handleCloseEdit = () => {
+    setEditingItem(null);
+  };
+
+  const handleSave = async (name: string, category: string) => {
+    if (!editingItem) return;
+    await updateStockItem(editingItem.id, { name, category });
     const data = await fetchStockItems();
     setItems(data);
   };
@@ -62,6 +84,12 @@ export default function StockItemsPage() {
               onClose={() => setIsModalOpen(false)}
               onCreate={handleCreate}
             />
+            <EditItemModal
+              item={editingItem}
+              isOpen={!!editingItem}
+              onClose={handleCloseEdit}
+              onSave={handleSave}
+            />
             {items.length === 0 ? (
               <p className="text-center py-12 text-gray-600">
                 商品がありません
@@ -69,7 +97,12 @@ export default function StockItemsPage() {
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {items.map((item) => (
-                  <ItemCard key={item.id} item={item} onDelete={handleDelete} />
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    onDelete={handleDelete}
+                    onEdit={handleOpenEdit}
+                  />
                 ))}
               </div>
             )}

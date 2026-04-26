@@ -114,4 +114,34 @@ describe("StockItemsPage", () => {
     expect(deleteStockItem).not.toHaveBeenCalled();
     expect(screen.getByText("醤油")).toBeInTheDocument();
   });
+
+  it("カードをクリックして編集すると一覧が更新される", async () => {
+    const { fetchStockItems, updateStockItem } = await import("@/lib/api");
+    const updatedItems = [{ ...mockItems[0], name: "濃口醤油" }, mockItems[1]];
+    vi.mocked(fetchStockItems)
+      .mockResolvedValueOnce(mockItems)
+      .mockResolvedValueOnce(updatedItems);
+    vi.mocked(updateStockItem).mockResolvedValue(updatedItems[1]);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /醤油/ }));
+
+    await user.clear(screen.getByLabelText("名前"));
+    await user.type(screen.getByLabelText("名前"), "濃口醤油");
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(updateStockItem).toHaveBeenCalledWith("1", {
+        name: "濃口醤油",
+        category: "調味料",
+      });
+      expect(screen.getByText("濃口醤油")).toBeInTheDocument();
+    });
+  });
 });
