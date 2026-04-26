@@ -8,7 +8,10 @@ export default function ItemCard({
   onDelete: (id: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-lg border bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+    <article
+      aria-label={item.name}
+      className="flex items-center gap-4 rounded-lg border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+    >
       <div className="flex-1">
         <span className="inline-block bg-[#ebfffc] text-[#00947e] text-xs px-2 py-0.5 rounded-full mb-1">
           {item.category}
@@ -24,6 +27,6 @@ export default function ItemCard({
           削除
         </button>
       )}
-    </div>
+    </article>
   );
 }
