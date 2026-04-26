@@ -34,33 +34,48 @@ export default function StockItemsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return <p>Loading...</p>;
-  }
-
-  if (error) {
-    return <p>商品を取得できませんでした</p>;
-  }
-
   return (
-    <div>
-      <button type="button" onClick={() => setIsModalOpen(true)}>
-        商品を追加
-      </button>
-      <CreateItemModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onCreate={handleCreate}
-      />
-      {items.length === 0 ? (
-        <p>商品がありません</p>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {items.map((item) => (
-            <ItemCard key={item.id} item={item} onDelete={handleDelete} />
-          ))}
-        </div>
-      )}
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-gradient-to-br from-[#009e6c] via-[#00d1b2] to-[#00e7eb] text-white py-4 px-6">
+        <h1 className="text-2xl font-bold">Pantry Panel</h1>
+      </header>
+      <main className="max-w-6xl mx-auto px-4 py-6">
+        {loading ? (
+          <p className="text-center py-12 text-gray-600">Loading...</p>
+        ) : error ? (
+          <p className="text-center py-12 text-red-600">
+            商品を取得できませんでした
+          </p>
+        ) : (
+          <>
+            <div className="mb-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium"
+              >
+                商品を追加
+              </button>
+            </div>
+            <CreateItemModal
+              isOpen={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+              onCreate={handleCreate}
+            />
+            {items.length === 0 ? (
+              <p className="text-center py-12 text-gray-600">
+                商品がありません
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {items.map((item) => (
+                  <ItemCard key={item.id} item={item} onDelete={handleDelete} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </main>
     </div>
   );
 }
