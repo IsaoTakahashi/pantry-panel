@@ -31,8 +31,8 @@ export default function CreateItemModal({
       role="dialog"
       className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
     >
-      <div className="bg-white p-6 rounded shadow-md w-80">
-        <h2 className="text-xl font-bold mb-4">商品を追加</h2>
+      <div className="bg-white p-6 rounded-lg shadow-xl w-96">
+        <h2 className="text-lg font-semibold mb-6 text-gray-900">商品を追加</h2>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -50,30 +50,33 @@ export default function CreateItemModal({
           }}
         >
           <div className="mb-4">
-            <label htmlFor="name" className="block text-sm font-medium mb-1">
+            <label
+              htmlFor="name"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               名前
             </label>
             <input
               id="name"
               name="name"
               type="text"
-              className="w-full border border-gray-300 rounded px-3 py-2"
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:border-transparent"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          <div className="mb-4">
+          <div className="mb-6">
             <label
               htmlFor="category"
-              className="block text-sm font-medium mb-1"
+              className="block text-sm font-medium text-gray-700 mb-1"
             >
               カテゴリ
             </label>
             <select
               id="category"
               name="category"
-              className="w-full border border-gray-300 rounded px-3 py-2"
+              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:border-transparent"
               required
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -86,23 +89,23 @@ export default function CreateItemModal({
               ))}
             </select>
           </div>
-          <div className="flex gap-2">
-            <button
-              disabled={!name || !category}
-              type="submit"
-              className="w-full mt-2 bg-blue-500 text-white py-2 rounded disabled:bg-gray-300"
-            >
-              追加
-            </button>
+          <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={handleClose}
-              className="w-full mt-2 bg-gray-500 text-white py-2 rounded"
+              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded font-medium"
             >
               キャンセル
             </button>
+            <button
+              disabled={!name || !category}
+              type="submit"
+              className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              追加
+            </button>
           </div>
-          {error && <p className="text-red-500 mt-2">{error}</p>}
+          {error && <p className="text-red-600 mt-3 text-sm">{error}</p>}
         </form>
       </div>
     </div>

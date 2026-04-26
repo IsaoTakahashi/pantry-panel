@@ -8,15 +8,17 @@ export default function ItemCard({
   onDelete: (id: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded border p-4">
+    <div className="flex items-center gap-4 rounded-lg border bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex-1">
-        <h3 className="text-lg font-bold">{item.name}</h3>
-        <p>{item.category}</p>
+        <span className="inline-block bg-[#ebfffc] text-[#00947e] text-xs px-2 py-0.5 rounded-full mb-1">
+          {item.category}
+        </span>
+        <h3 className="text-lg font-bold text-gray-900">{item.name}</h3>
       </div>
       {!item.wantToBuy && (
         <button
           type="button"
-          className="rounded bg-red-500 px-4 py-2 text-white"
+          className="rounded bg-[#ff3860] hover:bg-[#ff2b56] px-3 py-1.5 text-white text-sm font-medium"
           onClick={() => onDelete(item.id)}
         >
           削除
