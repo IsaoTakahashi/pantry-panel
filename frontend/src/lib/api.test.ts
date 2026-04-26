@@ -7,11 +7,11 @@ import {
   updateStockItem,
 } from "./api";
 
-describe("fetchHealth", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
+describe("fetchHealth", () => {
   it("正常レスポンスで HealthResponse を返す", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ status: "ok", db: "connected" }), {
@@ -41,10 +41,6 @@ describe("fetchHealth", () => {
 });
 
 describe("fetchStockItems", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it("正常レスポンスで StockItem[] を返す", async () => {
     const items = [
       {
@@ -75,10 +71,6 @@ describe("fetchStockItems", () => {
 });
 
 describe("createStockItem", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it("正常レスポンスで StockItem を返す", async () => {
     const item = {
       id: "1",
@@ -109,10 +101,6 @@ describe("createStockItem", () => {
 });
 
 describe("updateStockItem", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it("正常レスポンスで StockItem を返す", async () => {
     const item = {
       id: "1",
@@ -141,25 +129,31 @@ describe("updateStockItem", () => {
     ).rejects.toThrow("HTTP 404");
   });
 
-  describe("deleteStockItem", () => {
-    afterEach(() => {
-      vi.restoreAllMocks();
-    });
+  it("409レスポンスでthrowされる", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 409 }),
+    );
 
-    it("正常レスポンスで void を返す", async () => {
-      vi.spyOn(global, "fetch").mockResolvedValue(
-        new Response(null, { status: 204 }),
-      );
+    await expect(updateStockItem("1", { name: "醤油" })).rejects.toThrow(
+      "HTTP 409",
+    );
+  });
+});
 
-      await expect(deleteStockItem("1")).resolves.toBeUndefined();
-    });
+describe("deleteStockItem", () => {
+  it("正常レスポンスで void を返す", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 204 }),
+    );
 
-    it("404レスポンスでthrowされる", async () => {
-      vi.spyOn(global, "fetch").mockResolvedValue(
-        new Response(null, { status: 404 }),
-      );
+    await expect(deleteStockItem("1")).resolves.toBeUndefined();
+  });
 
-      await expect(deleteStockItem("999")).rejects.toThrow("HTTP 404");
-    });
+  it("404レスポンスでthrowされる", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 404 }),
+    );
+
+    await expect(deleteStockItem("999")).rejects.toThrow("HTTP 404");
   });
 });

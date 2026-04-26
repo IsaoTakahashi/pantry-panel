@@ -1,8 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import ItemCard from "@/components/ItemCard";
 import type { StockItem } from "@/types/stockItem";
+import ItemCard from "./ItemCard";
 
 const baseItem: StockItem = {
   id: "1",
