@@ -1,24 +1,27 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchHealth } from "@/lib/api";
 import HealthPage from "./page";
 
-vi.mock("@/lib/api", () => ({
-  fetchHealth: vi.fn(),
-}));
-
-const mockFetchHealth = vi.mocked(fetchHealth);
+vi.mock("@/lib/api");
 
 describe("HealthPage", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("初期表示でloading状態が表示される", () => {
-    mockFetchHealth.mockReturnValue(new Promise(() => {})); // 永遠に解決しないPromiseを返す
+    vi.mocked(fetchHealth).mockReturnValue(new Promise(() => {})); // 永遠に解決しないPromiseを返す
     render(<HealthPage />);
 
     expect(screen.getByText("Loading...")).toBeInTheDocument();
   });
 
   it("fetch成功後にok状態が表示される", async () => {
-    mockFetchHealth.mockResolvedValue({ status: "ok", db: "connected" });
+    vi.mocked(fetchHealth).mockResolvedValue({
+      status: "ok",
+      db: "connected",
+    });
     render(<HealthPage />);
 
     await waitFor(() => {
@@ -28,7 +31,10 @@ describe("HealthPage", () => {
   });
 
   it("fetch失敗後にerror状態が表示される", async () => {
-    mockFetchHealth.mockResolvedValue({ status: "error", db: "disconnected" });
+    vi.mocked(fetchHealth).mockResolvedValue({
+      status: "error",
+      db: "disconnected",
+    });
     render(<HealthPage />);
 
     await waitFor(() => {
@@ -38,7 +44,7 @@ describe("HealthPage", () => {
   });
 
   it("fetchで例外が発生した場合にerror状態が表示される", async () => {
-    mockFetchHealth.mockRejectedValue(new Error("Network error"));
+    vi.mocked(fetchHealth).mockRejectedValue(new Error("Network error"));
     render(<HealthPage />);
 
     await waitFor(() => {
