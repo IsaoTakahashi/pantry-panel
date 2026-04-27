@@ -16,34 +16,67 @@ const baseItem: StockItem = {
 
 describe("ItemCard", () => {
   it("商品名とカテゴリが表示される", () => {
-    render(<ItemCard item={baseItem} onEdit={vi.fn()} onDelete={vi.fn()} />);
+    render(
+      <ItemCard
+        item={baseItem}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
     expect(screen.getByText("醤油")).toBeInTheDocument();
     expect(screen.getByText("調味料")).toBeInTheDocument();
   });
 
   it("wantToBuy=false のとき削除ボタンが表示される", () => {
-    render(<ItemCard item={baseItem} onEdit={vi.fn()} onDelete={vi.fn()} />);
+    render(
+      <ItemCard
+        item={baseItem}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
     expect(screen.getByRole("button", { name: "削除" })).toBeInTheDocument();
   });
 
-  it("wantToBuy=true のとき削除ボタンが表示されない", () => {
+  it("wantToBuy=true のとき削除ボタンが disabled になる", () => {
     const item = { ...baseItem, wantToBuy: true };
-    render(<ItemCard item={item} onEdit={vi.fn()} onDelete={vi.fn()} />);
-    expect(
-      screen.queryByRole("button", { name: "削除" }),
-    ).not.toBeInTheDocument();
+    render(
+      <ItemCard
+        item={item}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "削除" })).toBeDisabled();
   });
 
   it("削除ボタンをクリックするとonDeleteが呼ばれる", async () => {
     const onDelete = vi.fn();
-    render(<ItemCard item={baseItem} onEdit={vi.fn()} onDelete={onDelete} />);
+    render(
+      <ItemCard
+        item={baseItem}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={onDelete}
+      />,
+    );
     await userEvent.click(screen.getByRole("button", { name: "削除" }));
     expect(onDelete).toHaveBeenCalledWith("1");
   });
 
   it("カードをクリックすると onEdit が呼ばれる", async () => {
     const onEdit = vi.fn();
-    render(<ItemCard item={baseItem} onEdit={onEdit} onDelete={vi.fn()} />);
+    render(
+      <ItemCard
+        item={baseItem}
+        onEdit={onEdit}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
     // 商品名 "醤油" を含む button を取得 (削除ボタンと区別)
     await userEvent.click(screen.getByRole("button", { name: /醤油/ }));
     expect(onEdit).toHaveBeenCalledWith(baseItem);
@@ -52,7 +85,14 @@ describe("ItemCard", () => {
   it("削除ボタンをクリックしても onEdit は呼ばれない", async () => {
     const onEdit = vi.fn();
     const onDelete = vi.fn();
-    render(<ItemCard item={baseItem} onEdit={onEdit} onDelete={onDelete} />);
+    render(
+      <ItemCard
+        item={baseItem}
+        onEdit={onEdit}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={onDelete}
+      />,
+    );
     await userEvent.click(screen.getByRole("button", { name: "削除" }));
     expect(onDelete).toHaveBeenCalledWith("1");
     expect(onEdit).not.toHaveBeenCalled();
@@ -60,10 +100,61 @@ describe("ItemCard", () => {
 
   it("Enter キーで onEdit が発火する", async () => {
     const onEdit = vi.fn();
-    render(<ItemCard item={baseItem} onEdit={onEdit} onDelete={vi.fn()} />);
+    render(
+      <ItemCard
+        item={baseItem}
+        onEdit={onEdit}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
     const editButton = screen.getByRole("button", { name: /醤油/ });
     editButton.focus();
     await userEvent.keyboard("{Enter}");
     expect(onEdit).toHaveBeenCalledWith(baseItem);
+  });
+
+  it("wantToBuy=falseのときトグルボタンがaria-pressed=falseで表示される", () => {
+    render(
+      <ItemCard
+        item={baseItem}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: "want to buy" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("wantToBuy=trueのときトグルボタンがaria-pressed=trueで表示され、削除ボタンはdisabledになる", () => {
+    const item = { ...baseItem, wantToBuy: true };
+    render(
+      <ItemCard
+        item={item}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: "want to buy" });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "削除" })).toBeDisabled();
+  });
+
+  it("トグルボタンをクリックすると onToggleWantToBuy が呼ばれ、onEdit は呼ばれない", async () => {
+    const onToggleWantToBuy = vi.fn();
+    const onEdit = vi.fn();
+    render(
+      <ItemCard
+        item={baseItem}
+        onEdit={onEdit}
+        onToggleWantToBuy={onToggleWantToBuy}
+        onDelete={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "want to buy" }));
+    expect(onToggleWantToBuy).toHaveBeenCalledWith(baseItem);
+    expect(onEdit).not.toHaveBeenCalled();
   });
 });
