@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import StockItemsPage from "@/app/stock-items/page";
@@ -88,7 +88,10 @@ describe("StockItemsPage", () => {
       expect(screen.getByText("醤油")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("button", { name: "削除" }));
+    const shoyuArticle = screen.getByRole("article", { name: "醤油" });
+    await user.click(
+      within(shoyuArticle).getByRole("button", { name: "削除" }),
+    );
 
     await waitFor(() => {
       expect(deleteStockItem).toHaveBeenCalledWith("1");
@@ -109,7 +112,10 @@ describe("StockItemsPage", () => {
       expect(screen.getByText("醤油")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("button", { name: "削除" }));
+    const shoyuArticle = screen.getByRole("article", { name: "醤油" });
+    await user.click(
+      within(shoyuArticle).getByRole("button", { name: "削除" }),
+    );
 
     expect(deleteStockItem).not.toHaveBeenCalled();
     expect(screen.getByText("醤油")).toBeInTheDocument();
@@ -142,6 +148,40 @@ describe("StockItemsPage", () => {
         category: "調味料",
       });
       expect(screen.getByText("濃口醤油")).toBeInTheDocument();
+    });
+  });
+
+  it("トグルボタンをクリックするとwantToBuyが反転し一覧が更新される", async () => {
+    const { fetchStockItems, updateStockItem } = await import("@/lib/api");
+    const toggledItems = [{ ...mockItems[0], wantToBuy: true }, mockItems[1]];
+    vi.mocked(fetchStockItems)
+      .mockResolvedValueOnce(mockItems)
+      .mockResolvedValueOnce(toggledItems);
+    vi.mocked(updateStockItem).mockResolvedValue(toggledItems[0]);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    const shoyuArticle = screen.getByRole("article", { name: "醤油" });
+    await user.click(
+      within(shoyuArticle).getByRole("button", { name: "want to buy" }),
+    );
+
+    await waitFor(() => {
+      expect(updateStockItem).toHaveBeenCalledWith("1", {
+        wantToBuy: true,
+      });
+    });
+
+    await waitFor(() => {
+      const updatedShoyuArticle = screen.getByRole("article", { name: "醤油" });
+      expect(
+        within(updatedShoyuArticle).getByRole("button", { name: "削除" }),
+      ).toBeDisabled();
     });
   });
 });
