@@ -3,10 +3,16 @@ import type { StockItem } from "@/types/stockItem";
 type ItemCardProps = {
   item: StockItem;
   onEdit: (item: StockItem) => void;
+  onToggleWantToBuy: (item: StockItem) => void;
   onDelete: (id: string) => void;
 };
 
-export default function ItemCard({ item, onEdit, onDelete }: ItemCardProps) {
+export default function ItemCard({
+  item,
+  onEdit,
+  onToggleWantToBuy,
+  onDelete,
+}: ItemCardProps) {
   return (
     <article
       aria-label={item.name}
@@ -22,15 +28,27 @@ export default function ItemCard({ item, onEdit, onDelete }: ItemCardProps) {
         </span>
         <h3 className="text-lg font-bold text-gray-900">{item.name}</h3>
       </button>
-      {!item.wantToBuy && (
-        <button
-          type="button"
-          className="rounded bg-[#ff3860] hover:bg-[#ff2b56] px-3 py-1.5 text-white text-sm font-medium"
-          onClick={() => onDelete(item.id)}
-        >
-          削除
-        </button>
-      )}
+      <button
+        type="button"
+        aria-label="want to buy"
+        aria-pressed={item.wantToBuy}
+        onClick={() => onToggleWantToBuy(item)}
+        className={
+          item.wantToBuy
+            ? "rounded bg-[#00d1b2] hover:bg-[#00c4a7] px-3 py-1.5 text-white text-sm font-medium"
+            : "rounded bg-gray-200 hover:bg-gray-300 px-3 py-1.5 text-gray-500 text-sm font-medium"
+        }
+      >
+        🛒
+      </button>
+      <button
+        type="button"
+        disabled={item.wantToBuy}
+        className="rounded bg-[#ff3860] hover:bg-[#ff2b56] px-3 py-1.5 text-white text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+        onClick={() => onDelete(item.id)}
+      >
+        削除
+      </button>
     </article>
   );
 }
