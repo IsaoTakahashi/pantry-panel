@@ -40,6 +40,12 @@ export default function StockItemsPage() {
     setItems(data);
   };
 
+  const handleToggleWantToBuy = async (item: StockItem) => {
+    await updateStockItem(item.id, { wantToBuy: !item.wantToBuy });
+    const data = await fetchStockItems();
+    setItems(data);
+  };
+
   const handleDelete = async (id: string) => {
     if (!window.confirm("この商品を削除しますか？")) return;
     await deleteStockItem(id);
@@ -102,6 +108,7 @@ export default function StockItemsPage() {
                     item={item}
                     onDelete={handleDelete}
                     onEdit={handleOpenEdit}
+                    onToggleWantToBuy={handleToggleWantToBuy}
                   />
                 ))}
               </div>
