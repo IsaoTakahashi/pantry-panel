@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CreateItemModal from "@/components/CreateItemModal";
 import EditItemModal from "@/components/EditItemModal";
+import FilterBar from "@/components/FilterBar";
 import ItemCard from "@/components/ItemCard";
 import {
   createStockItem,
@@ -10,6 +11,7 @@ import {
   fetchStockItems,
   updateStockItem,
 } from "@/lib/api";
+import { type FilterCondition, filterStockItems } from "@/lib/filterStockItems";
 import type { StockItem } from "@/types/stockItem";
 
 export default function StockItemsPage() {
@@ -18,6 +20,16 @@ export default function StockItemsPage() {
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterCondition>({
+    searchText: "",
+    wantToBuyOnly: false,
+    category: null,
+  });
+
+  const filteredItems = useMemo(
+    () => filterStockItems(items, filter),
+    [items, filter],
+  );
 
   const handleCreate = async (name: string, category: string) => {
     await createStockItem({ name, category });
@@ -76,11 +88,12 @@ export default function StockItemsPage() {
           </p>
         ) : (
           <>
-            <div className="mb-6 flex justify-end">
+            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <FilterBar value={filter} onChange={setFilter} />
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium"
+                className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium md:self-start"
               >
                 商品を追加
               </button>
@@ -100,9 +113,13 @@ export default function StockItemsPage() {
               <p className="text-center py-12 text-gray-600">
                 商品がありません
               </p>
+            ) : filteredItems.length === 0 ? (
+              <p className="text-center py-12 text-gray-600">
+                該当する商品がありません
+              </p>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {items.map((item) => (
+                {filteredItems.map((item) => (
                   <ItemCard
                     key={item.id}
                     item={item}
