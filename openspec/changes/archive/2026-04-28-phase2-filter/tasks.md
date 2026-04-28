@@ -54,4 +54,4 @@
 - [x] 6.1 `npx vitest run` で全テスト pass
 - [x] 6.2 `npx biome check` でクリーン
 - [x] 6.3 `npx tsc --noEmit` で型エラーなし
-- [ ] 6.4 ブランチを切って commit、PR を作成
+- [x] 6.4 ブランチを切って commit、PR を作成
