@@ -184,4 +184,66 @@ describe("StockItemsPage", () => {
       ).toBeDisabled();
     });
   });
+
+  it("検索入力で絞り込まれ、クリアで戻る", async () => {
+    const { fetchStockItems } = await import("@/lib/api");
+    vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    // 初期: 両方表示
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+      expect(screen.getByText("味噌")).toBeInTheDocument();
+    });
+
+    // "醤" を入力 → 醤油のみ
+    await user.type(screen.getByRole("searchbox"), "醤");
+    expect(screen.getByText("醤油")).toBeInTheDocument();
+    expect(screen.queryByText("味噌")).not.toBeInTheDocument();
+
+    // クリアで両方戻る
+    await user.click(screen.getByRole("button", { name: "クリア" }));
+    expect(screen.getByText("醤油")).toBeInTheDocument();
+    expect(screen.getByText("味噌")).toBeInTheDocument();
+  });
+
+  it("「買いたいものだけ」ON で wantToBuy=false が消える", async () => {
+    const { fetchStockItems } = await import("@/lib/api");
+    vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+      expect(screen.getByText("味噌")).toBeInTheDocument();
+    });
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "買いたいものだけ" }),
+    );
+
+    expect(screen.queryByText("醤油")).not.toBeInTheDocument(); // wantToBuy: false → 消える
+    expect(screen.getByText("味噌")).toBeInTheDocument(); // wantToBuy: true → 残る
+  });
+
+  it("フィルタで 0 件のとき「該当する商品がありません」が表示される", async () => {
+    const { fetchStockItems } = await import("@/lib/api");
+    vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByRole("searchbox"), "なすび");
+
+    expect(screen.getByText("該当する商品がありません")).toBeInTheDocument();
+    // raw 0 件メッセージは出ないことも確認 (Decision 6 の区別)
+    expect(screen.queryByText("商品がありません")).not.toBeInTheDocument();
+  });
 });
