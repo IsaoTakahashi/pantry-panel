@@ -1,0 +1,11 @@
+pre-commit:
+  parallel: true
+  commands:
+    frontend-lint:
+      root: "frontend/"
+      glob: "*.{ts,tsx,js,jsx,json,css}"
+      run: npx biome check {staged_files}
+    backend-lint:
+      root: "backend/"
+      glob: "*.go"
+      run: golangci-lint run ./...
