@@ -1,6 +1,9 @@
 # Claude Code
 .claude/settings.local.json
 
+# Serena MCP (local state)
+.serena/
+
 # Next.js
 .next/
 out/
