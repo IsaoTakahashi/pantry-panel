@@ -7,9 +7,10 @@ test("商品を登録して削除できる", async ({ page }) => {
 
   // 商品登録
   await page.getByRole("button", { name: "商品を追加" }).click();
-  await page.getByLabel("名前").fill(itemName);
-  await page.getByLabel("カテゴリ", { exact: true }).selectOption("調味料");
-  await page.getByRole("button", { name: "追加", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("名前").fill(itemName);
+  await dialog.getByLabel("カテゴリ", { exact: true }).selectOption("調味料");
+  await dialog.getByRole("button", { name: "追加", exact: true }).click();
 
   // 登録した商品が表示されていることを確認
   await expect(page.getByText(itemName)).toBeVisible();

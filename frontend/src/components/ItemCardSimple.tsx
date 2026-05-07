@@ -1,3 +1,4 @@
+import { MdShoppingCart } from "react-icons/md";
 import type { StockItem } from "@/types/stockItem";
 
 type ItemCardProps = {
@@ -38,11 +39,11 @@ export default function ItemCardSimple({
         onClick={() => onToggleWantToBuy(item)}
         className={
           item.wantToBuy
-            ? "rounded bg-[#00d1b2] hover:bg-[#00c4a7] px-3 py-1 text-white text-sm font-medium"
-            : "rounded bg-gray-200 hover:bg-gray-300 px-3 py-1 text-gray-500 text-sm font-medium"
+            ? "rounded bg-[#00d1b2] hover:bg-[#00c4a7] px-3 py-1 text-white inline-flex items-center"
+            : "rounded bg-gray-200 hover:bg-gray-300 px-3 py-1 text-gray-500 inline-flex items-center"
         }
       >
-        🛒
+        <MdShoppingCart aria-hidden size={20} />
       </button>
     </article>
   );

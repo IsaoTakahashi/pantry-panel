@@ -1,5 +1,6 @@
 "use client";
 
+import { MdShoppingCart } from "react-icons/md";
 import { CATEGORIES } from "@/constants/categories";
 import type { FilterCondition } from "@/lib/filterStockItems";
 
@@ -62,7 +63,7 @@ export default function FilterBar({
         )}
       </div>
 
-      <div className="grid grid-cols-2 items-center justify-items-center gap-3">
+      <div className="grid grid-cols-2 items-center gap-3">
         <button
           type="button"
           aria-label="買いたいものだけ"
@@ -70,17 +71,17 @@ export default function FilterBar({
           onClick={toggleWantToBuyOnly}
           className={
             value.wantToBuyOnly
-              ? "rounded bg-[#00d1b2] hover:bg-[#00c4a7] px-3 py-1.5 text-white text-sm font-medium"
-              : "rounded bg-gray-200 hover:bg-gray-300 px-3 py-1.5 text-gray-500 text-sm font-medium"
+              ? "w-full inline-flex items-center justify-center rounded bg-[#00d1b2] hover:bg-[#00c4a7] px-3 py-2 text-white"
+              : "w-full inline-flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 px-3 py-2 text-gray-500"
           }
         >
-          🛒
+          <MdShoppingCart aria-hidden size={20} />
         </button>
         <select
           aria-label="カテゴリ"
           value={value.category ?? ""}
           onChange={handleCategoryChange}
-          className="border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#00d1b2]"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#00d1b2]"
         >
           <option value="">全部</option>
           {CATEGORIES.map((cat) => (
