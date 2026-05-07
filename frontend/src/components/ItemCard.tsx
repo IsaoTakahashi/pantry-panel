@@ -43,11 +43,12 @@ export default function ItemCard({
       </button>
       <button
         type="button"
+        aria-label="削除"
         disabled={item.wantToBuy}
         className="rounded bg-[#ff3860] hover:bg-[#ff2b56] px-3 py-1.5 text-white text-sm font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
         onClick={() => onDelete(item.id)}
       >
-        削除
+        🗑️
       </button>
     </article>
   );
