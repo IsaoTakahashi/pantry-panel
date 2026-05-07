@@ -20,7 +20,7 @@
 
 - [x] 4.1 dev サーバーで通常 ↔ シンプル切替・編集・🛒トグルを手動確認（→ デザイン修正要件発覚）
 - [x] 4.2 CI（lint + tsc + vitest）がすべてパスすることを確認
-- [ ] 4.3 PR を ready for review にして、Issue を `Closes #N` でリンクする
+- [x] 4.3 PR を ready for review にして、Issue を `Closes #N` でリンクする
 
 ## 5. デザイン修正（旧仕様と PWA 利用前提に合わせる）
 
@@ -28,5 +28,5 @@
 - [x] 5.2 `FilterBar.test.tsx` を書き換え（🛒トグル、`role="switch"`、3段レイアウト、テキスト色）
 - [x] 5.3 `page.test.tsx` の viewMode 切替テストを `role="switch"` ベースに書き換え
 - [x] 5.4 `FilterBar.tsx` を実装（3段レイアウト、🛒アイコンボタン、スライダー型 `role="switch"`、`text-gray-900` 明示）
-- [ ] 5.5 dev サーバーで動作確認
-- [ ] 5.6 ローカル CI（lint + tsc + vitest）パス確認 → commit + push → GitHub Actions CI パス確認
+- [x] 5.5 dev サーバーで動作確認
+- [x] 5.6 ローカル CI（lint + tsc + vitest）パス確認 → commit + push → GitHub Actions CI パス確認
