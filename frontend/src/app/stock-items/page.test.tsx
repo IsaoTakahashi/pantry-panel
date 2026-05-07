@@ -221,9 +221,7 @@ describe("StockItemsPage", () => {
       expect(screen.getByText("味噌")).toBeInTheDocument();
     });
 
-    await user.click(
-      screen.getByRole("checkbox", { name: "買いたいものだけ" }),
-    );
+    await user.click(screen.getByRole("button", { name: "買いたいものだけ" }));
 
     expect(screen.queryByText("醤油")).not.toBeInTheDocument(); // wantToBuy: false → 消える
     expect(screen.getByText("味噌")).toBeInTheDocument(); // wantToBuy: true → 残る
@@ -260,13 +258,13 @@ describe("StockItemsPage", () => {
     expect(
       within(shoyuArticle).getByRole("button", { name: "削除" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "通常" })).toHaveAttribute(
+    expect(screen.getByRole("switch", { name: "表示モード" })).toHaveAttribute(
       "aria-checked",
-      "true",
+      "false",
     );
   });
 
-  it("「シンプル」を選択すると各カードから削除ボタンが消える", async () => {
+  it("表示モードトグルでシンプルにすると各カードから削除ボタンが消える", async () => {
     const { fetchStockItems } = await import("@/lib/api");
     vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
 
@@ -277,13 +275,13 @@ describe("StockItemsPage", () => {
       expect(screen.getByText("醤油")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("radio", { name: "シンプル" }));
+    await user.click(screen.getByRole("switch", { name: "表示モード" }));
 
     const shoyuArticle = screen.getByRole("article", { name: "醤油" });
     expect(
       within(shoyuArticle).queryByRole("button", { name: "削除" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "シンプル" })).toHaveAttribute(
+    expect(screen.getByRole("switch", { name: "表示モード" })).toHaveAttribute(
       "aria-checked",
       "true",
     );
@@ -304,7 +302,7 @@ describe("StockItemsPage", () => {
       expect(screen.getByText("醤油")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("radio", { name: "シンプル" }));
+    await user.click(screen.getByRole("switch", { name: "表示モード" }));
 
     const shoyuArticle = screen.getByRole("article", { name: "醤油" });
     await user.click(
@@ -329,7 +327,7 @@ describe("StockItemsPage", () => {
       expect(screen.getByText("醤油")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("radio", { name: "シンプル" }));
+    await user.click(screen.getByRole("switch", { name: "表示モード" }));
 
     await user.click(screen.getByRole("button", { name: /醤油/ }));
 
