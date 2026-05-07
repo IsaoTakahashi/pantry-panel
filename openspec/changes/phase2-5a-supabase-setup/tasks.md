@@ -1,8 +1,8 @@
 ## 1. Issue・ブランチ準備
 
-- [ ] 1.1 GitHub Issue を作成する（タイトル: "Phase 2.5a: Supabase 接続セットアップ"）
-- [ ] 1.2 Issue 番号ベースのブランチを作成する
-- [ ] 1.3 Draft PR を作成する
+- [x] 1.1 GitHub Issue を作成する（タイトル: "Phase 2.5a: Supabase 接続セットアップ"）
+- [x] 1.2 Issue 番号ベースのブランチを作成する
+- [x] 1.3 Draft PR を作成する
 
 ## 2. Supabase プロジェクト作成（ユーザー作業）
 
@@ -34,7 +34,7 @@
 
 - [ ] 5.1 `specs/features.md` の Phase 2.5 セクションを更新（Supabase 接続済みであること）
 - [ ] 5.2 README または `.claude/rules/backend.md` に Supabase 接続文字列の取得手順を追記する
-- [ ] 5.3 `.gitignore` に `.env.local` が含まれていることを確認する
+- [x] 5.3 `.gitignore` に `.env.local` が含まれていることを確認する
 
 ## 6. 仕上げ
 
