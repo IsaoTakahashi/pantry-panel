@@ -246,4 +246,93 @@ describe("StockItemsPage", () => {
     // raw 0 件メッセージは出ないことも確認 (Decision 6 の区別)
     expect(screen.queryByText("商品がありません")).not.toBeInTheDocument();
   });
+
+  it("初期表示は通常モードで、各カードに削除ボタンが見える", async () => {
+    const { fetchStockItems } = await import("@/lib/api");
+    vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+
+    render(<StockItemsPage />);
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    const shoyuArticle = screen.getByRole("article", { name: "醤油" });
+    expect(
+      within(shoyuArticle).getByRole("button", { name: "削除" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "通常" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
+  it("「シンプル」を選択すると各カードから削除ボタンが消える", async () => {
+    const { fetchStockItems } = await import("@/lib/api");
+    vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("radio", { name: "シンプル" }));
+
+    const shoyuArticle = screen.getByRole("article", { name: "醤油" });
+    expect(
+      within(shoyuArticle).queryByRole("button", { name: "削除" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "シンプル" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
+  it("シンプルモードで 🛒 をクリックすると wantToBuy がトグルされる", async () => {
+    const { fetchStockItems, updateStockItem } = await import("@/lib/api");
+    const toggledItems = [{ ...mockItems[0], wantToBuy: true }, mockItems[1]];
+    vi.mocked(fetchStockItems)
+      .mockResolvedValueOnce(mockItems)
+      .mockResolvedValueOnce(toggledItems);
+    vi.mocked(updateStockItem).mockResolvedValue(toggledItems[0]);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("radio", { name: "シンプル" }));
+
+    const shoyuArticle = screen.getByRole("article", { name: "醤油" });
+    await user.click(
+      within(shoyuArticle).getByRole("button", { name: "want to buy" }),
+    );
+
+    await waitFor(() => {
+      expect(updateStockItem).toHaveBeenCalledWith("1", {
+        wantToBuy: true,
+      });
+    });
+  });
+
+  it("シンプルモードでカードをクリックすると編集モーダルが開く", async () => {
+    const { fetchStockItems } = await import("@/lib/api");
+    vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("radio", { name: "シンプル" }));
+
+    await user.click(screen.getByRole("button", { name: /醤油/ }));
+
+    expect(screen.getByLabelText("名前")).toBeInTheDocument();
+  });
 });
