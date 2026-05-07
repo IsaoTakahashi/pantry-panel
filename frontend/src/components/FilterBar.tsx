@@ -62,7 +62,7 @@ export default function FilterBar({
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="grid grid-cols-2 items-center justify-items-center gap-3">
         <button
           type="button"
           aria-label="買いたいものだけ"
@@ -76,21 +76,19 @@ export default function FilterBar({
         >
           🛒
         </button>
-        <label className="flex items-center gap-1 text-gray-900">
-          カテゴリ
-          <select
-            value={value.category ?? ""}
-            onChange={handleCategoryChange}
-            className="border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#00d1b2]"
-          >
-            <option value="">全部</option>
-            {CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-        </label>
+        <select
+          aria-label="カテゴリ"
+          value={value.category ?? ""}
+          onChange={handleCategoryChange}
+          className="border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#00d1b2]"
+        >
+          <option value="">全部</option>
+          {CATEGORIES.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex justify-center">
@@ -100,23 +98,25 @@ export default function FilterBar({
           aria-checked={viewMode === "simple"}
           aria-label="表示モード"
           onClick={toggleViewMode}
-          className="inline-flex items-center rounded-full bg-gray-200 p-1"
+          className="relative inline-flex items-center rounded-full bg-gray-200 p-1"
         >
           <span
-            className={
-              viewMode === "normal"
-                ? "rounded-full bg-[#00d1b2] text-white px-4 py-1 text-sm font-medium"
-                : "text-gray-500 px-4 py-1 text-sm font-medium"
-            }
+            aria-hidden="true"
+            className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-[#00d1b2] transition-transform duration-200 ease-out ${
+              viewMode === "simple" ? "translate-x-full" : "translate-x-0"
+            }`}
+          />
+          <span
+            className={`relative z-10 w-20 text-center px-2 py-1 text-sm font-medium transition-colors duration-200 ${
+              viewMode === "normal" ? "text-white" : "text-gray-500"
+            }`}
           >
             通常
           </span>
           <span
-            className={
-              viewMode === "simple"
-                ? "rounded-full bg-[#00d1b2] text-white px-4 py-1 text-sm font-medium"
-                : "text-gray-500 px-4 py-1 text-sm font-medium"
-            }
+            className={`relative z-10 w-20 text-center px-2 py-1 text-sm font-medium transition-colors duration-200 ${
+              viewMode === "simple" ? "text-white" : "text-gray-500"
+            }`}
           >
             シンプル
           </span>
