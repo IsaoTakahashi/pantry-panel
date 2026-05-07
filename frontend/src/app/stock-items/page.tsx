@@ -5,6 +5,7 @@ import CreateItemModal from "@/components/CreateItemModal";
 import EditItemModal from "@/components/EditItemModal";
 import FilterBar from "@/components/FilterBar";
 import ItemCard from "@/components/ItemCard";
+import ItemCardSimple from "@/components/ItemCardSimple";
 import {
   createStockItem,
   deleteStockItem,
@@ -25,11 +26,14 @@ export default function StockItemsPage() {
     wantToBuyOnly: false,
     category: null,
   });
+  const [viewMode, setViewMode] = useState<"normal" | "simple">("normal");
 
   const filteredItems = useMemo(
     () => filterStockItems(items, filter),
     [items, filter],
   );
+
+  const Card = viewMode === "simple" ? ItemCardSimple : ItemCard;
 
   const handleCreate = async (name: string, category: string) => {
     await createStockItem({ name, category });
@@ -89,7 +93,12 @@ export default function StockItemsPage() {
         ) : (
           <>
             <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <FilterBar value={filter} onChange={setFilter} />
+              <FilterBar
+                value={filter}
+                onChange={setFilter}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+              />
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
@@ -120,7 +129,7 @@ export default function StockItemsPage() {
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {filteredItems.map((item) => (
-                  <ItemCard
+                  <Card
                     key={item.id}
                     item={item}
                     onDelete={handleDelete}

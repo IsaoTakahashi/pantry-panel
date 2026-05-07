@@ -5,10 +5,17 @@ import type { FilterCondition } from "@/lib/filterStockItems";
 
 type FilterBarProps = {
   value: FilterCondition;
+  viewMode: "normal" | "simple";
   onChange: (next: FilterCondition) => void;
+  onViewModeChange: (next: "normal" | "simple") => void;
 };
 
-export default function FilterBar({ value, onChange }: FilterBarProps) {
+export default function FilterBar({
+  value,
+  viewMode,
+  onChange,
+  onViewModeChange,
+}: FilterBarProps) {
   const handleSearchTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange({ ...value, searchText: e.target.value });
   };
@@ -76,6 +83,40 @@ export default function FilterBar({ value, onChange }: FilterBarProps) {
           ))}
         </select>
       </label>
+      <div
+        role="radiogroup"
+        aria-label="表示モード"
+        className="flex items-center gap-2"
+      >
+        {/*biome-ignore lint/a11y/useSemanticElements: segmented control を <button>で実装する設計（design.md 参照）*/}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={viewMode === "normal"}
+          onClick={() => onViewModeChange("normal")}
+          className={
+            viewMode === "normal"
+              ? "rounded bg-[#00d1b2] text-white px-3 py-1.5 text-sm font-medium"
+              : "rounded bg-gray-200 text-gray-500 hover:bg-gray-300 px-3 py-1.5 text-sm font-medium"
+          }
+        >
+          通常
+        </button>
+        {/*biome-ignore lint/a11y/useSemanticElements: segmented control を <button>で実装する設計（design.md 参照）*/}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={viewMode === "simple"}
+          onClick={() => onViewModeChange("simple")}
+          className={
+            viewMode === "simple"
+              ? "rounded bg-[#00d1b2] text-white px-3 py-1.5 text-sm font-medium"
+              : "rounded bg-gray-200 text-gray-500 hover:bg-gray-300 px-3 py-1.5 text-sm font-medium"
+          }
+        >
+          シンプル
+        </button>
+      </div>
     </div>
   );
 }
