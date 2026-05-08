@@ -23,7 +23,7 @@
   - `AWS_ROLE_ARN`: 2.3 で控えた Role ARN
   - `ECR_REPOSITORY`: `pantry-panel-backend`
   - `LAMBDA_FUNCTION_NAME`: `pantry-panel-backend`
-  - `LAMBDA_FUNCTION_URL`: `https://4xdn54pecs7z4hepmt2xcovq7m0nizno.lambda-url.ap-northeast-1.on.aws`（smoke test 用）
+  - `LAMBDA_FUNCTION_URL`: `https://s6bvjds5bawebokitdmlq5g7oe0ptept.lambda-url.ap-northeast-1.on.aws`（smoke test 用）
 
 ## 4. ワークフロー作成
 
