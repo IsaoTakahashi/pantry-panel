@@ -6,12 +6,12 @@
 
 ## 2. Backend スケルトン + 隔離設定
 
-- [ ] 2.1 `backend/learning/websocket/` ディレクトリを作る
-- [ ] 2.2 `README.md` を置き、学習目的・本番除外・動作確認手順を記載
-- [ ] 2.3 `coder/websocket` を `go.mod` に追加（`go get github.com/coder/websocket`）
-- [ ] 2.4 全 .go ファイルに `//go:build learning` build tag を付与する規則を README に明記
-- [ ] 2.5 `go build .` で learning コードが除外されることを確認（warning 等が出ない）
-- [ ] 2.6 `go build -tags=learning ./backend/learning/...` で learning コードがビルドできることを確認
+- [x] 2.1 `backend/learning/websocket/` ディレクトリを作る
+- [x] 2.2 `README.md` を置き、学習目的・本番除外・動作確認手順を記載
+- [x] 2.3 `coder/websocket` を `go.mod` に追加（`go get github.com/coder/websocket`） — 注: `go mod tidy` で未使用扱いとなり消える可能性あり、実装ファイル import 後に `go mod tidy` で復活する
+- [x] 2.4 全 .go ファイルに `//go:build learning` build tag を付与する規則を README に明記
+- [x] 2.5 `go build .` で learning コードが除外されることを確認（成功）
+- [x] 2.6 `go build -tags=learning ./learning/...` で learning コードがビルドできることを確認（現状ファイル無しで warning のみ、ファイル追加後に再検証）
 
 ## 3. Backend 実装
 
@@ -42,12 +42,10 @@
 
 ## 5. Frontend スケルトン + 隔離設定
 
-- [ ] 5.1 `frontend/src/learning/websocket-client/` を作る
-- [ ] 5.2 `README.md` を置き、学習目的・本番除外・動作確認手順を記載
-- [ ] 5.3 `frontend/vitest.learning.config.ts` を作成
-  - `include: ["src/learning/**/*.learning.test.ts"]`
-  - 既存の `vitest.config.ts` には `exclude: ["**/*.learning.test.ts"]` を追加
-- [ ] 5.4 `package.json` に `"test:learning": "vitest run --config vitest.learning.config.ts"` を追加（任意）
+- [x] 5.1 `frontend/src/learning/websocket-client/` を作る
+- [x] 5.2 `README.md` を置き、学習目的・本番除外・動作確認手順を記載
+- [x] 5.3 `frontend/vitest.learning.config.ts` を作成 + 既存 `vitest.config.ts` に `*.learning.test.{ts,tsx}` の exclude 追加
+- [ ] 5.4 `package.json` に `"test:learning": "vitest run --config vitest.learning.config.ts"` を追加（任意、後で）
 
 ## 6. Frontend 実装
 
@@ -64,11 +62,8 @@
 
 ## 7. CI
 
-- [ ] 7.1 `.github/workflows/learning.yml` を作成
-  - Trigger: push to main / pull_request
-  - backend job: `go test -tags=learning ./backend/learning/...`
-  - frontend job: `npx vitest run --config vitest.learning.config.ts`
-- [ ] 7.2 既存 ci.yml は変更なし（learning コードは除外されたままで build / test が通ること）
+- [x] 7.1 `.github/workflows/learning.yml` を作成（learning タグ build + test、frontend 別 vitest config）
+- [x] 7.2 既存 ci.yml は変更なし（learning コードは除外されたままで build / test が通ること）
 
 ## 8. ローカル動作確認
 

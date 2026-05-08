@@ -1,0 +1,7 @@
+# go build output
+/backend
+/server
+/main
+
+# misc
+.DS_Store
