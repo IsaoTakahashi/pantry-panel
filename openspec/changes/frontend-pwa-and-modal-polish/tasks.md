@@ -8,8 +8,7 @@
 
 - [x] 2.1 `frontend/src/app/manifest.ts` を新規作成（name / short_name / start_url=`/stock-items` / display=`standalone` / theme_color=`#00d1b2` / background_color=`#ffffff` / icons=512x512 + 192x192 両方とも `/icon.png` 参照）
 - [x] 2.2 `frontend/src/app/layout.tsx` の `metadata` を更新（title / description / icons / manifest）
-- [ ] 2.3 ユーザーが `frontend/public/icon.png` (512×512 PNG) を配置する
-  - **🟡 ユーザー作業**
+- [x] 2.3 ユーザーが `frontend/public/icon.png` (1024×1024 PNG) を配置する
 
 ## 3. Root redirect
 
