@@ -4,8 +4,8 @@
 Frontend は `NEXT_PUBLIC_API_BASE_URL` 環境変数を読み取り、すべての API 呼び出しのベース URL に使用する SHALL。未設定時は `http://localhost:8080` を使用する MUST。
 
 #### Scenario: 環境変数指定で動作
-- **WHEN** Frontend を `NEXT_PUBLIC_API_BASE_URL=https://example.awsapprunner.com` でビルド・起動する
-- **THEN** すべての fetch リクエストの URL が `https://example.awsapprunner.com/...` で始まる
+- **WHEN** Frontend を `NEXT_PUBLIC_API_BASE_URL=https://example.lambda-url.ap-northeast-1.on.aws` でビルド・起動する
+- **THEN** すべての fetch リクエストの URL が `https://example.lambda-url.ap-northeast-1.on.aws/...` で始まる
 
 #### Scenario: 未設定時はローカル
 - **WHEN** Frontend を `NEXT_PUBLIC_API_BASE_URL` 未設定で起動する
@@ -23,7 +23,7 @@ Frontend は Vercel にホストされ、`*.vercel.app` の HTTPS URL で外部�
 - **THEN** Vercel が自動でビルド・デプロイし、本番 URL が更新される
 
 ### Requirement: 本番 URL から Phase 1-2 の全機能が動作する
-本番の Frontend (Vercel) と本番の Backend (App Runner) と本番の DB (Supabase) が連携して、Phase 1-2 の機能が全て SHALL 動作する。
+本番の Frontend (Vercel) と本番の Backend (Lambda) と本番の DB (Supabase) が連携して、Phase 1-2 の機能が全て SHALL 動作する。
 
 #### Scenario: 商品 CRUD
 - **WHEN** 本番 URL から商品を登録・編集・削除する
@@ -62,5 +62,5 @@ Backend は `CORS_ALLOWED_ORIGINS`（カンマ区切り）を読み取り、Echo
 - **THEN** `http://localhost:3000` のみ許可する
 
 #### Scenario: 本番では Vercel URL を含む
-- **WHEN** App Runner の `CORS_ALLOWED_ORIGINS` 環境変数を確認する
+- **WHEN** Lambda の `CORS_ALLOWED_ORIGINS` 環境変数を確認する
 - **THEN** Vercel 本番 URL（例: `https://pantry-panel-xxxxx.vercel.app`）が含まれる
