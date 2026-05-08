@@ -1,0 +1,25 @@
+# VCS / IDE
+.git
+.gitignore
+.serena
+.vscode
+.idea
+
+# Docker assets
+Dockerfile
+.dockerignore
+
+# Docs
+*.md
+
+# Tests are not needed in the production binary
+*_test.go
+testdata
+
+# Migrations are applied via Supabase SQL Editor (Phase 2.5a),
+# not embedded in the binary.
+db/migrations
+
+# OS
+.DS_Store
+Thumbs.db

@@ -47,14 +47,16 @@
 
 ### Phase 2.5: 初回デプロイ — 本番環境の立ち上げ
 
-Phase 3 で WebSocket を本番で検証するために、その手前で常時稼働するデプロイ環境を用意する。
+Phase 1–2 で実装した機能を本番（Vercel + AWS Lambda + Supabase）で動かす。Phase 3.5 のリアルタイム同期（Supabase Realtime）に必要な常時稼働 / 公開 URL を提供する。
 
 | 構成要素 | サービス | 備考 |
 |----------|----------|------|
 | Frontend | Vercel | Next.js native、無料枠で十分 |
-| Backend | AWS App Runner | コンテナ push で常駐稼働、WebSocket OK |
-| DB | Supabase Postgres | 無料枠、LISTEN/NOTIFY は direct connection で可 |
+| Backend | AWS Lambda + Lambda Web Adapter | container image (ECR) + Function URL、Free Tier ~月 \$0 |
+| DB | Supabase Postgres | 無料枠。Lambda は Supavisor Session Pooler 経由で接続（Direct Connection は IPv6 のため Lambda 不可） |
 | CI/CD | GitHub Actions → 各サービス | PR 単位の preview は別 change で検討 |
+
+> 経緯メモ: 当初は AWS App Runner、次に AWS ECS Express Mode を予定したが、それぞれ「新規受付停止 (App Runner)」「コスト過大・vCPU クォータ 0 でブロック (ECS Express)」の問題があり、最終的に Lambda + LWA を採用。詳細は `openspec/changes/archive/` 配下の各 change 履歴を参照。
 
 この時点では Phase 1–2 の機能が本番で動くことを目標とする。認証は wishlist 扱いで導入しない (旧仕様の「認証なし・家族共用」を維持)。
 
@@ -62,31 +64,39 @@ Phase 3 で WebSocket を本番で検証するために、その手前で常時�
 
 | サブフェーズ | 内容 | 状態 |
 |-------------|------|------|
-| 2.5a | Supabase 接続セットアップ（Direct Connection + sslmode=require） | ✅ 完了 |
-| 2.5b | Backend を AWS App Runner にデプロイ（Dockerfile + ECR） | ⏳ 未着手 |
-| 2.5c | Frontend を Vercel にデプロイ（NEXT_PUBLIC_API_URL + CORS 更新） | ⏳ 未着手 |
+| 2.5a | Supabase 接続セットアップ（ローカル動作確認まで） | ✅ 完了 |
+| 2.5b | Backend を AWS Lambda + LWA にデプロイ（Dockerfile + ECR + Function URL） | 🟢 実装中 |
+| 2.5c | Frontend を Vercel にデプロイ（NEXT_PUBLIC_API_BASE_URL + CORS 更新） | ⏳ 未着手 |
 | 2.5d | Backend 自動デプロイ（GitHub Actions + OIDC） | ⏳ 未着手 |
 
-### Phase 3: リアルタイム
+### Phase 3: リアルタイム同期 — 学習目的の自前 WebSocket 実装（本番ルート外）
 
 | 順 | 機能 | 理由 |
 |----|------|------|
-| 7 | G. リアルタイム同期 | REST API が安定した段階で WebSocket + LISTEN/NOTIFY を導入 |
+| 7 | G. リアルタイム同期 (学習) | WebSocket + LISTEN/NOTIFY を **学習目的** で自前実装する。本番には載せない |
 
-### Phase 3.5: Supabase Realtime への切替 — 自前 WebSocket 実装の学習ログ化
+**位置づけの変更（重要）:**
 
-Phase 3 で実装した自前 WebSocket + LISTEN/NOTIFY を、本番では Supabase Realtime に置き換える。自前実装は学習ログとして残し、CI でのみ動作確認する。
-
-**目的:**
-- 本番では Supabase Realtime のみが通る (自前実装は production bundle に含めない)
-- 自前実装はプロダクション・テスト両方をリポジトリに保持し、学習ログとして閲覧可能にする
-- 依存更新で学習ログが壊れた場合は CI で検出・修正する
+当初は Phase 3 で本番リアルタイム機構を構築する計画だったが、Phase 2.5b で Backend を Lambda + LWA に移行したことで、常時稼働の WebSocket は backend で持てなくなった（Lambda 実行時間 15 分制限、コネクション維持コスト等）。これを機に **本番のリアルタイム機構は Phase 3.5（Supabase Realtime）に集約** し、Phase 3 は **学習目的のローカル / CI 動作確認のみ** に格下げする。
 
 **実装方針:**
 - Backend: `backend/learning/websocket/` に隔離、`//go:build learning` build tag で通常ビルドから除外。CI は `-tags=learning` で別 job 実行
 - Frontend: `frontend/src/learning/websocket-client/` に隔離、`*.learning.test.ts` 命名と vitest 別 config で通常開発からは除外。CI は別 job 実行
-- 各ディレクトリに `README.md` で「学習ログである」「変更は依存追従のみ」を明示
+- 各ディレクトリに `README.md` で「学習ログである」「変更は依存追従のみ」「本番には載せない」を明示
 - Phase 3 終了時点に `git tag learning-archive-v1` を打ってスナップショットを残す
+- 動作確認は **ローカルの compose Postgres** + **ローカルの Go サーバ** + **ローカルの Frontend** で完結する。本番（Lambda / Supabase Pooler）には載せない
+
+### Phase 3.5: Supabase Realtime — 本番のリアルタイム機構
+
+Frontend が Supabase Realtime を購読し、Postgres の `stock_items` 変更を直接受信する。Backend は変更通知の経路には介在せず、CRUD REST API のみを提供する。
+
+**実装方針:**
+- Frontend に `@supabase/supabase-js` を導入し、`stock_items` テーブルの Realtime publication を購読
+- 変更受信時に：
+  - 受信ペイロードを直接画面に反映（小規模なので十分）
+  - もしくは backend REST API で再取得（authorization が必要な操作のみ）
+- Supabase Dashboard で `stock_items` の Realtime を有効化
+- Lambda 経由の REST CRUD は変更なし（書込は引き続き backend 経由）
 
 ### Phase 4: 表示・付加機能
 
