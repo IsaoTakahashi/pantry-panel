@@ -4,8 +4,8 @@
 Backend のコードは `backend/Dockerfile` を使ってコンテナイメージにビルドできる SHALL。マルチステージビルドで static binary を最終イメージに含める MUST。
 
 #### Scenario: ローカルでビルドできる
-- **WHEN** リポジトリルートで `docker build -t pantry-panel-backend:local backend/` を実行する
-- **THEN** ビルドが成功し、イメージが生成される
+- **WHEN** リポジトリルートで `docker build --platform linux/amd64 -t pantry-panel-backend:local backend/` を実行する
+- **THEN** ビルドが成功し、`linux/amd64` のイメージが生成される
 
 #### Scenario: イメージから起動できる
 - **WHEN** ビルド済みイメージを `docker run -p 8080:8080 -e DATABASE_URL=... pantry-panel-backend:local` で起動する
@@ -37,36 +37,47 @@ Backend は `CORS_ALLOWED_ORIGINS`（カンマ区切り）を読み取り、Echo
 - **WHEN** Backend を `CORS_ALLOWED_ORIGINS` 未設定で起動する
 - **THEN** `http://localhost:3000` のみ許可する
 
-### Requirement: Backend は ECR から App Runner にデプロイできる
-Backend のコンテナイメージは AWS ECR (`ap-northeast-1`) にホストし、AWS App Runner サービスがそれを pull して稼働する SHALL。
+### Requirement: Backend は ECR から ECS Express Mode サービスとしてデプロイできる
+Backend のコンテナイメージは AWS ECR (`ap-northeast-1`) にホストし、AWS ECS Express Mode サービスがそれを Fargate タスクとして稼働させる SHALL。
 
 #### Scenario: ECR 上にイメージが存在する
 - **WHEN** Phase 2.5b 完了時点
-- **THEN** `ap-northeast-1` の ECR リポジトリ `pantry-panel-backend` にビルド済みイメージが少なくとも 1 つ存在する
+- **THEN** `ap-northeast-1` の ECR リポジトリ `pantry-panel-backend` にビルド済みイメージ（`linux/amd64`）が少なくとも 1 つ存在する
 
-#### Scenario: App Runner が稼働中
+#### Scenario: ECS Express サービスが稼働中
 - **WHEN** Phase 2.5b 完了時点
-- **THEN** App Runner コンソールに `pantry-panel-backend` サービスが `Running` 状態で存在する
-- **AND** サービス URL から `/health` が 200 を返す
+- **THEN** ECS コンソールに `pantry-panel-backend` の Express Mode サービスが稼働中で存在する
+- **AND** サービスが払い出す `*.ecs.ap-northeast-1.on.aws` URL から `/health` が 200 を返す
 
-### Requirement: App Runner は最小構成で稼働する
-App Runner のインスタンスサイズは 0.25 vCPU / 0.5 GB MUST、Auto Scaling は min=1, max=1 とする MUST。
+### Requirement: ECS Express サービスは最小構成で稼働する
+ECS Express サービスのコンピュート設定は **Fargate の最小構成相当**（目安: 0.25 vCPU / 0.5 GB）MUST、Auto Scaling は min=max=1 とする MUST。
 
 #### Scenario: スケール設定
-- **WHEN** App Runner サービスの設定を確認する
-- **THEN** インスタンスサイズが 0.25 vCPU / 0.5 GB
-- **AND** min instances = max instances = 1
+- **WHEN** ECS Express サービスの設定を確認する
+- **THEN** CPU / Memory が最小構成
+- **AND** scaling target の minTaskCount = maxTaskCount = 1
 
-### Requirement: App Runner は /health をヘルスチェックに使用する
-App Runner のヘルスチェック設定は `/health` をパスとして MUST 設定する。
+### Requirement: ECS Express は /health をヘルスチェックに使用する
+ECS Express サービスのヘルスチェック設定は `--health-check-path` を `/health` に MUST 設定する。
 
 #### Scenario: ヘルスチェック設定
-- **WHEN** App Runner サービスの設定を確認する
-- **THEN** Health check path が `/health`
-- **AND** プロトコルが HTTP（コンテナ内通信のため）
+- **WHEN** ECS Express サービスの設定を確認する
+- **THEN** Health check path が `/health` である
+
+### Requirement: 機密情報は Secrets Manager 経由で渡す
+`DATABASE_URL` は AWS Secrets Manager に保管し、ECS タスク定義の `secrets` 機構（`valueFrom` で ARN 参照）で注入する MUST。`environment` フィールドに平文で書かない MUST。
+
+#### Scenario: Secrets Manager に登録
+- **WHEN** Phase 2.5b 完了時点
+- **THEN** AWS Secrets Manager に `pantry-panel/DATABASE_URL` 等の名前のシークレットが存在し、Phase 2.5a の Supabase 接続文字列を保持している
+
+#### Scenario: Task が secrets を読み込める
+- **WHEN** ECS Express サービスを起動する
+- **THEN** Task execution role に Secrets Manager の対象シークレットへの `Read` 権限が付与されている
+- **AND** Task 定義の `secrets` フィールドで `DATABASE_URL` の `valueFrom` がシークレット ARN を指している
 
 ### Requirement: 本番 API は HTTPS で外部から到達可能
-App Runner サービス URL（`*.awsapprunner.com`）から HTTPS で API が応答する SHALL。
+ECS Express が払い出す `*.ecs.ap-northeast-1.on.aws` URL から HTTPS で API が応答する SHALL。
 
 #### Scenario: 外部から /health に到達
 - **WHEN** ブラウザまたは curl で `https://<service-url>/health` を叩く
