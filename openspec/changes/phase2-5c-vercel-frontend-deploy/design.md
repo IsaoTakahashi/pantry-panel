@@ -6,7 +6,7 @@ Phase 2.5b で Backend が App Runner で本番稼働中。Frontend は現状ロ
 
 **Goals:**
 - Frontend が Vercel 上で公開されている（`*.vercel.app` で到達可能）
-- 環境変数 `NEXT_PUBLIC_API_URL` で API ベース URL を切り替え可能
+- 環境変数 `NEXT_PUBLIC_API_BASE_URL` で API ベース URL を切り替え可能
 - 本番 URL から Backend を経由した CRUD が全て動作する
 - main へのマージで自動デプロイが走る（Vercel デフォルト）
 
@@ -18,7 +18,7 @@ Phase 2.5b で Backend が App Runner で本番稼働中。Frontend は現状ロ
 
 ## Decisions
 
-### API URL: `NEXT_PUBLIC_API_URL` 環境変数駆動
+### API URL: `NEXT_PUBLIC_API_BASE_URL` 環境変数駆動
 
 Frontend の fetch 先 base URL を環境変数で外出しする。
 
@@ -32,7 +32,7 @@ Frontend の fetch 先 base URL を環境変数で外出しする。
 
 ### 環境変数の置き方
 
-- 開発: `frontend/.env.local`（コミットしない）に `NEXT_PUBLIC_API_URL=http://localhost:8080`
+- 開発: `frontend/.env.local`（コミットしない）に `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080`
 - 本番: Vercel ダッシュボード → Project Settings → Environment Variables に Production / Preview / Development 用にそれぞれ設定
 
 ### preview deploy への CORS 対応: 暫定で本番 URL のみ許可
@@ -63,11 +63,11 @@ monorepo 構成のため Vercel 側で Root Directory を指定する。
 
 ## Migration Plan
 
-1. Frontend のコードを `NEXT_PUBLIC_API_URL` 駆動に変更（PR で）
+1. Frontend のコードを `NEXT_PUBLIC_API_BASE_URL` 駆動に変更（PR で）
 2. `frontend/.env.local.example` を追加し `.env.local` の存在を周知
 3. Vercel アカウント作成（ユーザー）
 4. Vercel プロジェクトを GitHub から import、Root Directory を `frontend/` に設定（ユーザー）
-5. Vercel 環境変数 `NEXT_PUBLIC_API_URL` に App Runner URL を設定
+5. Vercel 環境変数 `NEXT_PUBLIC_API_BASE_URL` に App Runner URL を設定
 6. main にマージ → Vercel が自動デプロイ → 本番 URL を確認
 7. App Runner コンソールで `CORS_ALLOWED_ORIGINS` に Vercel 本番 URL を追記、再デプロイ
 8. 本番 URL でアプリを開き、CRUD・wantToBuy・フィルタ・シンプルビューが全て動くことを確認

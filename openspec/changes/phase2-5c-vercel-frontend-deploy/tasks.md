@@ -6,11 +6,11 @@
 
 ## 2. Frontend のコード対応
 
-- [ ] 2.1 `frontend/src/lib/api.ts` を読み、API URL のベース部分を `process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"` に切り替える
-- [ ] 2.2 `frontend/.env.local.example` を作成（`NEXT_PUBLIC_API_URL=http://localhost:8080` の例）
+- [ ] 2.1 `frontend/src/lib/api.ts` を読み、API URL のベース部分を `process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080"` に切り替える
+- [ ] 2.2 `frontend/.env.local.example` を作成（`NEXT_PUBLIC_API_BASE_URL=http://localhost:8080` の例）
 - [ ] 2.3 `frontend/.gitignore` に `.env*.local` が含まれていることを確認する
 - [ ] 2.4 既存テストが通ることを確認する（`vi.mock("@/lib/api")` 経由なので影響なしのはず）
-- [ ] 2.5 ローカル `npm run dev` で動作確認（`.env.local` に `NEXT_PUBLIC_API_URL=http://localhost:8080` を設定）
+- [ ] 2.5 ローカル `npm run dev` で動作確認（`.env.local` に `NEXT_PUBLIC_API_BASE_URL=http://localhost:8080` を設定）
 
 ## 3. Vercel プロジェクト作成（ユーザー作業）
 
@@ -18,7 +18,7 @@
 - [ ] 3.2 GitHub リポジトリ `pantry-panel` を Vercel に import する
 - [ ] 3.3 プロジェクト設定で Root Directory を `frontend/` に指定する
 - [ ] 3.4 Framework Preset が Next.js として認識されていることを確認する
-- [ ] 3.5 環境変数 `NEXT_PUBLIC_API_URL` に Phase 2.5b の App Runner URL（例: `https://xxxxx.ap-northeast-1.awsapprunner.com`）を Production / Preview / Development の全環境に設定する
+- [ ] 3.5 環境変数 `NEXT_PUBLIC_API_BASE_URL` に Phase 2.5b の App Runner URL（例: `https://xxxxx.ap-northeast-1.awsapprunner.com`）を Production / Preview / Development の全環境に設定する
 - [ ] 3.6 main ブランチを Production Branch として確認する
 - [ ] 3.7 初回デプロイを実行 → 完了を確認
 - [ ] 3.8 デプロイ完了後の本番 URL（`*.vercel.app`）を控える
