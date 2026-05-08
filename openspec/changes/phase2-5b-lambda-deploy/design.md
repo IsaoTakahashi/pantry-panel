@@ -124,8 +124,26 @@ Lambda は同時実行数の自動スケーリング。Phase 3 で WebSocket を
 - **コールドスタート時の遅延（300-500ms）** → 個人 / 家族用途で許容範囲
 - **Lambda 実行時間 15 分制限** → REST API は数秒で終わるため問題なし
 - **DB コネクションプールが Lambda invocation ごとに張り直される可能性** → pgxpool は invocation 内で持続、ウォーム期間中は再利用される。コールドスタート時のみ pool 初期化コスト発生（数十 ms）
-- **LWA は AWS 純正でなくサードパーティ（aws-samples）** → 公式ブログ・サンプルでは推奨されており、安定稼働実績あり
-- **Function URL の認可なし** → 公開 API として晒される。Phase 2.5c で CORS により origin 制限、本番ユーザーは家族のみだがリクエスト過多対策は別 change で（CloudFront + WAF 等）
+- **LWA は AWS 純正でなくサードパーティ（awslabs）** → 公式ブログ・サンプルでは推奨されており、安定稼働実績あり
+- **Function URL の認可なし** → 公開 API として晒される。Backend の Echo CORS middleware で origin 制限、本番ユーザーは家族のみだがリクエスト過多対策は別 change で（CloudFront + WAF 等）
+- **`lambda:InvokeFunction` の Principal `*` 許可** → AuthType=NONE の Function URL 動作には `lambda:InvokeFunctionUrl` だけでは不十分で、`lambda:InvokeFunction` 双方の付与が AWS により要求される。**任意の AWS アカウントから `aws lambda invoke` で本関数が叩ける状態** で過剰権限。Free Tier 浪費・情報露出のリスクあり。Phase 2.5d 以降 / 別 change で IP 制限 / Source ARN 条件 / API Gateway 経由化 などで締める TODO。
+- **Supabase Direct Connection（IPv6 only）が Lambda から不可** → Lambda VPC 設定なしの場合 IPv6 outbound 非対応。**Supavisor Session Pooler**（IPv4 対応）に切替え。本番運用では Phase 3 の LISTEN/NOTIFY も Phase 3.5 への振替えで不要となるため Pooler で支障なし。
+
+## Connection 方式の決定
+
+| 環境 | 接続方法 | 理由 |
+|------|---------|------|
+| ローカル開発 | Direct or Pooler | Mac の IPv4/IPv6 自動選択、どちらでも動作する |
+| Lambda（本番） | **Supavisor Session Pooler** | IPv6 非対応 / IPv4 ホストが必要 |
+
+ホスト形式: `aws-*-<region>.pooler.supabase.com:5432`（実際の `aws-0-` / `aws-1-` の選択は Supabase Dashboard で確認、ロードバランス）
+
+## Function URL の CORS
+
+Function URL の `--cors` を空 (`{}`) にし、CORS の制御は **Backend の Echo CORS middleware に一本化**。理由:
+- Function URL CORS と Echo CORS が同時に活きると、`Access-Control-Allow-Origin` 等のヘッダが二重に付与され、ブラウザが拒否
+- 既に Echo は `CORS_ALLOWED_ORIGINS` 環境変数で動的制御できる
+- Function URL に CORS 設定を入れる必然性はない
 
 ## Migration Plan
 

@@ -44,8 +44,42 @@ Lambda Function URL（`https://<id>.lambda-url.ap-northeast-1.on.aws`）から H
 - **THEN** 200 が返る
 
 #### Scenario: 外部から CRUD API に到達
-- **WHEN** ローカルの Frontend を `NEXT_PUBLIC_API_URL=https://<function-url>` で起動して操作する
+- **WHEN** ローカルの Frontend を `NEXT_PUBLIC_API_BASE_URL=https://<function-url>` で起動して操作する
 - **THEN** 商品の登録・一覧表示・編集・削除が成功する
+
+### Requirement: Function URL の resource policy は `lambda:InvokeFunctionUrl` と `lambda:InvokeFunction` 双方を Principal `*` に許可する
+Function URL の Auth Type が `NONE` の場合、AWS は `lambda:InvokeFunctionUrl` に加えて `lambda:InvokeFunction` の Principal `*` 許可を要求する MUST（実装時の動作確認で判明）。両 Action を resource-based policy に MUST 追加する。
+
+#### Scenario: ポリシー存在
+- **WHEN** `aws lambda get-policy --function-name pantry-panel-backend` を実行
+- **THEN** 出力に `lambda:InvokeFunctionUrl` を許可する Statement（FunctionUrlAuthType=NONE 条件付き）が含まれる
+- **AND** `lambda:InvokeFunction` を Principal `*` に許可する Statement が含まれる
+
+> **セキュリティ注意（後日強化）**: `lambda:InvokeFunction` を Principal `*` で許可するのは過剰権限。任意の AWS アカウントから `lambda:Invoke` できる状態。Phase 2.5d 以降 / 別 change で **IP 制限 / Source ARN 条件 / API Gateway 経由化** などで締める TODO。
+
+### Requirement: Function URL の CORS 制御は Echo ミドルウェアで行う
+Function URL の `--cors` 設定は **空 (`{}`)** にする MUST。Backend の Echo CORS middleware（`CORS_ALLOWED_ORIGINS` 環境変数駆動）が CORS ヘッダを返す唯一のレイヤとする MUST。Function URL CORS と Echo CORS の二重処理を MUST 回避する。
+
+#### Scenario: Function URL CORS 無効
+- **WHEN** `aws lambda get-function-url-config --function-name pantry-panel-backend --query Cors` を実行
+- **THEN** `null` または空オブジェクト（`{}`）が返る
+
+#### Scenario: Echo の CORS ヘッダが返る
+- **WHEN** ブラウザから `Origin: http://localhost:3000` でリクエストを送る
+- **THEN** レスポンスヘッダに `Access-Control-Allow-Origin: http://localhost:3000` が **1 個だけ** 含まれる（重複しない）
+
+### Requirement: Lambda は Supabase Supavisor Pooler 経由で接続する
+Lambda は IPv6 outbound 非対応のため、Supabase Direct Connection（IPv6 only）には接続できない MUST。代わりに **Supavisor Session Pooler**（`aws-*-<region>.pooler.supabase.com:5432`、IPv4 対応）を使用する SHALL。
+
+#### Scenario: DATABASE_URL は Pooler を指す
+- **WHEN** Lambda の `DATABASE_URL` 環境変数を確認する
+- **THEN** ホスト部分が `*.pooler.supabase.com` であり、ユーザ部分が `postgres.<project-ref>` 形式である
+
+#### Scenario: ローカル開発は Direct でも Pooler でも可
+- **WHEN** ローカル開発で Backend を起動する
+- **THEN** Direct Connection でも Pooler でも動作する（IPv4 利用環境のため）
+
+> Phase 2.5a の `production-database` capability では Direct Connection を MUST としていたが、これは **Phase 3 の自前 WebSocket で LISTEN/NOTIFY を使う前提**だった。Phase 3 を学習目的に格下げした方針転換に伴い、本番では Pooler を採用する。`production-database` の本仕様修正は別 change で扱う TODO。
 
 ### Requirement: DATABASE_URL は Lambda 環境変数で KMS 暗号化保存する
 `DATABASE_URL`（Supabase 接続文字列）は Lambda Function の Environment.Variables に直接保持する MUST。Lambda の env vars は KMS で暗号化保存され、閲覧には IAM `lambda:GetFunctionConfiguration` 権限が必要 MUST。
