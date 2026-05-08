@@ -18,22 +18,22 @@
 
 ## 4. Backend を Supabase 接続で動作確認
 
-- [ ] 4.1 接続文字列に `sslmode=require` を付与する（例: `postgres://postgres:<password>@db.<ref>.supabase.co:5432/postgres?sslmode=require`）
-- [ ] 4.2 ローカル `.env.local`（または環境変数）に `DATABASE_URL` を設定する（コミットしない）
-- [ ] 4.3 Backend を `DATABASE_URL` 付きで起動し、`/health` が 200 を返すことを確認する
-- [ ] 4.4 既存の `backend/db/db.go` / `db_test.go` の挙動を確認し、SSL 接続でエラーが出ないか手動確認する
-- [ ] 4.5 ローカルの Frontend (port 3000) から Supabase 接続済み Backend (port 8080) を経由して以下が動作することを確認する:
+- [x] 4.1 接続文字列に `sslmode=require` を付与する（例: `postgres://postgres:<password>@db.<ref>.supabase.co:5432/postgres?sslmode=require`）
+- [x] 4.2 ローカル `.env.local`（または環境変数）に `DATABASE_URL` を設定する（コミットしない）
+- [x] 4.3 Backend を `DATABASE_URL` 付きで起動し、`/health` が 200 を返すことを確認する
+- [x] 4.4 既存の `backend/db/db.go` / `db_test.go` の挙動を確認し、SSL 接続でエラーが出ないか手動確認する
+- [x] 4.5 ローカルの Frontend (port 3000) から Supabase 接続済み Backend (port 8080) を経由して以下が動作することを確認する:
   - 商品の一覧表示
   - 商品登録
   - 商品編集
   - 商品削除
   - wantToBuy トグル
-- [ ] 4.6 SQL Editor で実際にデータが書き込まれたことを確認する
+- [x] 4.6 SQL Editor で実際にデータが書き込まれたことを確認する
 
 ## 5. ドキュメント更新
 
-- [ ] 5.1 `specs/features.md` の Phase 2.5 セクションを更新（Supabase 接続済みであること）
-- [ ] 5.2 README または `.claude/rules/backend.md` に Supabase 接続文字列の取得手順を追記する
+- [x] 5.1 `specs/features.md` の Phase 2.5 セクションを更新（Supabase 接続済みであること）
+- [x] 5.2 README または `.claude/rules/backend.md` に Supabase 接続文字列の取得手順を追記する
 - [x] 5.3 `.gitignore` に `.env.local` が含まれていることを確認する
 
 ## 6. 仕上げ

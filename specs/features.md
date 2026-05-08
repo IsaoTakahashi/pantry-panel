@@ -58,6 +58,15 @@ Phase 3 で WebSocket を本番で検証するために、その手前で常時�
 
 この時点では Phase 1–2 の機能が本番で動くことを目標とする。認証は wishlist 扱いで導入しない (旧仕様の「認証なし・家族共用」を維持)。
 
+#### サブフェーズ進行状況
+
+| サブフェーズ | 内容 | 状態 |
+|-------------|------|------|
+| 2.5a | Supabase 接続セットアップ（Direct Connection + sslmode=require） | ✅ 完了 |
+| 2.5b | Backend を AWS App Runner にデプロイ（Dockerfile + ECR） | ⏳ 未着手 |
+| 2.5c | Frontend を Vercel にデプロイ（NEXT_PUBLIC_API_URL + CORS 更新） | ⏳ 未着手 |
+| 2.5d | Backend 自動デプロイ（GitHub Actions + OIDC） | ⏳ 未着手 |
+
 ### Phase 3: リアルタイム
 
 | 順 | 機能 | 理由 |
