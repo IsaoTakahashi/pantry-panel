@@ -64,16 +64,24 @@ COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt
 - **採用理由**: 既存 Dockerfile・既存 binary の挙動はそのまま、LWA が ECS 用のコンテナを Lambda 互換にしてくれる
 - **代替案**: LWA を init-binary として ENTRYPOINT に組込む方式 → public ECR layer の方がシンプル
 
-### Secrets: Secrets Manager の `secrets` 機構を Lambda の Secrets 拡張で読込
+### Secrets: Lambda 環境変数で直接保持（KMS 暗号化、IAM 制限）
 
-LWA + Echo の場合、`os.Getenv("DATABASE_URL")` で読み取る形を維持するため、**Lambda 環境変数として Secrets Manager の値を Lambda 起動時に注入する**。
+設計当初は「Secrets Manager の `secrets:valueFrom` 機構で注入」を想定したが、**Lambda は ECS と異なりこの機構を持たない**ことが判明した。Lambda の env vars は単純な文字列マップで、AWS が起動時に Secrets Manager から fetch する仕組みは存在しない。
 
 選択肢:
-- **A) Lambda 環境変数に AWS Secrets Manager Lambda Extension で値を解決**: Lambda extension を有効化し、`AWS_SECRETS_MANAGER_SECRET_ARNS` で参照ARN を指定（Lambda extension が起動時に値を取得して env に注入）
-- **B) アプリ側で AWS SDK を使って起動時に Secrets Manager から取得**: Backend に Go SDK を追加して `main()` で取得、`os.Setenv` で設定
-- **C) 平文 env として登録**: セキュリティ NG
+- **A) Lambda 環境変数に接続文字列を直接保持（KMS 暗号化）**: Lambda の Environment.Variables は KMS で暗号化されて at rest 保存される。閲覧には IAM `lambda:GetFunctionConfiguration` 権限が必要。コード変更不要
+- **B) アプリ側で AWS SDK を使い起動時に Secrets Manager から取得**: Backend に SDK 追加、`main()` で取得、`pgxpool` 渡し前に書換え。コード追加 30-50 行
+- **C) AWS Parameters and Secrets Lambda Extension Layer**: HTTP `localhost:2773` 経由で取得。B と同等のコード変更必要、Layer 経由でキャッシュ機構あり
 
-**採用: A** が最もシンプル。Backend コード変更不要、IAM 権限のみで動作。LWA との相性も問題ない。
+**採用: A**。理由:
+- 個人 / 家族用の運用で、KMS 暗号化 + IAM 制限で十分な脅威モデル
+- コード変更ゼロでデプロイできる
+- Secrets Manager の secret は **将来の 2.5d (GH Actions deploy) の値供給元** として残す
+- B / C は secret rotation や監査ログ整備が必要になった段階で別 change で再評価する
+
+**Trade-off**:
+- Lambda コンソール / IaC リソース定義に接続文字列が現れる
+- ローテーションする際は Lambda 側 env を更新する手作業が必要
 
 ### IAM Role: Lambda execution role を新規作成
 
@@ -92,7 +100,7 @@ ECS で使った `ecsTaskExecutionRole` とは Trust Policy（Service Principal�
 | `AWS_LWA_PORT` | `8080` | LWA への明示指定（PORT と同値） |
 | `AWS_LWA_READINESS_CHECK_PATH` | `/health` | LWA がコンテナ起動完了を判定するパス |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` | Phase 2.5c で Vercel URL を追加 |
-| `DATABASE_URL` | (Secrets 経由) | Supabase Direct Connection |
+| `DATABASE_URL` | Supabase 接続文字列（直接） | Phase 2.5a で控えた値 (`?sslmode=require` 込み)。Lambda KMS で暗号化保存 |
 
 ### Memory / Timeout
 
