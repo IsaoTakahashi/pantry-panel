@@ -38,20 +38,20 @@
 
 ## 5. 本番動作確認
 
-- [ ] 5.1 ブラウザで `https://<vercel-url>/stock-items` を開く（`/` から redirect される動作も確認）
-- [ ] 5.2 Network タブで API リクエストが Lambda Function URL に向かっていることを確認する
-- [ ] 5.3 商品の登録・一覧表示・編集・削除・wantToBuy トグルが動作することを確認する
-- [ ] 5.4 フィルタ（検索・カテゴリ・買いたいものだけ）が動作することを確認する
-- [ ] 5.5 表示モード切替（通常 ⇔ シンプル）が動作することを確認する
-- [ ] 5.6 Supabase SQL Editor で本番データが書き込まれていることを確認する
-- [ ] 5.7 PWA としてインストール可能か、モバイル / デスクトップで確認
+- [x] 5.1 ブラウザで `https://<vercel-url>/stock-items` を開く（`/` から redirect される動作も確認）
+- [x] 5.2 Network タブで API リクエストが Lambda Function URL に向かっていることを確認する
+- [x] 5.3 商品の登録・一覧表示・編集・削除・wantToBuy トグルが動作することを確認する
+- [x] 5.4 フィルタ（検索・カテゴリ・買いたいものだけ）が動作することを確認する
+- [x] 5.5 表示モード切替（通常 ⇔ シンプル）が動作することを確認する
+- [x] 5.6 Supabase SQL Editor で本番データが書き込まれていることを確認する
+- [x] 5.7 PWA としてインストール可能か、モバイル / デスクトップで確認
 
 ## 6. ドキュメント更新
 
-- [ ] 6.1 `README.md` に本番 URL（Frontend / Backend）を記載する
-- [ ] 6.2 `frontend/.env.local.example` の内容を確認する
-- [ ] 6.3 `specs/features.md` の Phase 2.5 セクションで 2.5c を完了マーク
-- [ ] 6.4 `.claude/rules/frontend.md` に Vercel 設定の参照を追記する
+- [x] 6.1 `README.md` に本番 URL（Frontend / Backend）を記載する
+- [x] 6.2 `frontend/.env.local.example` の内容を確認する
+- [x] 6.3 `specs/features.md` の Phase 2.5 セクションで 2.5c を完了マーク
+- [x] 6.4 `.claude/rules/frontend.md` に Vercel 設定の参照を追記する
 
 ## 7. 仕上げ
 

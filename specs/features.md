@@ -66,7 +66,7 @@ Phase 1–2 で実装した機能を本番（Vercel + AWS Lambda + Supabase）�
 |-------------|------|------|
 | 2.5a | Supabase 接続セットアップ（ローカル動作確認まで） | ✅ 完了 |
 | 2.5b | Backend を AWS Lambda + LWA にデプロイ（Dockerfile + ECR + Function URL） | 🟢 実装中 |
-| 2.5c | Frontend を Vercel にデプロイ（NEXT_PUBLIC_API_BASE_URL + CORS 更新） | ⏳ 未着手 |
+| 2.5c | Frontend を Vercel にデプロイ（NEXT_PUBLIC_API_BASE_URL + CORS 更新） | ✅ 完了 |
 | 2.5d | Backend 自動デプロイ（GitHub Actions + OIDC） | ⏳ 未着手 |
 
 ### Phase 3: リアルタイム同期 — 学習目的の自前 WebSocket 実装（本番ルート外）
