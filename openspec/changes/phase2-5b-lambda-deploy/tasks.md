@@ -86,8 +86,8 @@
 
 ## 11. 仕上げ + フォローアップ TODO
 
-- [ ] 11.1 CI（lint + tsc + vitest + go test）がすべてパスすることを確認する
-- [ ] 11.2 PR を ready for review にして、Issue を `Closes #N` でリンクする
+- [x] 11.1 CI（lint + tsc + vitest + go test）がすべてパスすることを確認する
+- [x] 11.2 PR を ready for review にして、Issue を `Closes #N` でリンクする
 - [ ] 11.3 **(別 change で対応) `lambda:InvokeFunction` の `*` 許可を締める** — IP 制限 / Source ARN 条件 / API Gateway 経由化 / OAC（Origin Access Control）等を検討
 - [ ] 11.4 **(別 change で対応) `production-database` capability を Pooler 採用に修正** — 現 main spec は Direct Connection 必須となっているが、本番では Pooler を使用する旨に書き換え
 - [ ] 11.5 マージ後に `openspec archive phase2-5b-lambda-deploy` で archive する
