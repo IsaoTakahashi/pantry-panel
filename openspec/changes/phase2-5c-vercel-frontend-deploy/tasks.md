@@ -55,6 +55,6 @@
 
 ## 7. 仕上げ
 
-- [ ] 7.1 CI（lint + tsc + vitest + go test + e2e）がすべてパスすることを確認する
-- [ ] 7.2 PR を ready for review にして、Issue を `Closes #N` でリンクする
+- [x] 7.1 CI（lint + tsc + vitest + go test + e2e）がすべてパスすることを確認する
+- [x] 7.2 PR を ready for review にして、Issue を `Closes #N` でリンクする
 - [ ] 7.3 マージ後に `openspec archive phase2-5c-vercel-frontend-deploy` で archive する
