@@ -51,6 +51,10 @@ frontend と backend を**並列ジョブ**で実行。各ジョブ内は lint �
 
 backend + DB (testcontainers) + frontend を起動し、Playwright で E2E テストを実行。実行コストが高いため main への PR 時のみに限定する。
 
+### deploy-backend.yml — push to main (`backend/**`) / workflow_dispatch
+
+OIDC で `pantry-panel-deploy-role` を assume → ECR build & push (`linux/amd64`、`provenance=false`) → `aws lambda update-function-code` → `function-updated` waiter → `/health` smoke test。3 ジョブ直列。`backend/` 配下の変更時のみトリガ。手動再実行は `workflow_dispatch`。
+
 ## ブランチ・Issue・PR の運用
 
 ### フロー

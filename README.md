@@ -49,8 +49,21 @@ go run .
 |-------------|--------|------|
 | `.github/workflows/ci.yml` | push to main / PR | frontend (lint + tsc + test) と backend (lint + test) を並列実行 |
 | `.github/workflows/e2e.yml` | PR (main 向け) | Playwright で E2E テスト |
-| Backend deploy | (Phase 2.5d で追加予定) | main push で ECR push → Lambda update |
-| Frontend deploy | (Phase 2.5c で設定予定) | Vercel が GitHub 連携で自動 |
+| `.github/workflows/deploy-backend.yml` | push to main (`backend/**`) / workflow_dispatch | OIDC で AWS auth → ECR build & push → `lambda update-function-code` → smoke test |
+| Frontend deploy | Vercel が GitHub 連携で自動 (main push) | `pantry-panel-xi.vercel.app` |
+
+### Backend ロールバック手順
+
+過去の任意の commit SHA（ECR タグ）に戻す:
+
+```bash
+aws lambda update-function-code \
+  --function-name pantry-panel-backend \
+  --image-uri <ACCOUNT_ID>.dkr.ecr.ap-northeast-1.amazonaws.com/pantry-panel-backend:<old-sha>
+aws lambda wait function-updated --function-name pantry-panel-backend
+```
+
+ECR Console で過去の sha タグから戻したいものを選ぶ。
 
 ## 本番環境
 
