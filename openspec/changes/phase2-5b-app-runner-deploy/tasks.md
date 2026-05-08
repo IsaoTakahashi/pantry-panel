@@ -1,8 +1,8 @@
 ## 1. Issue・ブランチ準備
 
-- [ ] 1.1 GitHub Issue を作成する（タイトル: "Phase 2.5b: Backend を AWS App Runner にデプロイ"）
-- [ ] 1.2 Issue 番号ベースのブランチを作成する
-- [ ] 1.3 Draft PR を作成する
+- [x] 1.1 GitHub Issue を作成する（タイトル: "Phase 2.5b: Backend を AWS App Runner にデプロイ"）
+- [x] 1.2 Issue 番号ベースのブランチを作成する
+- [x] 1.3 Draft PR を作成する
 
 ## 2. Backend のコード対応
 
