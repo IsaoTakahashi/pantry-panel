@@ -11,20 +11,20 @@
 
 ## 3. Backend のコード対応（既存内容を再適用）
 
-- [ ] 3.1 `backend/main.go` の PORT / CORS env 駆動化を再適用（旧 PR #48 の内容を再現）
-- [ ] 3.2 `backend/main_test.go` を再追加（旧 PR #48 の内容を再現）
-- [ ] 3.3 既存 Go テスト + 新テストが通ることを確認する
+- [x] 3.1 `backend/main.go` の PORT / CORS env 駆動化を再適用（旧 PR #48 の内容を再現）
+- [x] 3.2 `backend/main_test.go` を再追加（旧 PR #48 の内容を再現）
+- [x] 3.3 既存 Go テスト + 新テストが通ることを確認する
 
 ## 4. Dockerfile に Lambda Web Adapter レイヤを追加
 
-- [ ] 4.1 `backend/Dockerfile` の最終ステージに以下を追加する
+- [x] 4.1 `backend/Dockerfile` の最終ステージに以下を追加する
   ```dockerfile
   COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
   ```
   （バージョンは [aws-lambda-web-adapter releases](https://github.com/awslabs/aws-lambda-web-adapter/releases) で最新の安定版を確認）
-- [ ] 4.2 `backend/.dockerignore` を再追加（旧 PR #48 の内容を再現）
-- [ ] 4.3 `docker build --platform linux/amd64 -t pantry-panel-backend:local backend/` でビルド成功することを確認する
-- [ ] 4.4 ローカルで `docker run -p 8080:8080 -e DATABASE_URL=... pantry-panel-backend:local` を起動し、LWA は使われずに直接 Echo が起動して `/health` が 200 を返すことを確認する
+- [x] 4.2 `backend/.dockerignore` を再追加（旧 PR #48 の内容を再現）
+- [x] 4.3 `docker build --platform linux/amd64 -t pantry-panel-backend:local backend/` でビルド成功することを確認する
+- [x] 4.4 ローカルで `docker run -p 8080:8080 -e DATABASE_URL=... pantry-panel-backend:local` を起動し、LWA は使われずに直接 Echo が起動して `/health` が 200 を返すことを確認する
 
 ## 5. ECR への push（ユーザー作業）
 
