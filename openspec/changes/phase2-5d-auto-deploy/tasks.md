@@ -12,7 +12,7 @@
   - 許可ポリシー: 以下を最小権限で許可
     - `ecr:GetAuthorizationToken`
     - `ecr:BatchCheckLayerAvailability`、`ecr:PutImage`、`ecr:InitiateLayerUpload`、`ecr:UploadLayerPart`、`ecr:CompleteLayerUpload`、`ecr:BatchGetImage`（対象リポジトリのみ）
-    - `lambda:UpdateFunctionCode`、`lambda:GetFunction`（対象 Function のみ）
+    - `lambda:UpdateFunctionCode`、`lambda:GetFunction`、**`lambda:GetFunctionConfiguration`** （waiter で必要）、`lambda:PublishVersion`（対象 Function のみ）
 - [ ] 2.3 Role ARN を控える
 
 ## 3. GitHub リポジトリの Variables 登録（ユーザー作業）
@@ -33,22 +33,22 @@
 
 ## 5. 動作確認
 
-- [ ] 5.1 PR をマージする → ワークフローが走る
-- [ ] 5.2 build-and-push、deploy、smoke-test が全て緑になることを確認する
-- [ ] 5.3 ECR コンソールで新しい sha タグと latest タグの両方が反映されたことを確認する
-- [ ] 5.4 Lambda コンソールで Image URI が新しい sha に更新されたことを確認する
-- [ ] 5.5 試しに `backend/` 配下の任意の文言を1行変えて PR → main マージ → 自動デプロイ完走を確認する
-- [ ] 5.6 GitHub Actions UI から `workflow_dispatch` で手動再実行できることを確認する
+- [x] 5.1 PR をマージする → ワークフローが走る
+- [x] 5.2 build-and-push、deploy、smoke-test が全て緑になることを確認する（IAM 不足 / URL 誤りで 2 度失敗 → 修正後成功）
+- [x] 5.3 ECR コンソールで新しい sha タグと latest タグの両方が反映されたことを確認する
+- [x] 5.4 Lambda コンソールで Image URI が新しい sha に更新されたことを確認する
+- [ ] 5.5 試しに `backend/` 配下の任意の文言を1行変えて PR → main マージ → 自動デプロイ完走を確認する（後日でOK）
+- [x] 5.6 GitHub Actions UI から `workflow_dispatch` で手動再実行できることを確認する（修正版で再実行成功）
 
 ## 6. ドキュメント更新
 
-- [ ] 6.1 `README.md` にデプロイフロー（main → ECR → Lambda → smoke test）と rollback 手順（旧 sha タグで `aws lambda update-function-code` 手動実行）を記載する
-- [ ] 6.2 `.claude/rules/general.md` の CI セクションに `deploy-backend.yml` の存在を追記する
-- [ ] 6.3 `.claude/rules/backend.md` の deploy セクションを自動デプロイ前提に更新
-- [ ] 6.4 `specs/features.md` の Phase 2.5 を完了マーク
+- [x] 6.1 `README.md` にデプロイフロー（main → ECR → Lambda → smoke test）と rollback 手順（旧 sha タグで `aws lambda update-function-code` 手動実行）を記載する
+- [x] 6.2 `.claude/rules/general.md` の CI セクションに `deploy-backend.yml` の存在を追記する
+- [x] 6.3 `.claude/rules/backend.md` の deploy セクションを自動デプロイ前提に更新
+- [x] 6.4 `specs/features.md` の Phase 2.5 を完了マーク
 
 ## 7. 仕上げ
 
-- [ ] 7.1 CI（lint + tsc + vitest + go test）がすべてパスすることを確認する
-- [ ] 7.2 PR を ready for review にして、Issue を `Closes #N` でリンクする
+- [x] 7.1 CI（lint + tsc + vitest + go test）がすべてパスすることを確認する（PR #56 マージ済）
+- [x] 7.2 PR を ready for review にして、Issue を `Closes #N` でリンクする（PR #56 で完了）
 - [ ] 7.3 マージ後に `openspec archive phase2-5d-auto-deploy` で archive する

@@ -48,15 +48,34 @@ go run .
 
 ## 本番デプロイ（Lambda + LWA）の概要
 
-詳細手順は `openspec/changes/archive/2026-05-XX-phase2-5b-lambda-deploy/` を参照（archive 後）。要点:
+main への push で **`.github/workflows/deploy-backend.yml`** が自動実行され、ECR build/push → Lambda update-function-code → smoke test まで実施される（Phase 2.5d）。手動操作は通常不要。
+
+要点:
 
 1. **Dockerfile**: `backend/Dockerfile` で multi-stage build。最終ステージに LWA レイヤをコピー (`COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter`)
-2. **ビルド**: `docker build --platform linux/amd64 --provenance=false -t pantry-panel-backend:local backend/`（Lambda 互換 manifest のため `--provenance=false` 必須）
-3. **ECR push**: `pantry-panel-backend` リポジトリ (`ap-northeast-1`) に push
+2. **ビルド**: GH Actions が `docker buildx build --platform linux/amd64 --provenance=false --push ...` を実行（Lambda 互換 manifest のため `--provenance=false` 必須）
+3. **ECR push**: `pantry-panel-backend` リポジトリ (`ap-northeast-1`)、タグは `${{ github.sha }}` と `latest`
 4. **Lambda Function**: container image source、Memory 512 MB、Timeout 30s、`x86_64`、IAM Role: `pantry-panel-lambda-role`
 5. **環境変数 (Lambda)**: `PORT=8080`、`AWS_LWA_PORT=8080`、`AWS_LWA_READINESS_CHECK_PATH=/health`、`CORS_ALLOWED_ORIGINS=...`、`DATABASE_URL=<pooler URL>`（KMS で暗号化保存）
 6. **Function URL**: AuthType=NONE、CORS は **空 `{}`**（Echo の CORS middleware に一本化）
 7. **resource policy**: `lambda:InvokeFunctionUrl` + `lambda:InvokeFunction` の両方を Principal `*` に許可（過剰権限の TODO あり、後日強化予定）
+
+### 手動デプロイ（trouble shoot 時）
+
+```bash
+docker build --platform linux/amd64 --provenance=false -t pantry-panel-backend:local backend/
+
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+REGISTRY=$ACCOUNT_ID.dkr.ecr.ap-northeast-1.amazonaws.com
+aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin $REGISTRY
+docker tag pantry-panel-backend:local $REGISTRY/pantry-panel-backend:manual-$(date +%Y%m%d-%H%M%S)
+docker push $REGISTRY/pantry-panel-backend --all-tags
+
+aws lambda update-function-code \
+  --function-name pantry-panel-backend \
+  --image-uri $REGISTRY/pantry-panel-backend:<tag>
+aws lambda wait function-updated --function-name pantry-panel-backend
+```
 
 ### ロールバック手順
 
@@ -65,6 +84,7 @@ go run .
 aws lambda update-function-code \
   --function-name pantry-panel-backend \
   --image-uri <account>.dkr.ecr.ap-northeast-1.amazonaws.com/pantry-panel-backend:<old-sha>
+aws lambda wait function-updated --function-name pantry-panel-backend
 ```
 
 ## テスト
