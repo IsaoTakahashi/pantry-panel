@@ -4,13 +4,13 @@ Phase 2.5b で本番 Backend が App Runner で稼働している。次のステ
 
 ## What Changes
 
-- Frontend の API ベース URL を `NEXT_PUBLIC_API_URL` 環境変数駆動にする
+- Frontend の API ベース URL を `NEXT_PUBLIC_API_BASE_URL` 環境変数駆動にする
 - 既存の `frontend/src/lib/api.ts` で API URL の組み立て箇所を環境変数経由に置き換える
 - Vercel アカウント作成（ユーザー作業）
 - Vercel プロジェクトを GitHub リポジトリから import（ユーザー作業）
   - Root Directory: `frontend/`
   - Build / Output / Install: Vercel デフォルト（Next.js プリセット）
-- Vercel 環境変数: `NEXT_PUBLIC_API_URL` に Phase 2.5b の App Runner サービス URL を設定
+- Vercel 環境変数: `NEXT_PUBLIC_API_BASE_URL` に Phase 2.5b の App Runner サービス URL を設定
 - App Runner の `CORS_ALLOWED_ORIGINS` に Vercel 本番 URL を追記する（コンソール環境変数更新 → 自動再デプロイ）
 - 本番 URL（`*.vercel.app`）からアプリを開いて、Phase 1-2 の機能が全て動作することを確認する
 
@@ -18,7 +18,7 @@ Phase 2.5b で本番 Backend が App Runner で稼働している。次のステ
 
 ### New Capabilities
 
-- `production-frontend-runtime`: Frontend が Vercel 上で公開され、`NEXT_PUBLIC_API_URL` で本番 Backend と通信できる要件
+- `production-frontend-runtime`: Frontend が Vercel 上で公開され、`NEXT_PUBLIC_API_BASE_URL` で本番 Backend と通信できる要件
 
 ### Modified Capabilities
 

@@ -1,14 +1,14 @@
 ## ADDED Requirements
 
-### Requirement: Frontend は NEXT_PUBLIC_API_URL で API ベース URL を切り替える
-Frontend は `NEXT_PUBLIC_API_URL` 環境変数を読み取り、すべての API 呼び出しのベース URL に使用する SHALL。未設定時は `http://localhost:8080` を使用する MUST。
+### Requirement: Frontend は NEXT_PUBLIC_API_BASE_URL で API ベース URL を切り替える
+Frontend は `NEXT_PUBLIC_API_BASE_URL` 環境変数を読み取り、すべての API 呼び出しのベース URL に使用する SHALL。未設定時は `http://localhost:8080` を使用する MUST。
 
 #### Scenario: 環境変数指定で動作
-- **WHEN** Frontend を `NEXT_PUBLIC_API_URL=https://example.awsapprunner.com` でビルド・起動する
+- **WHEN** Frontend を `NEXT_PUBLIC_API_BASE_URL=https://example.awsapprunner.com` でビルド・起動する
 - **THEN** すべての fetch リクエストの URL が `https://example.awsapprunner.com/...` で始まる
 
 #### Scenario: 未設定時はローカル
-- **WHEN** Frontend を `NEXT_PUBLIC_API_URL` 未設定で起動する
+- **WHEN** Frontend を `NEXT_PUBLIC_API_BASE_URL` 未設定で起動する
 - **THEN** すべての fetch リクエストの URL が `http://localhost:8080/...` で始まる
 
 ### Requirement: Frontend は Vercel 上で公開される

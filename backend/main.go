@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/IsaoTakahashi/pantry-panel/backend/db"
 	"github.com/IsaoTakahashi/pantry-panel/backend/handler"
@@ -31,7 +32,7 @@ func main() {
 
 	e := echo.New()
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"http://localhost:3000"},
+		AllowOrigins: parseCORSAllowedOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")),
 	}))
 
 	e.GET("/health", handler.HealthCheck(pool))
@@ -40,7 +41,31 @@ func main() {
 	e.PATCH("/api/stock-items/:id", stockItemHandler.Update)
 	e.DELETE("/api/stock-items/:id", stockItemHandler.Delete)
 
-	if err := e.Start(":8080"); err != nil {
+	if err := e.Start(":" + parsePort(os.Getenv("PORT"))); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func parsePort(env string) string {
+	if env == "" {
+		return "8080"
+	}
+	return env
+}
+
+func parseCORSAllowedOrigins(env string) []string {
+	if env == "" {
+		return []string{"http://localhost:3000"}
+	}
+	parts := strings.Split(env, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	if len(out) == 0 {
+		return []string{"http://localhost:3000"}
+	}
+	return out
 }
