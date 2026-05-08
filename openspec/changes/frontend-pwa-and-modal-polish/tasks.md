@@ -19,7 +19,7 @@
 
 - [x] 4.1 `frontend/src/components/CreateItemModal.tsx` の dialog `<div>` を修正（`bg-black/50` + `z-50` + `aria-modal="true"`）
 - [x] 4.2 `frontend/src/components/EditItemModal.tsx` も同様に修正
-- [ ] 4.3 dev サーバーで「商品を追加」を開き、表示モードトグル等が透けず・操作不能になることを手動確認
+- [x] 4.3 dev サーバーで「商品を追加」を開き、表示モードトグル等が透けず・操作不能になることを手動確認
 
 ## 5. モーダル input テキスト色
 
@@ -37,15 +37,8 @@
 
 ## 7. 動作確認・仕上げ
 
-- [ ] 7.1 ローカル `npm run lint && npx tsc --noEmit && npm run test` がすべて通る
-- [ ] 7.2 dev サーバーで以下を手動確認:
-  - `/` にアクセスすると `/stock-items` にリダイレクト
-  - ブラウザタブに `Pantry Panel`
-  - 「商品を追加」モーダルが半透明黒の背景で開き、背景操作不可
-  - モーダルの入力文字 / select 文字が濃い
-  - フィルタが「全部」のとき、モーダルカテゴリ初期値が `"★"`
-  - フィルタが「調味料」のとき、モーダルカテゴリ初期値が `"調味料"`
-  - icon.png 配置済みなら、Chrome DevTools → Application → Manifest が valid
-- [ ] 7.3 GitHub Actions CI（lint + tsc + vitest + go test + e2e）がすべて pass
-- [ ] 7.4 PR を ready for review にして `Closes #N` リンク
+- [x] 7.1 ローカル `npm run lint && npx tsc --noEmit && npm run test` がすべて通る
+- [x] 7.2 dev サーバーで全 6 項目を手動確認
+- [x] 7.3 GitHub Actions CI（lint + tsc + vitest + go test + e2e）がすべて pass
+- [x] 7.4 PR を ready for review にして `Closes #N` リンク
 - [ ] 7.5 マージ後に `openspec archive frontend-pwa-and-modal-polish` で archive する
