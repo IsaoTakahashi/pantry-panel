@@ -38,6 +38,6 @@
 
 ## 6. 仕上げ
 
-- [ ] 6.1 CI（lint + tsc + vitest + go test）がすべてパスすることを確認する
-- [ ] 6.2 PR を ready for review にして、Issue を `Closes #N` でリンクする
+- [x] 6.1 CI（lint + tsc + vitest + go test）がすべてパスすることを確認する
+- [x] 6.2 PR を ready for review にして、Issue を `Closes #N` でリンクする
 - [ ] 6.3 マージ後に `openspec archive phase2-5a-supabase-setup` で archive する
