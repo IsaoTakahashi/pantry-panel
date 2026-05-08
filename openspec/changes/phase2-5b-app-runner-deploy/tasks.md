@@ -6,17 +6,17 @@
 
 ## 2. Backend のコード対応
 
-- [ ] 2.1 `backend/main.go` の `e.Start(":8080")` を `os.Getenv("PORT")` 駆動にする（未設定時 8080）
-- [ ] 2.2 `backend/main.go` の `AllowOrigins` を `CORS_ALLOWED_ORIGINS`（カンマ区切り、未設定時 `http://localhost:3000`）駆動にする
-- [ ] 2.3 既存の Go ユニットテストが通ることを確認する
-- [ ] 2.4 `backend/main.go` の env 解析部分に必要に応じてユニットテストを追加する（`strings.Split` の空文字ハンドリング等）
+- [x] 2.1 `backend/main.go` の `e.Start(":8080")` を `os.Getenv("PORT")` 駆動にする（未設定時 8080）
+- [x] 2.2 `backend/main.go` の `AllowOrigins` を `CORS_ALLOWED_ORIGINS`（カンマ区切り、未設定時 `http://localhost:3000`）駆動にする
+- [x] 2.3 既存の Go ユニットテストが通ることを確認する
+- [x] 2.4 `backend/main.go` の env 解析部分に必要に応じてユニットテストを追加する（`strings.Split` の空文字ハンドリング等）
 
 ## 3. Dockerfile / .dockerignore 作成
 
-- [ ] 3.1 `backend/Dockerfile`（multi-stage、builder: golang:1.26-alpine、final: alpine:3、static binary）を作成する
-- [ ] 3.2 `backend/.dockerignore` を作成する（go test artifacts、`.git`、`.serena`、テストデータ等を除外）
-- [ ] 3.3 `docker build -t pantry-panel-backend:local backend/` でビルド成功することを確認する
-- [ ] 3.4 ローカル Postgres に接続して `docker run -p 8080:8080 -e DATABASE_URL=...` で起動し `/health` が 200 を返すことを確認する
+- [x] 3.1 `backend/Dockerfile`（multi-stage、builder: golang:1.26-alpine、final: alpine:3、static binary）を作成する
+- [x] 3.2 `backend/.dockerignore` を作成する（go test artifacts、`.git`、`.serena`、テストデータ等を除外）
+- [x] 3.3 `docker build -t pantry-panel-backend:local backend/` でビルド成功することを確認する
+- [x] 3.4 ローカル Postgres に接続して `docker run -p 8080:8080 -e DATABASE_URL=...` で起動し `/health` が 200 を返すことを確認する
 
 ## 4. AWS ECR 作成と push（ユーザー作業）
 
