@@ -1,13 +1,13 @@
 ## ADDED Requirements
 
 ### Requirement: Backend は main 自動デプロイを GitHub Actions で実行する
-GitHub の `main` ブランチに push（merge）された時、Backend のコンテナイメージを ECR にビルド・push し、AWS App Runner に反映する SHALL。失敗時はワークフローが赤くなり、デプロイは中断する MUST。
+GitHub の `main` ブランチに push（merge）された時、Backend のコンテナイメージを ECR にビルド・push し、AWS Lambda に反映する SHALL。失敗時はワークフローが赤くなり、デプロイは中断する MUST。
 
 #### Scenario: main への push で自動デプロイ
 - **WHEN** PR が main にマージされる
 - **THEN** GitHub Actions の `deploy-backend.yml` が実行される
-- **AND** ECR に新しいイメージが push される
-- **AND** App Runner にデプロイが反映される
+- **AND** ECR に新しいイメージが push される（`linux/amd64` + `--provenance=false` で Lambda 互換 manifest）
+- **AND** Lambda にデプロイが反映される（`update-function-code`）
 
 #### Scenario: 手動実行も可能
 - **WHEN** GitHub Actions の UI から `workflow_dispatch` でトリガーする
@@ -31,20 +31,20 @@ ECR に push するイメージには `${{ github.sha }}` と `latest` の **両
 - **WHEN** ECR push が完了する
 - **THEN** ECR コンソールでイメージに `latest` タグと `<commit-sha>` タグの両方が確認できる
 
-### Requirement: App Runner 反映は StartDeployment で明示的に行う
-ECR push 後、`aws apprunner start-deployment --service-arn ...` コマンドで App Runner に反映する MUST。完了を CLI で待ち合わせる SHALL。
+### Requirement: Lambda 反映は update-function-code で行う
+ECR push 後、`aws lambda update-function-code --function-name <name> --image-uri <uri>` コマンドで Lambda に反映する MUST。`LastUpdateStatus=Successful` を CLI で待ち合わせる SHALL。
 
-#### Scenario: 明示的に Deployment 開始
+#### Scenario: 明示的にコード更新
 - **WHEN** ECR push が完了した直後
-- **THEN** ワークフローが `aws apprunner start-deployment` を実行する
-- **AND** `aws apprunner wait` または同等のポーリングでデプロイ完了を待つ
+- **THEN** ワークフローが `aws lambda update-function-code` を実行する
+- **AND** `aws lambda get-function` をポーリングして `LastUpdateStatus=Successful` を待つ（最大 5 分）
 
 ### Requirement: デプロイ後の smoke test
-App Runner デプロイ完了後、サービス URL に `/health` リクエストを送り 200 が返ることを SHALL 確認する。失敗時はワークフローを fail させる MUST。
+Lambda デプロイ完了後、Function URL に `/health` リクエストを送り 200 が返ることを SHALL 確認する。失敗時はワークフローを fail させる MUST。
 
 #### Scenario: 正常時
 - **WHEN** デプロイ完了直後に smoke test ステップが走る
-- **THEN** `curl -fsS https://<service-url>/health` が 200 を返す
+- **THEN** `curl -fsS https://<function-url>/health` が 200 を返す
 - **AND** ワークフローが緑で終了する
 
 #### Scenario: 起動失敗時
