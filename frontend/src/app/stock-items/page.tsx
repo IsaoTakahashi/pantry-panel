@@ -109,6 +109,7 @@ export default function StockItemsPage() {
             </div>
             <CreateItemModal
               isOpen={isModalOpen}
+              initialCategory={filter.category ?? "★"}
               onClose={() => setIsModalOpen(false)}
               onCreate={handleCreate}
             />
