@@ -27,21 +27,9 @@
 
 ## 4. ワークフロー作成
 
-- [ ] 4.1 `.github/workflows/deploy-backend.yml` を作成する
-  - Trigger: `push` to `main`、`workflow_dispatch`
-  - Permissions: `id-token: write`、`contents: read`
-  - Job 1 `build-and-push`:
-    - `aws-actions/configure-aws-credentials@v4` で OIDC 認証
-    - `aws-actions/amazon-ecr-login@v2` で ECR ログイン
-    - `docker buildx build --platform linux/amd64 --provenance=false --push -t $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }} -t $ECR_REGISTRY/$ECR_REPOSITORY:latest backend/`（buildx + push 一発）
-  - Job 2 `deploy` (needs: build-and-push):
-    - 同じく OIDC 認証
-    - `aws lambda update-function-code --function-name $FN --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}`
-    - `aws lambda wait function-updated --function-name $FN`（または get-function ポーリング）
-  - Job 3 `smoke-test` (needs: deploy):
-    - `curl -fsS --retry 30 --retry-delay 5 ${{ vars.LAMBDA_FUNCTION_URL }}/health`
-- [ ] 4.2 ワークフロー YAML の lint（`actionlint` 推奨、無ければ手動目視）
-- [ ] 4.3 PR を main にマージする前に「main 限定で走る」「PR では走らない」設定を再確認
+- [x] 4.1 `.github/workflows/deploy-backend.yml` を作成する（buildx + push、Lambda update-function-code、smoke test の 3 ジョブ直列、`provenance: false`、`paths: backend/**` で関係ない変更ではトリガしない）
+- [x] 4.2 ワークフロー YAML の lint（actionlint 未インストールのため目視確認）
+- [x] 4.3 「main 限定で走る」「PR では走らない」設定を確認済（`on.push.branches: [main]` のみ、PR トリガなし）
 
 ## 5. 動作確認
 
