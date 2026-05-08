@@ -3,14 +3,39 @@
 ## 技術スタック
 
 - **Next.js** (TypeScript)
-- デプロイ先: **Vercel**（無料枠で十分。Next.js native）
+- デプロイ先: **Vercel**（無料枠で十分、Next.js native）
+- 本番 URL: https://pantry-panel-xi.vercel.app
 
 ## API 連携
 
 - REST API を使用して CRUD 操作を行う
-- リアルタイム購読:
-  - Phase 3: Go バックエンドの自前 WebSocket に接続（学習目的、後に学習ログ化）
-  - Phase 3.5 以降: **Supabase Realtime** クライアントで直接購読（本番）
+- API ベース URL は `NEXT_PUBLIC_API_BASE_URL` 環境変数で切替え（未設定時は `http://localhost:8080`）
+- リアルタイム購読（**本番ルート**）:
+  - **Phase 3.5 (本番)**: Supabase Realtime クライアントで Postgres の変更を直接購読
+  - Phase 3 の自前 WebSocket は学習目的のローカル / CI 動作確認のみ（本番には載せない）
+
+## Vercel 設定
+
+| 項目 | 値 |
+|------|----|
+| Framework Preset | **Next.js** （"Other" だと 404 になる） |
+| Root Directory | `frontend` |
+| Production Branch | `main` |
+| Build Command | デフォルト (`next build`) |
+| Output Directory | デフォルト |
+| 環境変数 (Production / Preview / Development) | `NEXT_PUBLIC_API_BASE_URL` = Lambda Function URL |
+
+main へ push すると Vercel が自動デプロイ（GH Actions 不要）。
+
+## ローカル開発時の env
+
+```bash
+cp frontend/.env.local.example frontend/.env.local
+# 必要なら値を編集（デフォルトは localhost:8080 を指している）
+cd frontend && npm run dev
+```
+
+`.env.local` は git 管理外（`.gitignore` で除外、`.env.local.example` のみ track）。
 
 ## テスト
 

@@ -56,9 +56,9 @@ go run .
 
 | 環境 | URL |
 |------|-----|
-| Frontend | (Phase 2.5c でアサイン) |
-| Backend | `https://<id>.lambda-url.ap-northeast-1.on.aws` (Phase 2.5b で稼働) |
-| Database | Supabase (`db.<ref>.supabase.co`) |
+| Frontend | https://pantry-panel-xi.vercel.app (Vercel) |
+| Backend | https://4xdn54pecs7z4hepmt2xcovq7m0nizno.lambda-url.ap-northeast-1.on.aws (AWS Lambda + LWA) |
+| Database | Supabase (`db.<ref>.supabase.co`、Lambda は Supavisor Session Pooler 経由) |
 
 ## ドキュメント
 
