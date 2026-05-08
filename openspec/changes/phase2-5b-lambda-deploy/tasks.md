@@ -66,14 +66,12 @@
   - `--memory-size 512`
   - `--timeout 30`
   - `--architectures x86_64`
-  - `--environment Variables="{PORT=8080,AWS_LWA_PORT=8080,AWS_LWA_READINESS_CHECK_PATH=/health,CORS_ALLOWED_ORIGINS=http://localhost:3000}"`
-- [ ] 8.2 AWS Parameters and Secrets Lambda Extension Layer を追加する
-  - `aws lambda update-function-configuration` で `--layers` に extension の ARN を指定
-  - 環境変数 `AWS_SECRETS_MANAGER_SECRET_ARNS` で対象シークレット ARN を指定（あるいはアプリ起動時に extension の HTTP エンドポイント経由で取得）
-- [ ] 8.3 Function URL を有効化する（`aws lambda create-function-url-config`）
+  - `--environment Variables="{PORT=8080,AWS_LWA_PORT=8080,AWS_LWA_READINESS_CHECK_PATH=/health,CORS_ALLOWED_ORIGINS=http://localhost:3000,DATABASE_URL=<supabase 接続文字列>}"`
+  - DATABASE_URL は Lambda の KMS で暗号化保存される（ECS の `secrets:valueFrom` 相当の機構が Lambda には存在しないため、env で直接保持する）
+- [ ] 8.2 Function URL を有効化する（`aws lambda create-function-url-config`）
   - `--auth-type NONE`
   - `--cors '{"AllowOrigins":["http://localhost:3000"],"AllowMethods":["*"],"AllowHeaders":["*"]}'`
-- [ ] 8.4 Function URL を控える（`https://<id>.lambda-url.ap-northeast-1.on.aws`）
+- [ ] 8.3 Function URL を控える（`https://<id>.lambda-url.ap-northeast-1.on.aws`）
 
 ## 9. 動作確認
 

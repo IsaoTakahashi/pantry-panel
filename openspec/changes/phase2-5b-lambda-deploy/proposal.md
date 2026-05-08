@@ -14,7 +14,7 @@ Phase 2.5a で Supabase に DB を立ち上げた次のステップとして、B
   - Memory: 512 MB（最小構成）
   - Timeout: 30 秒
   - 環境変数: `PORT=8080`、`CORS_ALLOWED_ORIGINS`、`AWS_LWA_PORT=8080`、`AWS_LWA_READINESS_CHECK_PATH=/health`
-  - 環境変数 (Secret): `DATABASE_URL`（AWS Secrets Manager 経由）
+  - 環境変数 (KMS 暗号化保存): `DATABASE_URL`（Supabase 接続文字列を直接、Lambda は ECS のような `secrets:valueFrom` 機構を持たないため）
 - Lambda Function URL を有効化する（パブリック / 認可なし、Phase 2.5c で CORS と組合せ）
 - Lambda 実行用 IAM Role を準備する（ECR pull / CloudWatch Logs / Secrets Manager 読取）
 - 既存資源の整理:

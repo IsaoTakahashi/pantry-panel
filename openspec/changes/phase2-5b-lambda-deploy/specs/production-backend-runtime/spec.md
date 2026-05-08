@@ -47,17 +47,22 @@ Lambda Function URL（`https://<id>.lambda-url.ap-northeast-1.on.aws`）から H
 - **WHEN** ローカルの Frontend を `NEXT_PUBLIC_API_URL=https://<function-url>` で起動して操作する
 - **THEN** 商品の登録・一覧表示・編集・削除が成功する
 
-### Requirement: 機密情報は Secrets Manager から Lambda extension 経由で注入する
-`DATABASE_URL` は AWS Secrets Manager に保管し、AWS Parameters and Secrets Lambda Extension または同等機構で Lambda 環境変数として注入する MUST。Lambda 設定の Environment variables に平文で書かない MUST。
+### Requirement: DATABASE_URL は Lambda 環境変数で KMS 暗号化保存する
+`DATABASE_URL`（Supabase 接続文字列）は Lambda Function の Environment.Variables に直接保持する MUST。Lambda の env vars は KMS で暗号化保存され、閲覧には IAM `lambda:GetFunctionConfiguration` 権限が必要 MUST。
 
-#### Scenario: Secrets Manager に登録（既存）
+#### Scenario: env で接続文字列を保持
 - **WHEN** Phase 2.5b 完了時点
-- **THEN** AWS Secrets Manager に `pantry-panel/DATABASE_URL` 等のシークレットが存在し、Phase 2.5a の Supabase 接続文字列を保持している
+- **THEN** Lambda Function の Environment.Variables に `DATABASE_URL` キーで Supabase Direct Connection 文字列が設定されている
+- **AND** Lambda は KMS（AWS managed key または customer managed key）で env vars を暗号化している
 
-#### Scenario: Lambda が secrets を読み込める
-- **WHEN** Lambda Function を起動する
-- **THEN** Lambda execution role が Secrets Manager の対象シークレットへの `GetSecretValue` 権限を持つ
-- **AND** `DATABASE_URL` 環境変数として Backend に値が届く
+#### Scenario: Backend が DATABASE_URL を読める
+- **WHEN** Lambda Function が起動する
+- **THEN** `os.Getenv("DATABASE_URL")` で接続文字列が読み取れる
+- **AND** `pgxpool.New` で Supabase に接続できる
+
+#### Scenario: Secrets Manager の secret は別用途で残す
+- **WHEN** Phase 2.5b 完了時点
+- **THEN** AWS Secrets Manager の `pantry-panel/DATABASE_URL` は削除されておらず、Phase 2.5d (GH Actions deploy) などの将来の自動化での値供給元として残されている
 
 ### Requirement: Lambda Function は最小構成で動作する
 Lambda Function の Memory は **512 MB** MUST、Timeout は **30 秒** 以下 MUST、Architecture は **x86_64** MUST（初回構築時）。
@@ -72,7 +77,7 @@ Lambda Function の Memory は **512 MB** MUST、Timeout は **30 秒** 以下 M
 Lambda execution role は次の権限を MUST 持つ:
 - AWS managed `AWSLambdaBasicExecutionRole`（CloudWatch Logs 書込）
 - 対象 ECR repository の image pull 権限
-- 対象 Secrets Manager の `GetSecretValue` 権限
+- 対象 Secrets Manager の `GetSecretValue` 権限（将来の SDK fetch 移行時 / 監査時の備えとして付与しておく）
 
 それ以外の権限は MUST NOT 持つ。
 
