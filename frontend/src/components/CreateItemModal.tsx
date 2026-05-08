@@ -1,35 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CATEGORIES } from "@/constants/categories";
 
 type CreateItemModalProps = {
   isOpen: boolean;
+  initialCategory: string;
   onClose: () => void;
   onCreate: (name: string, category: string) => Promise<void>;
 };
 
 export default function CreateItemModal({
   isOpen,
+  initialCategory,
   onClose,
   onCreate,
 }: CreateItemModalProps) {
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(initialCategory);
   const [error, setError] = useState<string | null>(null);
 
-  const handleClose = () => {
-    setName("");
-    setCategory("");
-    setError(null);
-    onClose();
-  };
+  useEffect(() => {
+    if (isOpen) {
+      setName("");
+      setCategory(initialCategory);
+      setError(null);
+    }
+  }, [isOpen, initialCategory]);
 
   if (!isOpen) return null;
   return (
     <div
       role="dialog"
-      className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     >
       <div className="bg-white p-6 rounded-lg shadow-xl w-96">
         <h2 className="text-lg font-semibold mb-6 text-gray-900">商品を追加</h2>
@@ -37,7 +41,7 @@ export default function CreateItemModal({
           onSubmit={(e) => {
             e.preventDefault();
             onCreate(name, category)
-              .then(handleClose)
+              .then(onClose)
               .catch((err) => {
                 const error =
                   err instanceof Error ? err : new Error(String(err));
@@ -60,7 +64,7 @@ export default function CreateItemModal({
               id="name"
               name="name"
               type="text"
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:border-transparent"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:border-transparent"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -76,12 +80,11 @@ export default function CreateItemModal({
             <select
               id="category"
               name="category"
-              className="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:border-transparent"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:border-transparent"
               required
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
-              <option value="">選択してください</option>
               {CATEGORIES.map((cat) => (
                 <option key={cat} value={cat}>
                   {cat}
@@ -92,7 +95,7 @@ export default function CreateItemModal({
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={handleClose}
+              onClick={onClose}
               className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded font-medium"
             >
               キャンセル

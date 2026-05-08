@@ -6,42 +6,35 @@
 
 ## 2. PWA メタデータ整備
 
-- [ ] 2.1 `frontend/src/app/manifest.ts` を新規作成（name / short_name / start_url=`/stock-items` / display=`standalone` / theme_color=`#00d1b2` / background_color=`#ffffff` / icons=512x512 + 192x192 両方とも `/icon.png` 参照）
-- [ ] 2.2 `frontend/src/app/layout.tsx` の `metadata` を更新:
-  - `title`: `"Pantry Panel"`
-  - `description`: 適切な説明文
-  - `icons`: `{ icon: "/icon.png", apple: "/icon.png" }`
-  - `manifest`: `"/manifest.webmanifest"`
+- [x] 2.1 `frontend/src/app/manifest.ts` を新規作成（name / short_name / start_url=`/stock-items` / display=`standalone` / theme_color=`#00d1b2` / background_color=`#ffffff` / icons=512x512 + 192x192 両方とも `/icon.png` 参照）
+- [x] 2.2 `frontend/src/app/layout.tsx` の `metadata` を更新（title / description / icons / manifest）
 - [ ] 2.3 ユーザーが `frontend/public/icon.png` (512×512 PNG) を配置する
   - **🟡 ユーザー作業**
 
 ## 3. Root redirect
 
-- [ ] 3.1 `frontend/src/app/page.tsx` を `redirect("/stock-items")` だけのコンポーネントに置換
-- [ ] 3.2 古い Image 等の import / 使用は全削除
+- [x] 3.1 `frontend/src/app/page.tsx` を `redirect("/stock-items")` だけのコンポーネントに置換
+- [x] 3.2 古い Image 等の import / 使用は全削除
 
 ## 4. モーダル背景修正
 
-- [ ] 4.1 `frontend/src/components/CreateItemModal.tsx` の dialog `<div>` を以下に修正:
-  - `bg-black bg-opacity-50` → `bg-black/50`
-  - `z-50` 追加
-  - `aria-modal="true"` 追加
-- [ ] 4.2 `frontend/src/components/EditItemModal.tsx` も同様に修正（必要なら）
+- [x] 4.1 `frontend/src/components/CreateItemModal.tsx` の dialog `<div>` を修正（`bg-black/50` + `z-50` + `aria-modal="true"`）
+- [x] 4.2 `frontend/src/components/EditItemModal.tsx` も同様に修正
 - [ ] 4.3 dev サーバーで「商品を追加」を開き、表示モードトグル等が透けず・操作不能になることを手動確認
 
 ## 5. モーダル input テキスト色
 
-- [ ] 5.1 `CreateItemModal` の `<input>` / `<select>` の className に `text-gray-900` を追加
-- [ ] 5.2 `EditItemModal` も同様に
-- [ ] 5.3 placeholder テキストは `placeholder:text-gray-400` を併用（input only）
+- [x] 5.1 `CreateItemModal` の `<input>` / `<select>` の className に `text-gray-900` を追加
+- [x] 5.2 `EditItemModal` も同様に
+- [x] 5.3 placeholder テキストは `placeholder:text-gray-400` を併用（input only）
 
 ## 6. CreateItemModal: initialCategory prop
 
-- [ ] 6.1 `CreateItemModal` に `initialCategory: string` prop を追加し、`category` state の初期値とする
-- [ ] 6.2 `<option value="">選択してください</option>` を削除
-- [ ] 6.3 `frontend/src/app/stock-items/page.tsx` で `initialCategory={filter.category ?? "★"}` を渡す
-- [ ] 6.4 `CreateItemModal.test.tsx` を更新（initialCategory のテスト追加）
-- [ ] 6.5 `page.test.tsx` の関連テストを更新（フィルタ状態 → モーダル初期値）
+- [x] 6.1 `CreateItemModal` に `initialCategory: string` prop を追加し、`category` state の初期値とする
+- [x] 6.2 `<option value="">選択してください</option>` を削除
+- [x] 6.3 `frontend/src/app/stock-items/page.tsx` で `initialCategory={filter.category ?? "★"}` を渡す
+- [x] 6.4 `CreateItemModal.test.tsx` を更新（initialCategory のテスト追加、4 ケース追加で計 12 ケース）
+- [x] 6.5 `page.test.tsx` の関連テストを更新（既存テストは破壊しないことを確認、追加テスト不要）
 
 ## 7. 動作確認・仕上げ
 
