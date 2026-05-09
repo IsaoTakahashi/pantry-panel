@@ -21,7 +21,10 @@ func TestComputeBackoff(t *testing.T) {
 		{100, 10 * time.Second},
 	}
 	for _, tt := range tests {
-		// TODO: t.Run(...) and assert computeBackoff(tt.attempt) == tt.want
+		computed := computeBackoff(tt.attempt)
+		if computed != tt.want {
+			t.Errorf("computeBackoff(%d) = %v, want %v", tt.attempt, computed, tt.want)
+		}
 		_ = tt
 	}
 }

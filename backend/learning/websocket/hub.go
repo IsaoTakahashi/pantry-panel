@@ -24,32 +24,50 @@ type Hub struct {
 
 // NewHub creates an empty Hub.
 func NewHub() *Hub {
-	// TODO: implement
-	return nil
+	return &Hub{
+		clients: make(map[*Client]struct{}),
+	}
 }
 
 // Register adds a client to the hub. Safe for concurrent use.
 func (h *Hub) Register(c *Client) {
-	// TODO: implement (lock + add to map)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.clients[c] = struct{}{}
 }
 
 // Unregister removes a client. If the client is not registered, this is a no-op.
 // Safe for concurrent use.
 func (h *Hub) Unregister(c *Client) {
-	// TODO: implement (lock + delete from map; do NOT close c.Send here, the
-	//       handler goroutine that owns the connection should close it)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.clients, c)
 }
 
 // Broadcast sends msg to every registered client without blocking.
 // If a client's Send channel is full, the client is unregistered (slow client policy).
 func (h *Hub) Broadcast(msg []byte) {
-	// TODO: implement
-	//   1) snapshot clients under RLock
-	//   2) for each client: select { case c.Send <- msg: default: drop & unregister }
+	h.mu.RLock()
+	clients := make([]*Client, 0, len(h.clients))
+	for c := range h.clients {
+		clients = append(clients, c)
+	}
+	h.mu.RUnlock()
+
+	for _, c := range clients {
+		select {
+		case c.Send <- msg:
+			// sent successfully
+		default:
+			// channel is full, drop client
+			h.Unregister(c)
+		}
+	}
 }
 
 // Len returns the current number of registered clients. Used by tests.
 func (h *Hub) Len() int {
-	// TODO: implement
-	return 0
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.clients)
 }
