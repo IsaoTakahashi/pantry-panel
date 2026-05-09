@@ -54,7 +54,7 @@ describe("useStockItemsWebSocket", () => {
 
     expect(result.current.lastEvent).toEqual({
       type: "stock_items.created",
-      payload: "",
+      payload: {},
     });
   });
 
