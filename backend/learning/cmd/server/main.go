@@ -9,14 +9,45 @@
 // migration applied. PORT defaults to 8080.
 package main
 
-// TODO: implement main()
-//   1) ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM); defer cancel()
-//   2) read DATABASE_URL (default to local compose)
-//   3) hub := websocket.NewHub()
-//   4) listener := websocket.NewPgListener(dsn, "stock_items_changed", func(p string) { hub.Broadcast([]byte(p)) })
-//      go listener.Run(ctx)
-//   5) e := echo.New(); e.GET("/ws", websocket.Handler(hub))
-//   6) e.Start(":" + os.Getenv("PORT"))  // PORT default "8080"
+import (
+	"context"
+	"errors"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/IsaoTakahashi/pantry-panel/backend/learning/websocket"
+	"github.com/labstack/echo/v5"
+)
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "postgres://pantry:pantry@localhost:5432/pantry_panel?sslmode=disable"
+	}
+
+	hub := websocket.NewHub()
+	listener := websocket.NewPgListener(dsn, "stock_items_changed", func(p string) { hub.Broadcast([]byte(p)) })
+
+	go listener.Run(ctx)
+
+	e := echo.New()
+	e.GET("/ws", websocket.Handler(hub))
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	sc := echo.StartConfig{
+		Address: ":" + port,
+	}
+
+	if err := sc.Start(ctx, e); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
 }
