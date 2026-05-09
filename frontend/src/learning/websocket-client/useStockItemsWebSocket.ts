@@ -8,7 +8,7 @@ export function useStockItemsWebSocket(url: string) {
   useEffect(() => {
     const ws = new WebSocket(url);
 
-    ws.onopen = (event: Event) => {
+    ws.onopen = () => {
       setReadyState(WebSocket.OPEN);
     };
 
@@ -23,7 +23,7 @@ export function useStockItemsWebSocket(url: string) {
       }
     };
 
-    ws.onclose = (event: Event) => {
+    ws.onclose = () => {
       setReadyState(WebSocket.CLOSED);
     };
 
