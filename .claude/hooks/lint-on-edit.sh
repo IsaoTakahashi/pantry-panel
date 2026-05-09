@@ -25,7 +25,15 @@ case "$file_path" in
   "$repo_root"/backend/*.go)
     cd "$repo_root/backend"
     pkg_dir="$(dirname "$file_path")"
-    golangci-lint run "$pkg_dir" 1>&2 || exit 2
+    case "$file_path" in
+      "$repo_root"/backend/learning/*)
+        # learning code requires the `learning` build tag
+        golangci-lint run --build-tags=learning "$pkg_dir" 1>&2 || exit 2
+        ;;
+      *)
+        golangci-lint run "$pkg_dir" 1>&2 || exit 2
+        ;;
+    esac
     ;;
   *)
     exit 0
