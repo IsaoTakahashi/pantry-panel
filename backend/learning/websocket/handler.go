@@ -19,7 +19,9 @@ import (
 func Handler(hub *Hub) func(c *echo.Context) error {
 
 	return func(c *echo.Context) error {
-		conn, err := cws.Accept(c.Response(), c.Request(), nil)
+		conn, err := cws.Accept(c.Response(), c.Request(), &cws.AcceptOptions{
+			OriginPatterns: []string{"localhost:3000"},
+		})
 		if err != nil {
 			return err
 		}
