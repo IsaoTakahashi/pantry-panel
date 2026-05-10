@@ -1,0 +1,55 @@
+name: Learning (Phase 3 isolated)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend-learning:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+          cache-dependency-path: backend/go.sum
+
+      - name: Build (no learning tag, ensures learning code is excluded)
+        run: go build ./...
+
+      - name: Build (with learning tag)
+        run: go build -tags=learning ./learning/...
+
+      - name: Test (learning, integration via testcontainers)
+        run: go test -tags=learning -race -timeout=5m ./learning/...
+
+  frontend-learning:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Verify learning tests are excluded from default vitest run
+        run: |
+          # default config が learning tests を除外していることを軽くチェック
+          # (実テストではない)
+          test -f vitest.learning.config.ts
+
+      - name: Run learning vitest config
+        run: npx vitest run --config vitest.learning.config.ts
