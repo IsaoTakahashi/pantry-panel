@@ -23,7 +23,7 @@
 ### 3.2 テスト方針提示 → ユーザー実装 → Claude レビュー (TDD)
 
 - [x] 3.2.1 Hub の unit test（subscribe / unsubscribe / broadcast / 複数接続）
-- [ ] 3.2.2 メッセージ JSON encode の unit test — 省略（trigger SQL 側で JSON を組み立てるため、integration_test の end-to-end で十分カバー）
+- [x] 3.2.2 メッセージ JSON encode の unit test — 省略（trigger SQL 側で JSON を組み立てるため、integration_test の end-to-end で十分カバー）
 - [x] 3.2.3 PgListener reconnect の unit test（`computeBackoff` のテーブルテスト）
 - [x] 3.2.4 Integration test (testcontainers): Postgres 起動 → migration 適用 → INSERT → WS 経由でメッセージ受信を assert
 
@@ -83,6 +83,6 @@
 
 ## 10. 仕上げ
 
-- [ ] 10.1 CI（既存 ci.yml + 新 learning.yml）がすべてパスすることを確認
-- [ ] 10.2 PR を ready for review にして、Issue を `Closes #N` でリンク
-- [ ] 10.3 マージ後に `openspec archive phase3-realtime-sync-learning` で archive する
+- [x] 10.1 CI（既存 ci.yml + 新 learning.yml）がすべてパスすることを確認
+- [x] 10.2 PR を ready for review にして、Issue を `Closes #N` でリンク
+- [x] 10.3 マージ後に `openspec archive phase3-realtime-sync-learning` で archive する
