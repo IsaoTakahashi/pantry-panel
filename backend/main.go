@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/IsaoTakahashi/pantry-panel/backend/db"
@@ -30,9 +32,19 @@ func main() {
 	stockItemRepo := repository.NewPgStockItemRepository(pool)
 	stockItemHandler := handler.NewStockItemHandler(stockItemRepo)
 
+	matcher, err := compileOriginMatcher(parseCORSAllowedOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	e := echo.New()
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: parseCORSAllowedOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")),
+		UnsafeAllowOriginFunc: func(c *echo.Context, origin string) (string, bool, error) {
+			if matcher(origin) {
+				return origin, true, nil
+			}
+			return "", false, nil
+		},
 	}))
 
 	e.GET("/health", handler.HealthCheck(pool))
@@ -68,4 +80,42 @@ func parseCORSAllowedOrigins(env string) []string {
 		return []string{"http://localhost:3000"}
 	}
 	return out
+}
+
+func compileOriginMatcher(patterns []string) (func(origin string) bool, error) {
+	type rule struct {
+		exact string
+		regex *regexp.Regexp
+	}
+
+	rules := make([]rule, 0, len(patterns))
+	for _, p := range patterns {
+		lower := strings.ToLower(p)
+		if !strings.Contains(lower, "*") {
+			rules = append(rules, rule{exact: lower})
+			continue
+		}
+
+		escaped := regexp.QuoteMeta(lower)
+		regexStr := strings.ReplaceAll(escaped, `\*`, `[^.]*`)
+		compiled, err := regexp.Compile("^" + regexStr + "$")
+		if err != nil {
+			return nil, fmt.Errorf("invalid CORS pattern %q: %w", p, err)
+		}
+		rules = append(rules, rule{regex: compiled})
+	}
+
+	return func(origin string) bool {
+		lower := strings.ToLower(origin)
+		for _, r := range rules {
+			if r.regex != nil {
+				if r.regex.MatchString(lower) {
+					return true
+				}
+			} else if r.exact == lower {
+				return true
+			}
+		}
+		return false
+	}, nil
 }
