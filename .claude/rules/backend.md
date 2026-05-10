@@ -93,7 +93,7 @@ aws lambda wait function-updated --function-name pantry-panel-backend
 |---------|--------|------|
 | Unit | **標準 testing パッケージ** | ビジネスロジック、ハンドラー |
 | Integration | **testcontainers-go** + PostgreSQL | DB 操作、LISTEN/NOTIFY、API 結合 |
-| Learning archive | `-tags=learning` で別 job 実行 | Phase 3.5 で隔離した自前 WebSocket 実装の retention |
+| Learning archive | `-tags=learning` で別 job 実行 | Phase 3 で隔離した自前 WebSocket 実装の retention |
 
 ## Lint
 
@@ -118,6 +118,24 @@ aws lambda wait function-updated --function-name pantry-panel-backend
 2. DB 更新時に PostgreSQL NOTIFY を発行（トリガー）
 3. Go サーバーが LISTEN で変更通知を受信
 4. WebSocket 接続中のクライアントに変更内容を push
+
+#### Phase 3 学習実装の起動方法（ローカル動作確認用）
+
+```bash
+# 1. compose Postgres を起動
+docker compose up -d
+
+# 2. learning migration を適用（trigger + function）
+docker exec -i pantry-panel-db psql -U pantry -d pantry_panel \
+  < backend/db/migrations/learning_001_stock_items_notify.sql
+
+# 3. learning サーバーを起動
+cd backend
+go run -tags=learning ./learning/cmd/server
+# → ws://localhost:8080/ws で接続待機
+```
+
+INSERT/UPDATE/DELETE で `stock_items.created/updated/deleted` イベントが配信される。WebSocket クライアントは `websocat ws://127.0.0.1:8080/ws` 等で接続できる。
 
 ### Phase 3.5 以降（本番）
 

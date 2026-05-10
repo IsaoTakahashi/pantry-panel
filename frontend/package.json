@@ -10,6 +10,7 @@
     "format": "biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:learning": "vitest run --config vitest.learning.config.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

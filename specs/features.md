@@ -71,6 +71,8 @@ Phase 1–2 で実装した機能を本番（Vercel + AWS Lambda + Supabase）�
 
 ### Phase 3: リアルタイム同期 — 学習目的の自前 WebSocket 実装（本番ルート外）
 
+**状態: ✅ 完了（`learning-archive-v1` タグ）**
+
 | 順 | 機能 | 理由 |
 |----|------|------|
 | 7 | G. リアルタイム同期 (学習) | WebSocket + LISTEN/NOTIFY を **学習目的** で自前実装する。本番には載せない |
