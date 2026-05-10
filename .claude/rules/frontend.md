@@ -42,7 +42,22 @@ cd frontend && npm run dev
 | レイヤー | ツール | 対象 |
 |---------|--------|------|
 | Unit | **Vitest** + **React Testing Library** | ロジック、hooks、コンポーネント描画 |
+| Learning | **Vitest** (別 config) | `*.learning.test.{ts,tsx}` のみ。通常 vitest からは除外 |
 | E2E | **Playwright** | ユーザー操作フロー、リアルタイム同期（複数 BrowserContext） |
+
+## 学習用 WebSocket クライアント（Phase 3）
+
+`frontend/src/learning/websocket-client/` に隔離。本番ビルドには影響しない。
+
+| 項目 | 内容 |
+|------|------|
+| フック | `useStockItemsWebSocket(url): { lastEvent, readyState }` |
+| 再接続 | exponential backoff（500ms → 1s → 2s → 5s → 10s 上限）。`computeBackoff` で計算 |
+| メッセージ形式 | `{ type: "stock_items.created" \| "updated" \| "deleted", payload }` |
+| テスト | `*.learning.test.{ts,tsx}` を `vitest.learning.config.ts` で実行（`npx vitest run --config vitest.learning.config.ts`） |
+| playground | `frontend/src/app/learning/websocket-playground/page.tsx`（`.gitignore` 済、各自で書く） |
+
+ローカル動作確認は backend の learning サーバー (`go run -tags=learning ./learning/cmd/server`) と組み合わせる。詳細は `.claude/rules/backend.md` の「Phase 3 学習実装の起動方法」を参照。
 
 ## Lint / Format
 
