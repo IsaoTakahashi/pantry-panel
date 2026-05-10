@@ -33,7 +33,7 @@ Backend は `PORT` 環境変数を読み取り、その値で listen する SHAL
 - **AND** LWA は `AWS_LWA_PORT=8080` で同じポートを参照する
 
 ### Requirement: Backend は CORS_ALLOWED_ORIGINS 環境変数で CORS 許可 origin を切り替える（既存）
-Backend は `CORS_ALLOWED_ORIGINS`（カンマ区切り）を読み取り、Echo の CORS middleware の `AllowOrigins` に設定する SHALL。未設定時は `http://localhost:3000` を使用する MUST。**本番環境では Vercel の本番 URL を MUST 含める**。
+Backend は `CORS_ALLOWED_ORIGINS`（カンマ区切り）を読み取り、Echo の CORS middleware の `UnsafeAllowOriginFunc` に渡す自前 matcher で照合する SHALL。各エントリは exact match（case-insensitive）か、`*` を含む場合は wildcard match として扱う MUST。`*` は `.` を跨がない（subdomain 跨ぎを防ぐため `[^.]*` 相当） MUST。未設定時は `http://localhost:3000` を使用する MUST。**本番環境では Vercel の本番 URL を MUST 含める**。
 
 #### Scenario: 単一 origin
 - **WHEN** Backend を `CORS_ALLOWED_ORIGINS=https://example.vercel.app` で起動する
@@ -50,6 +50,15 @@ Backend は `CORS_ALLOWED_ORIGINS`（カンマ区切り）を読み取り、Echo
 #### Scenario: 本番では Vercel URL を含む
 - **WHEN** Lambda の `CORS_ALLOWED_ORIGINS` 環境変数を確認する
 - **THEN** Vercel 本番 URL（例: `https://pantry-panel-xxxxx.vercel.app`）が含まれる
+
+#### Scenario: Vercel preview URL を wildcard で許可
+- **WHEN** Backend を `CORS_ALLOWED_ORIGINS=https://pantry-panel-*-rictons-projects.vercel.app` で起動する
+- **THEN** `https://pantry-panel-6how12g71-rictons-projects.vercel.app` からのリクエストに対応する CORS ヘッダを返す
+- **AND** `https://pantry-panel-evil.attacker.com-rictons-projects.vercel.app`（`.` を跨ぐ攻撃的 origin）はブロックする
+
+#### Scenario: 不許可 origin はヘッダなし
+- **WHEN** 許可されていない origin からプリフライトリクエストが来る
+- **THEN** `Access-Control-Allow-Origin` ヘッダを返さない（ブラウザ側でブロック）
 
 ### Requirement: Function URL は HTTPS で外部から到達可能
 Lambda Function URL（`https://<id>.lambda-url.ap-northeast-1.on.aws`）から HTTPS で API が応答する SHALL。Auth Type は初期構築では `NONE`（公開、後段で CORS により origin 制限）MUST とする。
