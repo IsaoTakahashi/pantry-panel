@@ -1,7 +1,7 @@
 ## 1. DB migration（Supabase）
 
-- [ ] 1.1 `backend/db/migrations/002_enable_realtime_stock_items.sql` を作成。`ALTER PUBLICATION supabase_realtime ADD TABLE stock_items;` を記述
-- [ ] 1.2 `backend/db/migrations/003_stock_items_rls.sql` を作成。RLS を有効化し anon に SELECT のみ許可するポリシーを定義
+- [x] 1.1 `backend/db/migrations/002_enable_realtime_stock_items.sql` を作成。`ALTER PUBLICATION supabase_realtime ADD TABLE stock_items;` を記述
+- [x] 1.2 `backend/db/migrations/003_stock_items_rls.sql` を作成。RLS を有効化し anon に SELECT のみ許可するポリシーを定義
 - [ ] 1.3 Supabase Dashboard の SQL Editor で `002` を適用し、Database → Replication で `stock_items` が含まれることを確認
 - [ ] 1.4 Supabase Dashboard の SQL Editor で `003` を適用し、`SELECT * FROM pg_policies WHERE tablename='stock_items'` でポリシーを確認
 - [ ] 1.5 Supabase Dashboard の Table Editor で anon ロールから INSERT が拒否されることを確認（手動）
