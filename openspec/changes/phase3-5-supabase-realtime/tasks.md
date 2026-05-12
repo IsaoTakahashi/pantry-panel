@@ -2,15 +2,15 @@
 
 - [x] 1.1 `backend/db/migrations/002_enable_realtime_stock_items.sql` を作成。`ALTER PUBLICATION supabase_realtime ADD TABLE stock_items;` を記述
 - [x] 1.2 `backend/db/migrations/003_stock_items_rls.sql` を作成。RLS を有効化し anon に SELECT のみ許可するポリシーを定義
-- [ ] 1.3 Supabase Dashboard の SQL Editor で `002` を適用し、Database → Replication で `stock_items` が含まれることを確認
-- [ ] 1.4 Supabase Dashboard の SQL Editor で `003` を適用し、`SELECT * FROM pg_policies WHERE tablename='stock_items'` でポリシーを確認
-- [ ] 1.5 Supabase Dashboard の Table Editor で anon ロールから INSERT が拒否されることを確認（手動）
-- [ ] 1.6 Lambda 経由の CRUD が引き続き動作することを `https://pantry-panel-xi.vercel.app` で手動確認
+- [x] 1.3 Supabase Dashboard の SQL Editor で `002` を適用し、Database → Replication で `stock_items` が含まれることを確認
+- [x] 1.4 Supabase Dashboard の SQL Editor で `003` を適用し、`SELECT * FROM pg_policies WHERE tablename='stock_items'` でポリシーを確認
+- [x] 1.5 Supabase Dashboard の Table Editor で anon ロールから INSERT が拒否されることを確認（手動）
+- [x] 1.6 Lambda 経由の CRUD が引き続き動作することを `https://pantry-panel-xi.vercel.app` で手動確認
 
 ## 2. Frontend dependencies と env
 
-- [ ] 2.1 `frontend/package.json` に `@supabase/supabase-js` の最新安定版を追加（`npm install`、Web 検索でバージョン確認）
-- [ ] 2.2 `frontend/.env.local.example` に `NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_ANON_KEY` を追記（コメントで取得元を明記）
+- [x] 2.1 `frontend/package.json` に `@supabase/supabase-js` の最新安定版を追加（`npm install`、Web 検索でバージョン確認）
+- [x] 2.2 `frontend/.env.local.example` に `NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_ANON_KEY` を追記（コメントで取得元を明記）
 - [ ] 2.3 ローカル `.env.local` に開発用 Supabase の値を設定（git 管理外）
 
 ## 3. Supabase client と hook（Test → Implementation）
