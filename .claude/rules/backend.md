@@ -46,6 +46,10 @@ go run .
 - 現状: SQL ファイルを手動で SQL Editor に貼り付けて実行
 - 将来検討: `golang-migrate` を CI ジョブで実行 / 起動時に embed.FS で自動適用
 
+#### Supabase 専用マイグレーション（002, 003）の注意点
+
+`002_enable_realtime_stock_items.sql` と `003_stock_items_rls.sql` は Supabase 固有の機能（`supabase_realtime` publication / `anon` ロール）を使用する。local postgres や CI postgres には存在しないため、`DO $$ IF EXISTS ... END $$` ガードで安全に skip されるよう実装済み。Supabase 上では条件が真になり通常通り適用される。
+
 ## 本番デプロイ（Lambda + LWA）の概要
 
 main への push で **`.github/workflows/deploy-backend.yml`** が自動実行され、ECR build/push → Lambda update-function-code → smoke test まで実施される（Phase 2.5d）。手動操作は通常不要。

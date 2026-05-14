@@ -71,3 +71,8 @@ jobs:
       - name: Run E2E tests
         run: npx playwright test
         working-directory: frontend
+        env:
+          PLAYWRIGHT_SUPABASE_URL: ${{ secrets.SUPABASE_URL_E2E }}
+          PLAYWRIGHT_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY_E2E }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL_E2E }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY_E2E }}

@@ -90,15 +90,17 @@ Phase 1–2 で実装した機能を本番（Vercel + AWS Lambda + Supabase）�
 
 ### Phase 3.5: Supabase Realtime — 本番のリアルタイム機構
 
+**状態: ✅ 完了**
+
 Frontend が Supabase Realtime を購読し、Postgres の `stock_items` 変更を直接受信する。Backend は変更通知の経路には介在せず、CRUD REST API のみを提供する。
 
-**実装方針:**
-- Frontend に `@supabase/supabase-js` を導入し、`stock_items` テーブルの Realtime publication を購読
-- 変更受信時に：
-  - 受信ペイロードを直接画面に反映（小規模なので十分）
-  - もしくは backend REST API で再取得（authorization が必要な操作のみ）
-- Supabase Dashboard で `stock_items` の Realtime を有効化
-- Lambda 経由の REST CRUD は変更なし（書込は引き続き backend 経由）
+**実装済み内容:**
+- `@supabase/supabase-js` を frontend に導入（`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` で設定）
+- `useStockItemsRealtime` hook: `stock_items` の `postgres_changes` を購読し、変更時に REST 再取得で画面を更新
+- RLS 有効化（`003_stock_items_rls.sql`）: anon は SELECT のみ許可、書込は Lambda (postgres ロール) 経由のみ
+- Supabase Realtime publication に `stock_items` を追加（`002_enable_realtime_stock_items.sql`）
+- E2E テスト（Playwright）: 2 BrowserContext で INSERT / wantToBuy トグル / DELETE の伝播を検証。`PLAYWRIGHT_SUPABASE_URL` / `_ANON_KEY` 未設定時は自動 skip
+- env 未設定でも REST CRUD は正常動作し、コンソールに warn が 1 度出て Realtime のみ無効になる
 
 ### Phase 4: 表示・付加機能
 
