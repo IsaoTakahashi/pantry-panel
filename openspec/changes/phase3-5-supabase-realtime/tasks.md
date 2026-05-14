@@ -11,20 +11,20 @@
 
 - [x] 2.1 `frontend/package.json` に `@supabase/supabase-js` の最新安定版を追加（`npm install`、Web 検索でバージョン確認）
 - [x] 2.2 `frontend/.env.local.example` に `NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_ANON_KEY` を追記（コメントで取得元を明記）
-- [ ] 2.3 ローカル `.env.local` に開発用 Supabase の値を設定（git 管理外）
+- [x] 2.3 ローカル `.env.local` に開発用 Supabase の値を設定（git 管理外）
 
 ## 3. Supabase client と hook（Test → Implementation）
 
 - [ ] 3.1 `frontend/src/lib/supabaseClient.ts` のテスト方針を Claude が提示（env 未設定時の挙動など、何をテストするか）
-- [ ] 3.2 ユーザーが `frontend/src/lib/supabaseClient.test.ts` を実装、Claude がレビュー
-- [ ] 3.3 ユーザーが `frontend/src/lib/supabaseClient.ts` を実装（env を読んで `createClient` でシングルトン export、未設定時は null を返して warn）、Claude がレビュー
-- [ ] 3.4 `frontend/src/lib/useStockItemsRealtime.ts` のテスト方針を Claude が提示（subscribe / unsubscribe / onChange 呼出 / env 未設定スキップ / 再接続時の onChange）
-- [ ] 3.5 ユーザーが `frontend/src/lib/useStockItemsRealtime.test.tsx` を実装、Claude がレビュー
+- [x] 3.2 ユーザーが `frontend/src/lib/supabaseClient.test.ts` を実装、Claude がレビュー
+- [x] 3.3 ユーザーが `frontend/src/lib/supabaseClient.ts` を実装（env を読んで `createClient` でシングルトン export、未設定時は null を返して warn）、Claude がレビュー
+- [x] 3.4 `frontend/src/lib/useStockItemsRealtime.ts` のテスト方針を Claude が提示（subscribe / unsubscribe / onChange 呼出 / env 未設定スキップ / 再接続時の onChange）
+- [x] 3.5 ユーザーが `frontend/src/lib/useStockItemsRealtime.test.tsx` を実装、Claude がレビュー
   - Supabase client を mock し、`channel(...).on(...).subscribe(callback)` の lifecycle を検証
   - `onChange` が INSERT / UPDATE / DELETE のいずれでも 1 度呼ばれること
   - 再接続時（`SUBSCRIBED` event を再発火）に `onChange` が呼ばれること
   - env 未設定時に subscribe しないこと
-- [ ] 3.6 ユーザーが `frontend/src/lib/useStockItemsRealtime.ts` を実装、Claude がレビュー
+- [x] 3.6 ユーザーが `frontend/src/lib/useStockItemsRealtime.ts` を実装、Claude がレビュー
 
 ## 4. Page 統合
 
