@@ -44,7 +44,7 @@
 
 ## 6. CI / デプロイ設定
 
-- [x] 6.1 `.github/workflows/e2e.yml` を確認し、Realtime E2E が走るよう必要なら env を投入する分岐を追加（GitHub Secrets `SUPABASE_URL_E2E`, `SUPABASE_ANON_KEY_E2E` を読む）
+- [x] 6.1 `.github/workflows/e2e.yml` を確認。Realtime E2E は CI の backend が local postgres に書き込むため Supabase Realtime が発火しない構造上、CI では常に skip（env を渡しても timeout 失敗になるため渡さない）。Realtime E2E はローカル手動確認（Task 7.1）で担保する
 - [x] 6.2 GitHub repository Secrets に `SUPABASE_URL_E2E` と `SUPABASE_ANON_KEY_E2E` を登録
 - [x] 6.3 Vercel Dashboard で `NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_ANON_KEY` を Production / Preview / Development の全環境に追加
 
