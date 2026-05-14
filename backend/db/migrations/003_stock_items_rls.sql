@@ -18,14 +18,14 @@
 
 ALTER TABLE public.stock_items ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "stock_items anon select"
-  ON public.stock_items
-  FOR SELECT
-  TO anon
-  USING (true);
-
-CREATE POLICY "stock_items authenticated select"
-  ON public.stock_items
-  FOR SELECT
-  TO authenticated
-  USING (true);
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    CREATE POLICY "stock_items anon select"
+      ON public.stock_items FOR SELECT TO anon USING (true);
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE POLICY "stock_items authenticated select"
+      ON public.stock_items FOR SELECT TO authenticated USING (true);
+  END IF;
+END $$;

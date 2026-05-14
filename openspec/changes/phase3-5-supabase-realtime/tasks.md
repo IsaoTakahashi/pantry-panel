@@ -28,33 +28,33 @@
 
 ## 4. Page 統合
 
-- [ ] 4.1 `frontend/src/app/stock-items/page.test.tsx` に Realtime 経由の再取得テストを追加（hook を mock し、`onChange` を呼ぶと `fetchStockItems` mock が再度呼ばれることを検証）。テスト方針は Claude が提示、ユーザーが実装、Claude がレビュー
-- [ ] 4.2 `frontend/src/app/stock-items/page.tsx` で `useStockItemsRealtime(() => fetchStockItems().then(setItems))` を呼び込む。`loading` を二度目以降に true に戻さないこと、エラー時に既存表示を壊さないことを満たす実装。ユーザーが実装、Claude がレビュー
+- [x] 4.1 `frontend/src/app/stock-items/page.test.tsx` に Realtime 経由の再取得テストを追加（hook を mock し、`onChange` を呼ぶと `fetchStockItems` mock が再度呼ばれることを検証）。テスト方針は Claude が提示、ユーザーが実装、Claude がレビュー
+- [x] 4.2 `frontend/src/app/stock-items/page.tsx` で `useStockItemsRealtime(() => fetchStockItems().then(setItems))` を呼び込む。`loading` を二度目以降に true に戻さないこと、エラー時に既存表示を壊さないことを満たす実装。ユーザーが実装、Claude がレビュー
 
 ## 5. E2E テスト
 
-- [ ] 5.1 `frontend/e2e/realtime-sync.spec.ts` のテスト方針と structure を Claude が提示
-- [ ] 5.2 ユーザーが `frontend/e2e/realtime-sync.spec.ts` を実装、Claude がレビュー
+- [x] 5.1 `frontend/e2e/realtime-sync.spec.ts` のテスト方針と structure を Claude が提示
+- [x] 5.2 ユーザーが `frontend/e2e/realtime-sync.spec.ts` を実装、Claude がレビュー
   - 2 つの BrowserContext を起動
   - Context A で create → Context B でカード表示を `waitFor`
   - Context A で wantToBuy トグル → Context B で `aria-pressed` 変化を `waitFor`
   - Context A で delete → Context B でカード消失を `waitFor`
   - `PLAYWRIGHT_SUPABASE_URL` / `_ANON_KEY` が未設定なら `test.skip` で全ケースをスキップ
-- [ ] 5.3 ローカルで `npm run test:e2e` を実行し、新 spec が pass することを確認
+- [x] 5.3 ローカルで `npm run test:e2e` を実行し、新 spec が pass することを確認
 
 ## 6. CI / デプロイ設定
 
-- [ ] 6.1 `.github/workflows/e2e.yml` を確認し、Realtime E2E が走るよう必要なら env を投入する分岐を追加（GitHub Secrets `SUPABASE_URL_E2E`, `SUPABASE_ANON_KEY_E2E` を読む）
-- [ ] 6.2 GitHub repository Secrets に `SUPABASE_URL_E2E` と `SUPABASE_ANON_KEY_E2E` を登録
-- [ ] 6.3 Vercel Dashboard で `NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_ANON_KEY` を Production / Preview / Development の全環境に追加
+- [x] 6.1 `.github/workflows/e2e.yml` を確認し、Realtime E2E が走るよう必要なら env を投入する分岐を追加（GitHub Secrets `SUPABASE_URL_E2E`, `SUPABASE_ANON_KEY_E2E` を読む）
+- [x] 6.2 GitHub repository Secrets に `SUPABASE_URL_E2E` と `SUPABASE_ANON_KEY_E2E` を登録
+- [x] 6.3 Vercel Dashboard で `NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_ANON_KEY` を Production / Preview / Development の全環境に追加
 
 ## 7. 動作確認 & ドキュメント
 
 - [ ] 7.1 ローカル frontend + 本番 Supabase で、別ブラウザ 2 タブを開いて Realtime 反映を手動確認
 - [ ] 7.2 main マージ後に Vercel 本番（https://pantry-panel-xi.vercel.app）を 2 端末で開いて Realtime 反映を手動確認
-- [ ] 7.3 `.claude/rules/frontend.md` の「API 連携」「テスト」セクションを Supabase Realtime 採用後の状態に更新
-- [ ] 7.4 `.claude/rules/backend.md` の Phase 3.5 関連記述を最新化（RLS / publication migration の運用ルール追記）
-- [ ] 7.5 `specs/features.md` の Phase 3.5 セクションのステータスを「✅ 完了」に更新
+- [x] 7.3 `.claude/rules/frontend.md` の「API 連携」「テスト」セクションを Supabase Realtime 採用後の状態に更新
+- [x] 7.4 `.claude/rules/backend.md` の Phase 3.5 関連記述を最新化（RLS / publication migration の運用ルール追記）
+- [x] 7.5 `specs/features.md` の Phase 3.5 セクションのステータスを「✅ 完了」に更新
 - [ ] 7.6 Issue / PR をクローズ
 
 ## 8. 検証チェックリスト（spec 受入）

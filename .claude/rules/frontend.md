@@ -23,7 +23,7 @@
 | Production Branch | `main` |
 | Build Command | デフォルト (`next build`) |
 | Output Directory | デフォルト |
-| 環境変数 (Production / Preview / Development) | `NEXT_PUBLIC_API_BASE_URL` = Lambda Function URL |
+| 環境変数 (Production / Preview / Development) | `NEXT_PUBLIC_API_BASE_URL` = Lambda Function URL, `NEXT_PUBLIC_SUPABASE_URL` = Supabase Project URL, `NEXT_PUBLIC_SUPABASE_ANON_KEY` = Supabase anon key |
 
 main へ push すると Vercel が自動デプロイ（GH Actions 不要）。
 
@@ -31,7 +31,9 @@ main へ push すると Vercel が自動デプロイ（GH Actions 不要）。
 
 ```bash
 cp frontend/.env.local.example frontend/.env.local
-# 必要なら値を編集（デフォルトは localhost:8080 を指している）
+# NEXT_PUBLIC_API_BASE_URL: デフォルト http://localhost:8080
+# NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY: Supabase Dashboard → Settings → API から取得
+# 未設定でも REST CRUD は動作する。Supabase 未設定時はコンソールに warn が 1 度出て Realtime が無効になる
 cd frontend && npm run dev
 ```
 

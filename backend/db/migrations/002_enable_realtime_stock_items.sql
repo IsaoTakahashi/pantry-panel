@@ -10,4 +10,9 @@
 -- Rollback:
 --   ALTER PUBLICATION supabase_realtime DROP TABLE public.stock_items;
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.stock_items;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.stock_items;
+  END IF;
+END $$;
