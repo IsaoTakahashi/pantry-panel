@@ -14,5 +14,6 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
     exclude: ["e2e/**", "node_modules/**", "**/*.learning.test.{ts,tsx}"],
+    restoreMocks: true,
   },
 });

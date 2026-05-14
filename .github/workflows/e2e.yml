@@ -69,5 +69,8 @@ jobs:
           exit 1
 
       - name: Run E2E tests
+        # Realtime E2E (realtime-sync.spec.ts) requires backend writing to Supabase.
+        # CI uses local postgres, so Realtime tests are always skipped here.
+        # Run them locally with PLAYWRIGHT_SUPABASE_URL/ANON_KEY set.
         run: npx playwright test
         working-directory: frontend

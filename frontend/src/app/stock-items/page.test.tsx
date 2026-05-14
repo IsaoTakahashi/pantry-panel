@@ -2,8 +2,11 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import StockItemsPage from "@/app/stock-items/page";
+import { fetchStockItems } from "@/lib/api";
+import { useStockItemsRealtime } from "@/lib/useStockItemsRealtime";
 
 vi.mock("@/lib/api");
+vi.mock("@/lib/useStockItemsRealtime");
 
 const mockItems = [
   {
@@ -332,5 +335,25 @@ describe("StockItemsPage", () => {
     await user.click(screen.getByRole("button", { name: /醤油/ }));
 
     expect(screen.getByLabelText("名前")).toBeInTheDocument();
+  });
+
+  it("Realtime 通知で fetchStockItems が再取得される", async () => {
+    vi.mocked(fetchStockItems)
+      .mockResolvedValueOnce(mockItems)
+      .mockResolvedValueOnce(mockItems);
+
+    let captureOnChange: (() => void) | undefined;
+    vi.mocked(useStockItemsRealtime).mockImplementation((cb) => {
+      captureOnChange = cb;
+    });
+
+    render(<StockItemsPage />);
+    await screen.findByText("醤油");
+
+    const callsBefore = vi.mocked(fetchStockItems).mock.calls.length;
+    captureOnChange?.();
+    await waitFor(() => {
+      expect(fetchStockItems).toHaveBeenCalledTimes(callsBefore + 1);
+    });
   });
 });

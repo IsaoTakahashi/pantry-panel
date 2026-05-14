@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import CreateItemModal from "@/components/CreateItemModal";
 import EditItemModal from "@/components/EditItemModal";
 import FilterBar from "@/components/FilterBar";
@@ -13,6 +13,7 @@ import {
   updateStockItem,
 } from "@/lib/api";
 import { type FilterCondition, filterStockItems } from "@/lib/filterStockItems";
+import { useStockItemsRealtime } from "@/lib/useStockItemsRealtime";
 import type { StockItem } from "@/types/stockItem";
 
 export default function StockItemsPage() {
@@ -68,6 +69,14 @@ export default function StockItemsPage() {
     const data = await fetchStockItems();
     setItems(data);
   };
+
+  const handleRealtimeChange = useCallback(() => {
+    fetchStockItems()
+      .then((data) => setItems(data))
+      .catch(() => {});
+  }, []);
+
+  useStockItemsRealtime(handleRealtimeChange);
 
   useEffect(() => {
     fetchStockItems()
