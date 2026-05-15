@@ -6,7 +6,7 @@
 
 **Goal:** Phase 4 機能I「商品画像設定」を実装する。カード画像クリックで Google Custom Search 検索モーダルを開き、画像を選択して保存する。
 
-**Architecture:** Frontend → Backend `/stock-items/image-search` → Google Custom Search API のプロキシ構成。画像 URL は `stock_items.image_url` に直接保存。PATCH の partial update に `imageUrl` を追加（`json.RawMessage` で `null` 明示と未指定を判別）。
+**Architecture:** Frontend → Backend `/image-search` → Google Custom Search API のプロキシ構成。画像 URL は `stock_items.image_url` に直接保存。PATCH の partial update に `imageUrl` を追加（`json.RawMessage` で `null` 明示と未指定を判別）。
 
 **Tech Stack:** Go (Echo v5 fork) / pgx / Next.js / React / Vitest / Playwright / Google Custom Search JSON API
 
@@ -21,7 +21,7 @@
 ### Backend (new)
 - `backend/imagesearch/client.go` — `Client` interface + `GoogleClient` 実装
 - `backend/imagesearch/client_test.go` — Google API レスポンスの mock テスト
-- `backend/handler/image_search.go` — `GET /api/stock-items/image-search` ハンドラ
+- `backend/handler/image_search.go` — `GET /api/image-search` ハンドラ
 - `backend/handler/image_search_test.go` — ハンドラ単体テスト
 
 ### Backend (modify)
@@ -30,7 +30,7 @@
 - `backend/repository/stock_item_test.go` — Update with imageUrl 各ケース
 - `backend/handler/stock_item.go` — `UpdateStockItemRequest` に `ImageURL json.RawMessage` 追加、null 判別ロジック
 - `backend/handler/stock_item_test.go` — PATCH imageUrl 各ケース
-- `backend/main.go` — `/api/stock-items/image-search` ルート追加、env var 読み込み
+- `backend/main.go` — `/api/image-search` ルート追加、env var 読み込み
 - `backend/.env.local.example`（新規 or 既存に追記）
 
 ### Frontend (new)
@@ -541,7 +541,7 @@ func TestImageSearch_Success(t *testing.T) {
 	h := NewImageSearchHandler(&stubImageClient{
 		results: []imagesearch.Result{{ImageURL: "https://x/a.jpg", ThumbnailURL: "https://x/a-t.jpg", Title: "A"}},
 	})
-	req := httptest.NewRequest(http.MethodGet, "/api/stock-items/image-search?q=apple", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/image-search?q=apple", nil)
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)
 
@@ -552,7 +552,7 @@ func TestImageSearch_Success(t *testing.T) {
 
 func TestImageSearch_MissingQuery(t *testing.T) {
 	h := NewImageSearchHandler(&stubImageClient{})
-	req := httptest.NewRequest(http.MethodGet, "/api/stock-items/image-search", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/image-search", nil)
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)
 	require.NoError(t, h.Search(c))
@@ -561,7 +561,7 @@ func TestImageSearch_MissingQuery(t *testing.T) {
 
 func TestImageSearch_QuotaExceeded(t *testing.T) {
 	h := NewImageSearchHandler(&stubImageClient{err: imagesearch.ErrQuotaExceeded})
-	req := httptest.NewRequest(http.MethodGet, "/api/stock-items/image-search?q=x", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/image-search?q=x", nil)
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)
 	require.NoError(t, h.Search(c))
@@ -573,7 +573,7 @@ func TestImageSearch_UpstreamFailure(t *testing.T) {
 	// stub のエラーが ErrUpstreamFailure を包んでなくても 502 にする実装
 	// 実装側で errors.Is(err, ErrUpstreamFailure) は handler 外で起きるので
 	// ここでは「Quota 以外のエラーは 502」のロジックを検証する
-	req := httptest.NewRequest(http.MethodGet, "/api/stock-items/image-search?q=x", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/image-search?q=x", nil)
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)
 	require.NoError(t, h.Search(c))
@@ -582,7 +582,7 @@ func TestImageSearch_UpstreamFailure(t *testing.T) {
 
 func TestImageSearch_NilClient_ReturnsServiceUnavailable(t *testing.T) {
 	h := NewImageSearchHandler(nil) // env 未設定時の挙動
-	req := httptest.NewRequest(http.MethodGet, "/api/stock-items/image-search?q=x", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/image-search?q=x", nil)
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)
 	require.NoError(t, h.Search(c))
@@ -697,7 +697,7 @@ func main() {
 	e.POST("/api/stock-items", stockItemHandler.Create)
 	e.PATCH("/api/stock-items/:id", stockItemHandler.Update)
 	e.DELETE("/api/stock-items/:id", stockItemHandler.Delete)
-	e.GET("/api/stock-items/image-search", imageSearchHandler.Search) // ◀ 追加
+	e.GET("/api/image-search", imageSearchHandler.Search) // ◀ 追加
 	...
 }
 ```
@@ -711,7 +711,7 @@ export GOOGLE_CSE_ID="<your-cse-id>"
 export DATABASE_URL="postgres://pantry:pantry@localhost:5432/pantry_panel?sslmode=disable"
 go run .
 # 別タブで:
-curl 'http://localhost:8080/api/stock-items/image-search?q=apple' | jq .
+curl 'http://localhost:8080/api/image-search?q=apple' | jq .
 ```
 Expected: `{ "items": [{ "imageUrl": "...", "thumbnailUrl": "...", "title": "..." }, ...] }`
 
@@ -721,7 +721,7 @@ env 未設定時は `503 image search is not configured` が返ること（既�
 
 ```bash
 git add backend/handler/image_search.go backend/handler/image_search_test.go backend/main.go
-git commit -m "Add GET /stock-items/image-search proxy endpoint"
+git commit -m "Add GET /image-search proxy endpoint"
 ```
 
 ---
@@ -733,13 +733,13 @@ git commit -m "Add GET /stock-items/image-search proxy endpoint"
 - Modify: `.claude/rules/backend.md`
 - Create or Modify: `backend/.env.local.example`
 
-- [ ] **Step 1: `specs/openapi.yml` に `/stock-items/image-search` 追加 & `PATCH` の body に imageUrl 追加**
+- [ ] **Step 1: `specs/openapi.yml` に `/image-search` 追加 & `PATCH` の body に imageUrl 追加**
 
 `specs/openapi.yml` 該当箇所:
 
 ```yaml
 paths:
-  /stock-items/image-search:
+  /image-search:
     get:
       summary: Search images via Google Custom Search
       parameters:
@@ -791,7 +791,7 @@ PATCH の request schema に追加:
 
 - [ ] **Step 2: `.claude/rules/backend.md` に env vars と endpoint を追記**
 
-「環境変数 (Lambda)」セクションに `GOOGLE_CSE_API_KEY` / `GOOGLE_CSE_ID` を追加。「API 設計」セクションに `GET /api/stock-items/image-search` を追加。
+「環境変数 (Lambda)」セクションに `GOOGLE_CSE_API_KEY` / `GOOGLE_CSE_ID` を追加。「API 設計」セクションに `GET /api/image-search` を追加。
 
 - [ ] **Step 3: `backend/.env.local.example` を作成 / 更新**
 
@@ -949,7 +949,7 @@ export class ImageSearchError extends Error {
 
 async function searchImages(query: string, num = 10): Promise<ImageSearchResult[]> {
   const params = new URLSearchParams({ q: query, num: String(num) });
-  const response = await fetch(`${API_BASE_URL}/api/stock-items/image-search?${params}`);
+  const response = await fetch(`${API_BASE_URL}/api/image-search?${params}`);
   if (!response.ok) {
     if (response.status === 429) throw new ImageSearchError("quota");
     if (response.status === 502) throw new ImageSearchError("upstream");
@@ -1497,7 +1497,7 @@ import { expect, test } from "@playwright/test";
 
 test("画像選択フロー: 検索 → 選択 → 解除", async ({ page }) => {
   // backend の image-search を route stub
-  await page.route("**/api/stock-items/image-search**", async (route) => {
+  await page.route("**/api/image-search**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -1569,7 +1569,7 @@ git commit -m "Add Playwright E2E for image selection flow"
 git push -u origin 64-phase4-product-image
 gh pr create --draft --title "Phase 4 機能I: 商品画像設定" --body "$(cat <<'EOF'
 ## Summary
-- Add `GET /api/stock-items/image-search` proxy to Google Custom Search
+- Add `GET /api/image-search` proxy to Google Custom Search
 - Extend `PATCH /api/stock-items/:id` to accept `imageUrl` (string | null)
 - Add `ImageSelectionModal` with auto-search on open
 - Add image area to `ItemCard` (64px) and `ItemCardSimple` (32px) with placeholder
@@ -1634,7 +1634,7 @@ AWS Console → Lambda `pantry-panel-backend` → Configuration → Environment 
 設定後 Function URL に curl で動作確認:
 
 ```bash
-curl 'https://<function-url>/api/stock-items/image-search?q=apple' | jq .
+curl 'https://<function-url>/api/image-search?q=apple' | jq .
 ```
 
 ---

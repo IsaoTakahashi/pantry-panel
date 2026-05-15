@@ -26,7 +26,7 @@ func (s *stubImageClient) Search(_ context.Context, _ string, _ int) ([]imagesea
 
 func setupImageSearchRouter(h *ImageSearchHandler) *echo.Echo {
 	e := echo.New()
-	e.GET("/api/stock-items/image-search", h.Search)
+	e.GET("/api/image-search", h.Search)
 	return e
 }
 
@@ -38,7 +38,7 @@ func TestImageSearch_Success(t *testing.T) {
 	})
 	e := setupImageSearchRouter(h)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/stock-items/image-search?q=apple", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/image-search?q=apple", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -53,7 +53,7 @@ func TestImageSearch_MissingQuery(t *testing.T) {
 	h := NewImageSearchHandler(&stubImageClient{})
 	e := setupImageSearchRouter(h)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/stock-items/image-search", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/image-search", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -64,7 +64,7 @@ func TestImageSearch_QuotaExceeded(t *testing.T) {
 	h := NewImageSearchHandler(&stubImageClient{err: imagesearch.ErrQuotaExceeded})
 	e := setupImageSearchRouter(h)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/stock-items/image-search?q=x", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/image-search?q=x", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -75,7 +75,7 @@ func TestImageSearch_UpstreamFailure(t *testing.T) {
 	h := NewImageSearchHandler(&stubImageClient{err: errors.New("boom")})
 	e := setupImageSearchRouter(h)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/stock-items/image-search?q=x", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/image-search?q=x", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -86,7 +86,7 @@ func TestImageSearch_NilClient_ReturnsServiceUnavailable(t *testing.T) {
 	h := NewImageSearchHandler(nil)
 	e := setupImageSearchRouter(h)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/stock-items/image-search?q=x", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/image-search?q=x", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -100,7 +100,7 @@ func TestImageSearch_NumParamRespected(t *testing.T) {
 	h := NewImageSearchHandler(stub)
 	e := setupImageSearchRouter(h)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/stock-items/image-search?q=x&num=3", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/image-search?q=x&num=3", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 

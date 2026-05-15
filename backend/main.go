@@ -60,7 +60,7 @@ func main() {
 
 	e.GET("/health", handler.HealthCheck(pool))
 	e.GET("/api/stock-items", stockItemHandler.List)
-	e.GET("/api/stock-items/image-search", imageSearchHandler.Search)
+	e.GET("/api/image-search", imageSearchHandler.Search)
 	e.POST("/api/stock-items", stockItemHandler.Create)
 	e.PATCH("/api/stock-items/:id", stockItemHandler.Update)
 	e.DELETE("/api/stock-items/:id", stockItemHandler.Delete)

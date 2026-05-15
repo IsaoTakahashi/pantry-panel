@@ -24,7 +24,7 @@
 [Card 画像クリック]
        │
        ▼
-[ImageSelectionModal] ──(検索)──► [Backend GET /stock-items/image-search]
+[ImageSelectionModal] ──(検索)──► [Backend GET /image-search]
        │                              │
        │                              ▼
        │                       [Google Custom Search API]
@@ -47,7 +47,7 @@
 
 ## Backend
 
-### 新規エンドポイント: `GET /stock-items/image-search`
+### 新規エンドポイント: `GET /image-search`
 
 | 項目 | 内容 |
 |------|------|
@@ -71,7 +71,7 @@
 backend/
 ├── handler/
 │   ├── stock_items.go         # 既存（PATCH に imageUrl 対応追加）
-│   └── image_search.go        # NEW: GET /stock-items/image-search ハンドラ
+│   └── image_search.go        # NEW: GET /image-search ハンドラ
 ├── imagesearch/                # NEW: Google API クライアント
 │   ├── client.go              # interface + Google 実装
 │   └── client_test.go         # mock-based unit test
@@ -88,7 +88,7 @@ backend/
 | `GOOGLE_CSE_API_KEY` | Google Custom Search API key | Lambda env (KMS 暗号化) / ローカルは `backend/.env.local` |
 | `GOOGLE_CSE_ID` | Programmable Search Engine ID | 同上 |
 
-未設定時の挙動: backend 起動時に warn を出力し、`/stock-items/image-search` は 503 を返す。CRUD など他の機能は影響を受けない。
+未設定時の挙動: backend 起動時に warn を出力し、`/image-search` は 503 を返す。CRUD など他の機能は影響を受けない。
 
 ## Frontend
 
@@ -240,7 +240,7 @@ useEffect: searchImages(item.name) を自動発火
 1. 商品 "テスト商品" を新規登録
 2. カードを確認 → プレースホルダー表示
 3. 画像領域をクリック → モーダルが開く
-4. (Playwright route で /stock-items/image-search を stub、固定 3 件返却)
+4. (Playwright route で /image-search を stub、固定 3 件返却)
 5. モーダルに 3 件表示されることを確認
 6. 1 枚目をクリック → モーダル閉じる
 7. カードに選択した画像 URL が反映されることを確認
@@ -266,7 +266,7 @@ Realtime 伝播の E2E は Phase 3.5 で網羅済みのため追加しない。
 | ファイル | 更新内容 |
 |---------|---------|
 | `.claude/rules/backend.md` | 環境変数セクションに `GOOGLE_CSE_API_KEY` / `GOOGLE_CSE_ID` 追記、画像検索エンドポイント概要 |
-| `specs/openapi.yml` | `GET /stock-items/image-search` 追加、`PATCH /stock-items/:id` の body schema に `imageUrl` 追加 |
+| `specs/openapi.yml` | `GET /image-search` 追加、`PATCH /stock-items/:id` の body schema に `imageUrl` 追加 |
 | `specs/features.md` | Phase 4 の I を ✅ 完了に（実装完了後） |
 
 ## CI への影響
