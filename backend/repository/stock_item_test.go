@@ -182,6 +182,63 @@ func TestUpdate_Success(t *testing.T) {
 	}
 }
 
+func TestUpdate_ImageURL_SetValue(t *testing.T) {
+	pool := setupTestDB(t)
+	repo := NewPgStockItemRepository(pool)
+
+	item, err := repo.Create(context.Background(), "醤油", "調味料")
+	require.NoError(t, err)
+
+	url := "https://example.com/a.jpg"
+	updated, err := repo.Update(context.Background(), item.ID, UpdateParams{
+		ImageURL: &ImageURLUpdate{Value: &url},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, updated.ImageURL)
+	assert.Equal(t, "https://example.com/a.jpg", *updated.ImageURL)
+}
+
+func TestUpdate_ImageURL_ClearToNull(t *testing.T) {
+	pool := setupTestDB(t)
+	repo := NewPgStockItemRepository(pool)
+
+	item, err := repo.Create(context.Background(), "醤油", "調味料")
+	require.NoError(t, err)
+
+	url := "https://example.com/a.jpg"
+	_, err = repo.Update(context.Background(), item.ID, UpdateParams{
+		ImageURL: &ImageURLUpdate{Value: &url},
+	})
+	require.NoError(t, err)
+
+	updated, err := repo.Update(context.Background(), item.ID, UpdateParams{
+		ImageURL: &ImageURLUpdate{Value: nil},
+	})
+	require.NoError(t, err)
+	assert.Nil(t, updated.ImageURL)
+}
+
+func TestUpdate_ImageURL_UnspecifiedKeepsExisting(t *testing.T) {
+	pool := setupTestDB(t)
+	repo := NewPgStockItemRepository(pool)
+
+	item, err := repo.Create(context.Background(), "醤油", "調味料")
+	require.NoError(t, err)
+
+	url := "https://example.com/b.jpg"
+	_, err = repo.Update(context.Background(), item.ID, UpdateParams{
+		ImageURL: &ImageURLUpdate{Value: &url},
+	})
+	require.NoError(t, err)
+
+	updated, err := repo.Update(context.Background(), item.ID, UpdateParams{
+		Name: strPtr("こいくち醤油"),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, updated.ImageURL)
+	assert.Equal(t, "https://example.com/b.jpg", *updated.ImageURL)
+}
+
 func TestUpdate_NotFound(t *testing.T) {
 	pool := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
