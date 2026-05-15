@@ -9,6 +9,7 @@ import (
 
 	"github.com/IsaoTakahashi/pantry-panel/backend/db"
 	"github.com/IsaoTakahashi/pantry-panel/backend/handler"
+	"github.com/IsaoTakahashi/pantry-panel/backend/imagesearch"
 	"github.com/IsaoTakahashi/pantry-panel/backend/repository"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -32,6 +33,16 @@ func main() {
 	stockItemRepo := repository.NewPgStockItemRepository(pool)
 	stockItemHandler := handler.NewStockItemHandler(stockItemRepo)
 
+	var imageClient imagesearch.Client
+	googleKey := os.Getenv("GOOGLE_CSE_API_KEY")
+	googleCSE := os.Getenv("GOOGLE_CSE_ID")
+	if googleKey != "" && googleCSE != "" {
+		imageClient = imagesearch.NewGoogleClient(googleKey, googleCSE)
+	} else {
+		log.Println("warning: GOOGLE_CSE_API_KEY / GOOGLE_CSE_ID not set; image search disabled")
+	}
+	imageSearchHandler := handler.NewImageSearchHandler(imageClient)
+
 	matcher, err := compileOriginMatcher(parseCORSAllowedOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")))
 	if err != nil {
 		log.Fatal(err)
@@ -49,6 +60,7 @@ func main() {
 
 	e.GET("/health", handler.HealthCheck(pool))
 	e.GET("/api/stock-items", stockItemHandler.List)
+	e.GET("/api/stock-items/image-search", imageSearchHandler.Search)
 	e.POST("/api/stock-items", stockItemHandler.Create)
 	e.PATCH("/api/stock-items/:id", stockItemHandler.Update)
 	e.DELETE("/api/stock-items/:id", stockItemHandler.Delete)
