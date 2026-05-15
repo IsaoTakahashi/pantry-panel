@@ -248,6 +248,98 @@ func TestUpdate_Success(t *testing.T) {
 	assert.Equal(t, expected.WantToBuy, body.WantToBuy)
 }
 
+func TestUpdate_ImageURL_SetValue(t *testing.T) {
+	now := time.Now()
+	id := uuid.New()
+	var captured repository.UpdateParams
+	mock := &mockStockItemRepo{
+		updateFn: func(ctx context.Context, gotID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
+			captured = params
+			url := "https://example.com/a.jpg"
+			return &repository.StockItem{ID: gotID, Name: "醤油", Category: "調味料", ImageURL: &url, CreatedAt: now, UpdatedAt: now}, nil
+		},
+	}
+	h := NewStockItemHandler(mock)
+	e := setupRouter(h)
+
+	reqBody := strings.NewReader(`{"imageUrl": "https://example.com/a.jpg"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/api/stock-items/"+id.String(), reqBody)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	require.NotNil(t, captured.ImageURL)
+	require.NotNil(t, captured.ImageURL.Value)
+	assert.Equal(t, "https://example.com/a.jpg", *captured.ImageURL.Value)
+}
+
+func TestUpdate_ImageURL_ExplicitNull(t *testing.T) {
+	now := time.Now()
+	id := uuid.New()
+	var captured repository.UpdateParams
+	mock := &mockStockItemRepo{
+		updateFn: func(ctx context.Context, gotID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
+			captured = params
+			return &repository.StockItem{ID: gotID, Name: "醤油", Category: "調味料", ImageURL: nil, CreatedAt: now, UpdatedAt: now}, nil
+		},
+	}
+	h := NewStockItemHandler(mock)
+	e := setupRouter(h)
+
+	reqBody := strings.NewReader(`{"imageUrl": null}`)
+	req := httptest.NewRequest(http.MethodPatch, "/api/stock-items/"+id.String(), reqBody)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	require.NotNil(t, captured.ImageURL, "ImageURL patch wrapper should be non-nil when null is explicit")
+	assert.Nil(t, captured.ImageURL.Value, "Value should be nil to indicate NULL")
+}
+
+func TestUpdate_ImageURL_Unspecified(t *testing.T) {
+	now := time.Now()
+	id := uuid.New()
+	var captured repository.UpdateParams
+	mock := &mockStockItemRepo{
+		updateFn: func(ctx context.Context, gotID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
+			captured = params
+			return &repository.StockItem{ID: gotID, Name: "x", Category: "★", CreatedAt: now, UpdatedAt: now}, nil
+		},
+	}
+	h := NewStockItemHandler(mock)
+	e := setupRouter(h)
+
+	reqBody := strings.NewReader(`{"name": "x"}`)
+	req := httptest.NewRequest(http.MethodPatch, "/api/stock-items/"+id.String(), reqBody)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Nil(t, captured.ImageURL, "ImageURL patch wrapper should be nil when field is absent")
+}
+
+func TestUpdate_ImageURL_InvalidType(t *testing.T) {
+	mock := &mockStockItemRepo{
+		updateFn: func(ctx context.Context, id uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
+			t.Fatal("repo.Update should not be called on invalid imageUrl")
+			return nil, nil
+		},
+	}
+	h := NewStockItemHandler(mock)
+	e := setupRouter(h)
+
+	reqBody := strings.NewReader(`{"imageUrl": 123}`)
+	req := httptest.NewRequest(http.MethodPatch, "/api/stock-items/"+uuid.New().String(), reqBody)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
 func TestUpdate_InvalidID(t *testing.T) {
 	mock := &mockStockItemRepo{
 		updateFn: func(ctx context.Context, id uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {

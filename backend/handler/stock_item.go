@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -17,9 +19,10 @@ type CreateStockItemRequest struct {
 }
 
 type UpdateStockItemRequest struct {
-	Name      *string `json:"name"`
-	Category  *string `json:"category"`
-	WantToBuy *bool   `json:"wantToBuy"`
+	Name      *string         `json:"name"`
+	Category  *string         `json:"category"`
+	WantToBuy *bool           `json:"wantToBuy"`
+	ImageURL  json.RawMessage `json:"imageUrl"`
 }
 
 type ErrorResponse struct {
@@ -76,10 +79,16 @@ func (h *StockItemHandler) Update(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "Invalid request body"})
 	}
 
+	imageURLPatch, err := parseImageURLPatch(req.ImageURL)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "Invalid imageUrl"})
+	}
+
 	params := repository.UpdateParams{
 		Name:      req.Name,
 		Category:  req.Category,
 		WantToBuy: req.WantToBuy,
+		ImageURL:  imageURLPatch,
 	}
 
 	item, err := h.repo.Update(c.Request().Context(), id, params)
@@ -95,6 +104,25 @@ func (h *StockItemHandler) Update(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, item)
+}
+
+// parseImageURLPatch interprets the raw JSON value of `imageUrl` in PATCH requests:
+//   - absent (zero-length): returns nil, meaning "do not change image_url"
+//   - JSON null: returns &ImageURLUpdate{Value: nil}, meaning "set image_url to NULL"
+//   - JSON string: returns &ImageURLUpdate{Value: &s}, meaning "set image_url to s"
+//   - other JSON types (number, bool, etc.): returns error for HTTP 400
+func parseImageURLPatch(raw json.RawMessage) (*repository.ImageURLUpdate, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	if bytes.Equal(raw, []byte("null")) {
+		return &repository.ImageURLUpdate{Value: nil}, nil
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil, err
+	}
+	return &repository.ImageURLUpdate{Value: &s}, nil
 }
 
 func (h *StockItemHandler) Delete(c *echo.Context) error {
