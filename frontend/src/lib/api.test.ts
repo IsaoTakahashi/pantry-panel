@@ -4,6 +4,8 @@ import {
   deleteStockItem,
   fetchHealth,
   fetchStockItems,
+  ImageSearchError,
+  searchImages,
   updateStockItem,
 } from "./api";
 
@@ -155,5 +157,132 @@ describe("deleteStockItem", () => {
     );
 
     await expect(deleteStockItem("999")).rejects.toThrow("HTTP 404");
+  });
+});
+
+describe("searchImages", () => {
+  it("200 で ImageSearchResult[] を返す", async () => {
+    const items = [
+      {
+        imageUrl: "https://x/a.jpg",
+        thumbnailUrl: "https://x/a-t.jpg",
+        title: "A",
+      },
+    ];
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ items }), { status: 200 }),
+    );
+
+    const results = await searchImages("apple");
+    expect(results).toHaveLength(1);
+    expect(results[0].imageUrl).toBe("https://x/a.jpg");
+    expect(results[0].thumbnailUrl).toBe("https://x/a-t.jpg");
+    expect(results[0].title).toBe("A");
+  });
+
+  it("429 で ImageSearchError(kind=quota) をthrowする", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 429 }),
+    );
+
+    try {
+      await searchImages("x");
+      expect.fail("should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ImageSearchError);
+      expect((e as ImageSearchError).kind).toBe("quota");
+    }
+  });
+
+  it("502 で ImageSearchError(kind=upstream) をthrowする", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 502 }),
+    );
+
+    try {
+      await searchImages("x");
+      expect.fail("should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ImageSearchError);
+      expect((e as ImageSearchError).kind).toBe("upstream");
+    }
+  });
+
+  it("503 で ImageSearchError(kind=unavailable) をthrowする", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 503 }),
+    );
+
+    try {
+      await searchImages("x");
+      expect.fail("should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ImageSearchError);
+      expect((e as ImageSearchError).kind).toBe("unavailable");
+    }
+  });
+
+  it("その他エラーで ImageSearchError(kind=unknown) をthrowする", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 500 }),
+    );
+
+    try {
+      await searchImages("x");
+      expect.fail("should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ImageSearchError);
+      expect((e as ImageSearchError).kind).toBe("unknown");
+    }
+  });
+});
+
+describe("updateStockItem (imageUrl)", () => {
+  it("imageUrl: string を body に含めて送信する", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "1",
+          name: "醤油",
+          category: "調味料",
+          imageUrl: "https://x/a.jpg",
+          wantToBuy: false,
+          createdAt: "",
+          updatedAt: "",
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await updateStockItem("1", { imageUrl: "https://x/a.jpg" });
+
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0][1] as RequestInit).body as string,
+    );
+    expect(body).toEqual({ imageUrl: "https://x/a.jpg" });
+  });
+
+  it("imageUrl: null を body に含めて送信する（画像解除）", async () => {
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: "1",
+          name: "醤油",
+          category: "調味料",
+          imageUrl: null,
+          wantToBuy: false,
+          createdAt: "",
+          updatedAt: "",
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await updateStockItem("1", { imageUrl: null });
+
+    const body = JSON.parse(
+      (fetchSpy.mock.calls[0][1] as RequestInit).body as string,
+    );
+    expect(body).toEqual({ imageUrl: null });
   });
 });

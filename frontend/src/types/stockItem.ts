@@ -17,6 +17,13 @@ type UpdateStockItemRequest = {
   name?: string;
   category?: string;
   wantToBuy?: boolean;
+  imageUrl?: string | null;
+};
+
+type ImageSearchResult = {
+  imageUrl: string;
+  thumbnailUrl: string;
+  title: string;
 };
 
 type ErrorResponse = {
@@ -26,6 +33,7 @@ type ErrorResponse = {
 export type {
   CreateStockItemRequest,
   ErrorResponse,
+  ImageSearchResult,
   StockItem,
   UpdateStockItemRequest,
 };
