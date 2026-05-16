@@ -39,15 +39,23 @@ func (r *PgStockItemRepository) Create(ctx context.Context, name, category strin
 }
 
 func (r *PgStockItemRepository) Update(ctx context.Context, id uuid.UUID, params UpdateParams) (*StockItem, error) {
+	var imageURLSet bool
+	var imageURLValue *string
+	if params.ImageURL != nil {
+		imageURLSet = true
+		imageURLValue = params.ImageURL.Value
+	}
+
 	rows, _ := r.pool.Query(ctx,
 		`UPDATE stock_items SET
 			name = COALESCE($2, name),
 			category = COALESCE($3, category),
 			want_to_buy = COALESCE($4, want_to_buy),
+			image_url = CASE WHEN $5::boolean THEN $6 ELSE image_url END,
 			updated_at = NOW()
 		WHERE id = $1
 		RETURNING id, name, category, image_url, want_to_buy, created_at, updated_at`,
-		id, params.Name, params.Category, params.WantToBuy)
+		id, params.Name, params.Category, params.WantToBuy, imageURLSet, imageURLValue)
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[StockItem])
 }

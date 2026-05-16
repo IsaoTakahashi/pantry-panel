@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { StockItem } from "@/types/stockItem";
@@ -22,6 +22,7 @@ describe("ItemCardSimple", () => {
         onEdit={vi.fn()}
         onToggleWantToBuy={vi.fn()}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     expect(screen.getByText("醤油")).toBeInTheDocument();
@@ -38,6 +39,7 @@ describe("ItemCardSimple", () => {
         onEdit={vi.fn()}
         onToggleWantToBuy={vi.fn()}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     expect(
@@ -53,6 +55,7 @@ describe("ItemCardSimple", () => {
         onEdit={onEdit}
         onToggleWantToBuy={vi.fn()}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: /醤油/ }));
@@ -68,6 +71,7 @@ describe("ItemCardSimple", () => {
         onEdit={onEdit}
         onToggleWantToBuy={onToggleWantToBuy}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "want to buy" }));
@@ -82,6 +86,7 @@ describe("ItemCardSimple", () => {
         onEdit={vi.fn()}
         onToggleWantToBuy={vi.fn()}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     expect(screen.getByRole("button", { name: "want to buy" })).toHaveAttribute(
@@ -98,11 +103,57 @@ describe("ItemCardSimple", () => {
         onEdit={vi.fn()}
         onToggleWantToBuy={vi.fn()}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     expect(screen.getByRole("button", { name: "want to buy" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
+  });
+
+  it("imageUrl が null のときプレースホルダーが表示される", () => {
+    render(
+      <ItemCardSimple
+        item={baseItem}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "画像を設定" }),
+    ).toBeInTheDocument();
+  });
+
+  it("imageUrl が設定されているとき <img> が表示される", () => {
+    const item = { ...baseItem, imageUrl: "https://x/a.jpg" };
+    render(
+      <ItemCardSimple
+        item={item}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
+      />,
+    );
+    const img = screen.getByAltText("醤油");
+    expect(img).toHaveAttribute("src", "https://x/a.jpg");
+  });
+
+  it("画像ボタンをクリックすると onImageEdit が呼ばれる", () => {
+    const onImageEdit = vi.fn();
+    render(
+      <ItemCardSimple
+        item={baseItem}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+        onImageEdit={onImageEdit}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "画像を設定" }));
+    expect(onImageEdit).toHaveBeenCalledWith(baseItem);
   });
 });

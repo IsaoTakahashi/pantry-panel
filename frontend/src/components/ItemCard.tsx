@@ -1,4 +1,5 @@
-import { MdDelete, MdShoppingCart } from "react-icons/md";
+import Image from "next/image";
+import { MdDelete, MdImage, MdShoppingCart } from "react-icons/md";
 import type { StockItem } from "@/types/stockItem";
 
 type ItemCardProps = {
@@ -6,6 +7,7 @@ type ItemCardProps = {
   onEdit: (item: StockItem) => void;
   onToggleWantToBuy: (item: StockItem) => void;
   onDelete: (id: string) => void;
+  onImageEdit: (item: StockItem) => void;
 };
 
 export default function ItemCard({
@@ -13,6 +15,7 @@ export default function ItemCard({
   onEdit,
   onToggleWantToBuy,
   onDelete,
+  onImageEdit,
 }: ItemCardProps) {
   return (
     <article
@@ -21,7 +24,26 @@ export default function ItemCard({
     >
       <button
         type="button"
-        className="flex-1 text-left focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:ring-offset-2 rounded"
+        aria-label={item.imageUrl ? "画像を変更" : "画像を設定"}
+        onClick={() => onImageEdit(item)}
+        className="shrink-0 w-16 h-16 rounded overflow-hidden bg-gray-100 flex items-center justify-center hover:ring-2 hover:ring-[#00d1b2] focus:outline-none focus:ring-2 focus:ring-[#00d1b2]"
+      >
+        {item.imageUrl ? (
+          <Image
+            src={item.imageUrl}
+            alt={item.name}
+            unoptimized
+            width={64}
+            height={64}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <MdImage size={28} className="text-gray-400" aria-hidden />
+        )}
+      </button>
+      <button
+        type="button"
+        className="flex-1 min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:ring-offset-2 rounded"
         onClick={() => onEdit(item)}
       >
         <span className="inline-block bg-[#ebfffc] text-[#00947e] text-xs px-2 py-0.5 rounded-full mb-1">

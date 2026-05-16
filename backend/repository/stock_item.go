@@ -29,4 +29,9 @@ type UpdateParams struct {
 	Name      *string
 	Category  *string
 	WantToBuy *bool
+	ImageURL  *ImageURLUpdate
+}
+
+type ImageURLUpdate struct {
+	Value *string
 }

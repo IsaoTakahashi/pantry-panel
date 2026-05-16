@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import CreateItemModal from "@/components/CreateItemModal";
 import EditItemModal from "@/components/EditItemModal";
 import FilterBar from "@/components/FilterBar";
+import ImageSelectionModal from "@/components/ImageSelectionModal";
 import ItemCard from "@/components/ItemCard";
 import ItemCardSimple from "@/components/ItemCardSimple";
 import {
@@ -20,6 +21,9 @@ export default function StockItemsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [items, setItems] = useState<StockItem[]>([]);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
+  const [imageEditingItem, setImageEditingItem] = useState<StockItem | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterCondition>({
@@ -66,6 +70,18 @@ export default function StockItemsPage() {
   const handleDelete = async (id: string) => {
     if (!window.confirm("この商品を削除しますか？")) return;
     await deleteStockItem(id);
+    const data = await fetchStockItems();
+    setItems(data);
+  };
+
+  const handleOpenImageEdit = (item: StockItem) => {
+    setImageEditingItem(item);
+  };
+
+  const handleImageSelect = async (imageUrl: string | null) => {
+    if (!imageEditingItem) return;
+    await updateStockItem(imageEditingItem.id, { imageUrl });
+    setImageEditingItem(null);
     const data = await fetchStockItems();
     setItems(data);
   };
@@ -128,6 +144,22 @@ export default function StockItemsPage() {
               onClose={handleCloseEdit}
               onSave={handleSave}
             />
+            <ImageSelectionModal
+              item={
+                imageEditingItem ?? {
+                  id: "",
+                  name: "",
+                  category: "",
+                  imageUrl: null,
+                  wantToBuy: false,
+                  createdAt: "",
+                  updatedAt: "",
+                }
+              }
+              isOpen={!!imageEditingItem}
+              onClose={() => setImageEditingItem(null)}
+              onSelect={handleImageSelect}
+            />
             {items.length === 0 ? (
               <p className="text-center py-12 text-gray-600">
                 商品がありません
@@ -137,7 +169,7 @@ export default function StockItemsPage() {
                 該当する商品がありません
               </p>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
                 {filteredItems.map((item) => (
                   <Card
                     key={item.id}
@@ -145,6 +177,7 @@ export default function StockItemsPage() {
                     onDelete={handleDelete}
                     onEdit={handleOpenEdit}
                     onToggleWantToBuy={handleToggleWantToBuy}
+                    onImageEdit={handleOpenImageEdit}
                   />
                 ))}
               </div>

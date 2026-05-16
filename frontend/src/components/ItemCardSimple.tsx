@@ -1,4 +1,5 @@
-import { MdShoppingCart } from "react-icons/md";
+import Image from "next/image";
+import { MdImage, MdShoppingCart } from "react-icons/md";
 import type { StockItem } from "@/types/stockItem";
 
 type ItemCardProps = {
@@ -6,6 +7,7 @@ type ItemCardProps = {
   onEdit: (item: StockItem) => void;
   onToggleWantToBuy: (item: StockItem) => void;
   onDelete: (id: string) => void;
+  onImageEdit: (item: StockItem) => void;
 };
 
 export default function ItemCardSimple({
@@ -14,6 +16,7 @@ export default function ItemCardSimple({
   onToggleWantToBuy,
   // biome-ignore lint/correctness/noUnusedFunctionParameters: シンプル表示では削除機能を提供しないため、onDelete は使用しないが props として受け取る設計（design.md 参照）
   onDelete,
+  onImageEdit,
 }: ItemCardProps) {
   return (
     <article
@@ -22,13 +25,32 @@ export default function ItemCardSimple({
     >
       <button
         type="button"
+        aria-label={item.imageUrl ? "画像を変更" : "画像を設定"}
+        onClick={() => onImageEdit(item)}
+        className="shrink-0 w-8 h-8 rounded overflow-hidden bg-gray-100 flex items-center justify-center hover:ring-2 hover:ring-[#00d1b2] focus:outline-none focus:ring-2 focus:ring-[#00d1b2]"
+      >
+        {item.imageUrl ? (
+          <Image
+            src={item.imageUrl}
+            alt={item.name}
+            unoptimized
+            width={32}
+            height={32}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <MdImage size={16} className="text-gray-400" aria-hidden />
+        )}
+      </button>
+      <button
+        type="button"
         className="flex flex-1 items-center gap-2 text-left focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:ring-offset-2 rounded min-w-0"
         onClick={() => onEdit(item)}
       >
-        <span className="shrink-0 bg-[#ebfffc] text-[#00947e] text-xs px-2 py-0.5 rounded-full whitespace-nowrap">
+        <span className="shrink-0 w-16 text-center bg-[#ebfffc] text-[#00947e] text-xs px-2 py-0.5 rounded-full truncate">
           {item.category}
         </span>
-        <h3 className="text-base font-medium text-gray-900 truncate">
+        <h3 className="flex-1 min-w-0 text-base font-medium text-gray-900 truncate">
           {item.name}
         </h3>
       </button>

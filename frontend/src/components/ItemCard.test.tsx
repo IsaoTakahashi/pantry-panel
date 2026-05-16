@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { StockItem } from "@/types/stockItem";
@@ -22,6 +22,7 @@ describe("ItemCard", () => {
         onEdit={vi.fn()}
         onToggleWantToBuy={vi.fn()}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     expect(screen.getByText("醤油")).toBeInTheDocument();
@@ -35,6 +36,7 @@ describe("ItemCard", () => {
         onEdit={vi.fn()}
         onToggleWantToBuy={vi.fn()}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     expect(screen.getByRole("button", { name: "削除" })).toBeInTheDocument();
@@ -48,6 +50,7 @@ describe("ItemCard", () => {
         onEdit={vi.fn()}
         onToggleWantToBuy={vi.fn()}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     expect(screen.getByRole("button", { name: "削除" })).toBeDisabled();
@@ -61,6 +64,7 @@ describe("ItemCard", () => {
         onEdit={vi.fn()}
         onToggleWantToBuy={vi.fn()}
         onDelete={onDelete}
+        onImageEdit={vi.fn()}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "削除" }));
@@ -75,6 +79,7 @@ describe("ItemCard", () => {
         onEdit={onEdit}
         onToggleWantToBuy={vi.fn()}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     // 商品名 "醤油" を含む button を取得 (削除ボタンと区別)
@@ -91,6 +96,7 @@ describe("ItemCard", () => {
         onEdit={onEdit}
         onToggleWantToBuy={vi.fn()}
         onDelete={onDelete}
+        onImageEdit={vi.fn()}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "削除" }));
@@ -106,6 +112,7 @@ describe("ItemCard", () => {
         onEdit={onEdit}
         onToggleWantToBuy={vi.fn()}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     const editButton = screen.getByRole("button", { name: /醤油/ });
@@ -121,6 +128,7 @@ describe("ItemCard", () => {
         onEdit={vi.fn()}
         onToggleWantToBuy={vi.fn()}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     const toggle = screen.getByRole("button", { name: "want to buy" });
@@ -135,6 +143,7 @@ describe("ItemCard", () => {
         onEdit={vi.fn()}
         onToggleWantToBuy={vi.fn()}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     const toggle = screen.getByRole("button", { name: "want to buy" });
@@ -151,10 +160,56 @@ describe("ItemCard", () => {
         onEdit={onEdit}
         onToggleWantToBuy={onToggleWantToBuy}
         onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "want to buy" }));
     expect(onToggleWantToBuy).toHaveBeenCalledWith(baseItem);
     expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it("imageUrl が null のときプレースホルダーが表示される", () => {
+    render(
+      <ItemCard
+        item={baseItem}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "画像を設定" }),
+    ).toBeInTheDocument();
+  });
+
+  it("imageUrl が設定されているとき <img> が表示される", () => {
+    const item = { ...baseItem, imageUrl: "https://x/a.jpg" };
+    render(
+      <ItemCard
+        item={item}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
+      />,
+    );
+    const img = screen.getByAltText("醤油");
+    expect(img).toHaveAttribute("src", "https://x/a.jpg");
+  });
+
+  it("画像ボタンをクリックすると onImageEdit が呼ばれる", () => {
+    const onImageEdit = vi.fn();
+    render(
+      <ItemCard
+        item={baseItem}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+        onImageEdit={onImageEdit}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "画像を設定" }));
+    expect(onImageEdit).toHaveBeenCalledWith(baseItem);
   });
 });

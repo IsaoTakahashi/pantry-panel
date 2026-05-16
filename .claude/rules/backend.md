@@ -12,6 +12,7 @@
 ## API 設計
 
 - **REST のみ** (Echo): stockItems の CRUD 操作。本番では Lambda + LWA で配信
+- **画像検索プロキシ**: `GET /api/image-search?q=<query>&num=<1..10>` で Google Custom Search JSON API を中継。API key を frontend に露出させないため backend 経由とする。`GOOGLE_CSE_API_KEY` / `GOOGLE_CSE_ID` 未設定時は 503 を返す（CRUD など他機能は影響なし）
 - **WebSocket**: 本番には載せない。Phase 3 で **学習目的のローカル実装** のみ（`backend/learning/websocket/`）
 - **リアルタイム同期**: 本番は Phase 3.5 で **Supabase Realtime** を Frontend が直接購読。Backend は介在しない
 
@@ -60,7 +61,7 @@ main への push で **`.github/workflows/deploy-backend.yml`** が自動実行�
 2. **ビルド**: GH Actions が `docker buildx build --platform linux/amd64 --provenance=false --push ...` を実行（Lambda 互換 manifest のため `--provenance=false` 必須）
 3. **ECR push**: `pantry-panel-backend` リポジトリ (`ap-northeast-1`)、タグは `${{ github.sha }}` と `latest`
 4. **Lambda Function**: container image source、Memory 512 MB、Timeout 30s、`x86_64`、IAM Role: `pantry-panel-lambda-role`
-5. **環境変数 (Lambda)**: `PORT=8080`、`AWS_LWA_PORT=8080`、`AWS_LWA_READINESS_CHECK_PATH=/health`、`CORS_ALLOWED_ORIGINS=...`、`DATABASE_URL=<pooler URL>`（KMS で暗号化保存）。`CORS_ALLOWED_ORIGINS` は **wildcard `*` 対応**（`*` は `.` を跨がない）。Vercel preview URL は `https://pantry-panel-*-rictons-projects.vercel.app` のようにパターンで指定する
+5. **環境変数 (Lambda)**: `PORT=8080`、`AWS_LWA_PORT=8080`、`AWS_LWA_READINESS_CHECK_PATH=/health`、`CORS_ALLOWED_ORIGINS=...`、`DATABASE_URL=<pooler URL>`、`GOOGLE_CSE_API_KEY`、`GOOGLE_CSE_ID`（いずれも KMS で暗号化保存）。`CORS_ALLOWED_ORIGINS` は **wildcard `*` 対応**（`*` は `.` を跨がない）。Vercel preview URL は `https://pantry-panel-*-rictons-projects.vercel.app` のようにパターンで指定する。`GOOGLE_CSE_*` 未設定時は `/api/image-search` のみ 503 を返し、他の機能は動作する
 6. **Function URL**: AuthType=NONE、CORS は **空 `{}`**（Echo の CORS middleware に一本化）
 7. **resource policy**: `lambda:InvokeFunctionUrl` + `lambda:InvokeFunction` の両方を Principal `*` に許可（過剰権限の TODO あり、後日強化予定）
 

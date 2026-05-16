@@ -70,6 +70,62 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/image-search:
+    get:
+      summary: Search images via Google Custom Search
+      operationId: searchImages
+      description: |
+        Proxies to Google Custom Search JSON API (search type=image).
+        Backend が API key を保持し、frontend には露出させない。
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          description: Search query (商品名等)
+        - name: num
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 10
+          description: Maximum number of results
+      responses:
+        "200":
+          description: Image search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImageSearchResponse"
+        "400":
+          description: Query parameter q is missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Google API quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Upstream Google API failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Image search not configured (GOOGLE_CSE_API_KEY / GOOGLE_CSE_ID unset)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/stock-items/{id}:
     patch:
       summary: Update a stock item
@@ -191,6 +247,36 @@ components:
         imageUrl:
           type: string
           nullable: true
+          description: |
+            - フィールド省略時: image_url を変更しない (partial update)
+            - 文字列を送信: image_url を当該値に更新
+            - null を明示送信: image_url を NULL に更新 (画像解除)
+
+    ImageSearchResult:
+      type: object
+      required:
+        - imageUrl
+        - thumbnailUrl
+        - title
+      properties:
+        imageUrl:
+          type: string
+          description: フルサイズ画像 URL (Google CSE の `link`)
+        thumbnailUrl:
+          type: string
+          description: サムネイル画像 URL (Google CSE の `image.thumbnailLink`)
+        title:
+          type: string
+
+    ImageSearchResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageSearchResult"
 
     HealthResponse:
       type: object
