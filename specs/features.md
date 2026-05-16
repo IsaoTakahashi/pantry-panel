@@ -107,4 +107,21 @@ Frontend が Supabase Realtime を購読し、Postgres の `stock_items` 変更�
 | 順 | 機能 | 状態 | 理由 |
 |----|------|------|------|
 | 8 | H. シンプルビュー | ✅ 完了（`2026-05-07-phase4-simple-view`、Phase 3 着手前に実装） | フロントエンドのみの変更 |
-| 9 | I. 商品画像設定 | ⬜ 未着手 | 外部 API 連携が必要。コアではないため最後 |
+| 9 | I. 商品画像設定 | ✅ 完了（`2026-05-16-phase4-product-image`、PR #65） | 外部 API 連携が必要。コアではないため最後 |
+
+**Phase 4 実装済み内容（機能 I）:**
+- Backend: `GET /api/image-search?q=&num=` — Google Custom Search JSON API プロキシ。`GOOGLE_CSE_API_KEY` / `GOOGLE_CSE_ID` 未設定時は 503 を返す（CRUD は正常動作）
+- Frontend: `ImageSelectionModal` — 自動検索・手動再検索・エラー/リトライ・画像解除に対応
+- Frontend: `ItemCard` / `ItemCardSimple` に 64px / 32px 画像サムネイル + `onImageEdit` prop を追加
+- API: `updateStockItem` で `imageUrl: string | null` を送受信
+- E2E テスト（Playwright）: 画像 CSE 未設定時のエラー表示を常時検証。`PLAYWRIGHT_GOOGLE_CSE_ENABLED=1` で画像選択・解除のフルフローを実行可能
+
+**Lambda 環境変数の設定（本番稼働に必要）:**
+
+```bash
+aws lambda update-function-configuration \
+  --function-name pantry-panel-backend \
+  --environment "Variables={GOOGLE_CSE_API_KEY=<your-key>,GOOGLE_CSE_ID=<your-cx>,...}"
+```
+
+または AWS コンソール → Lambda → 環境変数 → `GOOGLE_CSE_API_KEY` / `GOOGLE_CSE_ID` を追加。
