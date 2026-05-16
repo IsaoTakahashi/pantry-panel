@@ -169,7 +169,7 @@ export default function StockItemsPage() {
                 該当する商品がありません
               </p>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
                 {filteredItems.map((item) => (
                   <Card
                     key={item.id}

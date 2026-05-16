@@ -47,10 +47,10 @@ export default function ItemCardSimple({
         className="flex flex-1 items-center gap-2 text-left focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:ring-offset-2 rounded min-w-0"
         onClick={() => onEdit(item)}
       >
-        <span className="shrink-0 bg-[#ebfffc] text-[#00947e] text-xs px-2 py-0.5 rounded-full whitespace-nowrap">
+        <span className="shrink-0 w-16 text-center bg-[#ebfffc] text-[#00947e] text-xs px-2 py-0.5 rounded-full truncate">
           {item.category}
         </span>
-        <h3 className="text-base font-medium text-gray-900 truncate">
+        <h3 className="flex-1 min-w-0 text-base font-medium text-gray-900 truncate">
           {item.name}
         </h3>
       </button>

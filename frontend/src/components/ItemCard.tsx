@@ -43,7 +43,7 @@ export default function ItemCard({
       </button>
       <button
         type="button"
-        className="flex-1 text-left focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:ring-offset-2 rounded"
+        className="flex-1 min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:ring-offset-2 rounded"
         onClick={() => onEdit(item)}
       >
         <span className="inline-block bg-[#ebfffc] text-[#00947e] text-xs px-2 py-0.5 rounded-full mb-1">
