@@ -58,20 +58,20 @@ export default function ItemCard({
         onClick={() => onToggleWantToBuy(item)}
         className={
           item.wantToBuy
-            ? "rounded bg-transparent px-3 py-1.5 text-blue-500 hover:text-blue-600 inline-flex items-center"
-            : "rounded bg-transparent px-3 py-1.5 text-gray-300 hover:text-gray-400 inline-flex items-center"
+            ? "w-11 h-8 rounded bg-transparent p-0 text-blue-500 hover:text-blue-600 inline-flex items-center justify-center"
+            : "w-11 h-8 rounded bg-transparent p-0 text-gray-300 hover:text-gray-400 inline-flex items-center justify-center"
         }
       >
-        <MdShoppingCart aria-hidden size={20} />
+        <MdShoppingCart aria-hidden size={28} />
       </button>
       <button
         type="button"
         aria-label="削除"
         disabled={item.wantToBuy}
-        className="rounded bg-[#ff3860] hover:bg-[#ff2b56] px-3 py-1.5 text-white inline-flex items-center disabled:bg-gray-300 disabled:cursor-not-allowed"
+        className="w-11 h-8 rounded bg-[#ff3860] hover:bg-[#ff2b56] p-0 text-white inline-flex items-center justify-center disabled:bg-gray-300 disabled:cursor-not-allowed"
         onClick={() => onDelete(item.id)}
       >
-        <MdDelete aria-hidden size={20} />
+        <MdDelete aria-hidden size={28} />
       </button>
     </article>
   );
