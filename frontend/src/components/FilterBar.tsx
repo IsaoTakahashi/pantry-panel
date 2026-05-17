@@ -56,7 +56,7 @@ export default function FilterBar({
             type="button"
             aria-label="クリア"
             onClick={handleClearSearchText}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+            className="absolute right-0 top-1/2 -translate-y-1/2 flex h-full items-center px-3 text-xl leading-none text-gray-500 hover:text-gray-700 focus:outline-none"
           >
             ×
           </button>

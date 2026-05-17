@@ -40,8 +40,12 @@ export default function StockItemsPage() {
 
   const Card = viewMode === "simple" ? ItemCardSimple : ItemCard;
 
-  const handleCreate = async (name: string, category: string) => {
-    await createStockItem({ name, category });
+  const handleCreate = async (
+    name: string,
+    category: string,
+    wantToBuy: boolean,
+  ) => {
+    await createStockItem({ name, category, wantToBuy });
     const data = await fetchStockItems();
     setItems(data);
   };
@@ -134,7 +138,9 @@ export default function StockItemsPage() {
             </div>
             <CreateItemModal
               isOpen={isModalOpen}
+              initialName={filter.searchText}
               initialCategory={filter.category ?? "★"}
+              initialWantToBuy={filter.wantToBuyOnly}
               onClose={() => setIsModalOpen(false)}
               onCreate={handleCreate}
             />

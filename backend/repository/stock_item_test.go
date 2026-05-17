@@ -83,7 +83,7 @@ func TestCreate_Success(t *testing.T) {
 	pool := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料")
+	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "醤油", item.Name)
 	assert.Equal(t, "調味料", item.Category)
@@ -92,13 +92,22 @@ func TestCreate_Success(t *testing.T) {
 	assert.NotEqual(t, uuid.Nil, item.ID)
 }
 
+func TestCreate_WithWantToBuyTrue(t *testing.T) {
+	pool := setupTestDB(t)
+	repo := NewPgStockItemRepository(pool)
+
+	item, err := repo.Create(context.Background(), "醤油", "調味料", boolPtr(true))
+	require.NoError(t, err)
+	assert.True(t, item.WantToBuy)
+}
+
 func TestCreate_DuplicateName(t *testing.T) {
 	pool := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	_, err := repo.Create(context.Background(), "醤油", "調味料")
+	_, err := repo.Create(context.Background(), "醤油", "調味料", nil)
 	require.NoError(t, err)
-	_, err = repo.Create(context.Background(), "醤油", "飲み物")
+	_, err = repo.Create(context.Background(), "醤油", "飲み物", nil)
 	require.Error(t, err)
 	assert.Error(t, err, "should not allow duplicate names")
 }
@@ -116,9 +125,9 @@ func TestList_OrderByUpdatedAtDesc(t *testing.T) {
 	pool := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	_, err := repo.Create(context.Background(), "醤油", "調味料")
+	_, err := repo.Create(context.Background(), "醤油", "調味料", nil)
 	require.NoError(t, err)
-	_, err = repo.Create(context.Background(), "味噌", "調味料")
+	_, err = repo.Create(context.Background(), "味噌", "調味料", nil)
 	require.NoError(t, err)
 	_, err = pool.Exec(context.Background(),
 		"UPDATE stock_items SET updated_at = NOW() + INTERVAL '1 second' WHERE name = '醤油'")
@@ -171,7 +180,7 @@ func TestUpdate_Success(t *testing.T) {
 			pool := setupTestDB(t)
 			repo := NewPgStockItemRepository(pool)
 
-			item, err := repo.Create(context.Background(), "醤油", "調味料")
+			item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
 			require.NoError(t, err)
 			updatedItem, err := repo.Update(context.Background(), item.ID, tt.params)
 			require.NoError(t, err)
@@ -186,7 +195,7 @@ func TestUpdate_ImageURL_SetValue(t *testing.T) {
 	pool := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料")
+	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
 	require.NoError(t, err)
 
 	url := "https://example.com/a.jpg"
@@ -202,7 +211,7 @@ func TestUpdate_ImageURL_ClearToNull(t *testing.T) {
 	pool := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料")
+	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
 	require.NoError(t, err)
 
 	url := "https://example.com/a.jpg"
@@ -222,7 +231,7 @@ func TestUpdate_ImageURL_UnspecifiedKeepsExisting(t *testing.T) {
 	pool := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料")
+	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
 	require.NoError(t, err)
 
 	url := "https://example.com/b.jpg"
@@ -256,9 +265,9 @@ func TestUpdate_DuplicateName(t *testing.T) {
 	pool := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item1, err := repo.Create(context.Background(), "醤油", "調味料")
+	item1, err := repo.Create(context.Background(), "醤油", "調味料", nil)
 	require.NoError(t, err)
-	item2, err := repo.Create(context.Background(), "味噌", "調味料")
+	item2, err := repo.Create(context.Background(), "味噌", "調味料", nil)
 	require.NoError(t, err)
 
 	updateParams := UpdateParams{
@@ -273,7 +282,7 @@ func TestDelete_Success(t *testing.T) {
 	pool := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料")
+	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
 	require.NoError(t, err)
 	err = repo.Delete(context.Background(), item.ID)
 	require.NoError(t, err)
