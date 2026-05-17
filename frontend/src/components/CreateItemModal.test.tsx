@@ -3,55 +3,36 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import CreateItemModal from "./CreateItemModal";
 
+const defaultProps = {
+  isOpen: true,
+  initialName: "",
+  initialCategory: "★",
+  initialWantToBuy: false,
+  onClose: vi.fn(),
+  onCreate: vi.fn(),
+};
+
 describe("CreateItemModal", () => {
   it("isOpen=falseのとき何も表示しない", () => {
-    render(
-      <CreateItemModal
-        isOpen={false}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
+    render(<CreateItemModal {...defaultProps} isOpen={false} />);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("isOpen=true のとき名前・カテゴリ・送信ボタンが表示される", () => {
-    render(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
+    render(<CreateItemModal {...defaultProps} />);
     expect(screen.getByLabelText("名前")).toBeInTheDocument();
     expect(screen.getByLabelText("カテゴリ")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "追加" })).toBeInTheDocument();
   });
 
   it("名前が空のとき送信ボタンが disabled", () => {
-    render(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
+    render(<CreateItemModal {...defaultProps} />);
     expect(screen.getByRole("button", { name: "追加" })).toBeDisabled();
   });
 
   it("名前を入力すると送信ボタンが enabled になる（カテゴリは初期値で常に有効）", async () => {
     const user = userEvent.setup();
-    render(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
+    render(<CreateItemModal {...defaultProps} />);
     await user.type(screen.getByLabelText("名前"), "醤油");
     expect(screen.getByRole("button", { name: "追加" })).toBeEnabled();
   });
@@ -62,8 +43,7 @@ describe("CreateItemModal", () => {
     const onClose = vi.fn();
     render(
       <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
+        {...defaultProps}
         onClose={onClose}
         onCreate={onCreate}
       />,
@@ -72,7 +52,7 @@ describe("CreateItemModal", () => {
     await user.selectOptions(screen.getByLabelText("カテゴリ"), "調味料");
     await user.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => {
-      expect(onCreate).toHaveBeenCalledWith("醤油", "調味料");
+      expect(onCreate).toHaveBeenCalledWith("醤油", "調味料", false);
       expect(onClose).toHaveBeenCalled();
     });
   });
@@ -80,14 +60,7 @@ describe("CreateItemModal", () => {
   it("重複エラーでエラーメッセージが表示される", async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn().mockRejectedValue(new Error("HTTP 409"));
-    render(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={onCreate}
-      />,
-    );
+    render(<CreateItemModal {...defaultProps} onCreate={onCreate} />);
     await user.type(screen.getByLabelText("名前"), "醤油");
     await user.click(screen.getByRole("button", { name: "追加" }));
 
@@ -99,45 +72,17 @@ describe("CreateItemModal", () => {
   it("キャンセルボタンを押すと onClose が呼ばれる", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
-        onClose={onClose}
-        onCreate={vi.fn()}
-      />,
-    );
+    render(<CreateItemModal {...defaultProps} onClose={onClose} />);
     await user.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(onClose).toHaveBeenCalled();
   });
 
   it("キャンセル後に再度開くと入力がリセットされる", async () => {
     const user = userEvent.setup();
-    const { rerender } = render(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
+    const { rerender } = render(<CreateItemModal {...defaultProps} />);
     await user.type(screen.getByLabelText("名前"), "醤油");
-    rerender(
-      <CreateItemModal
-        isOpen={false}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
-    rerender(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
+    rerender(<CreateItemModal {...defaultProps} isOpen={false} />);
+    rerender(<CreateItemModal {...defaultProps} isOpen={true} />);
     expect(screen.getByLabelText("名前")).toHaveValue("");
   });
 
@@ -145,97 +90,108 @@ describe("CreateItemModal", () => {
     const user = userEvent.setup();
     const onCreate = vi.fn().mockResolvedValue(undefined);
     const { rerender } = render(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={onCreate}
-      />,
+      <CreateItemModal {...defaultProps} onCreate={onCreate} />,
     );
     await user.type(screen.getByLabelText("名前"), "醤油");
     await user.click(screen.getByRole("button", { name: "追加" }));
     rerender(
-      <CreateItemModal
-        isOpen={false}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={onCreate}
-      />,
+      <CreateItemModal {...defaultProps} isOpen={false} onCreate={onCreate} />,
     );
     rerender(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={onCreate}
-      />,
+      <CreateItemModal {...defaultProps} isOpen={true} onCreate={onCreate} />,
     );
     expect(screen.getByLabelText("名前")).toHaveValue("");
   });
 
   it("初期カテゴリは initialCategory で選択される (★)", () => {
-    render(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
+    render(<CreateItemModal {...defaultProps} initialCategory="★" />);
     expect(screen.getByLabelText("カテゴリ")).toHaveValue("★");
   });
 
   it("初期カテゴリは initialCategory で選択される (調味料)", () => {
-    render(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="調味料"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
+    render(<CreateItemModal {...defaultProps} initialCategory="調味料" />);
     expect(screen.getByLabelText("カテゴリ")).toHaveValue("調味料");
   });
 
   it("「選択してください」option は存在しない", () => {
-    render(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
+    render(<CreateItemModal {...defaultProps} />);
     const select = screen.getByLabelText("カテゴリ") as HTMLSelectElement;
     const optionValues = Array.from(select.options).map((o) => o.value);
     expect(optionValues).not.toContain("");
   });
 
   it("再度開くときに新しい initialCategory にリセットされる", () => {
-    const { rerender } = render(
-      <CreateItemModal
-        isOpen={true}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
+    const { rerender } = render(<CreateItemModal {...defaultProps} />);
+    rerender(<CreateItemModal {...defaultProps} isOpen={false} />);
     rerender(
       <CreateItemModal
-        isOpen={false}
-        initialCategory="★"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
-      />,
-    );
-    rerender(
-      <CreateItemModal
+        {...defaultProps}
         isOpen={true}
         initialCategory="調味料"
-        onClose={vi.fn()}
-        onCreate={vi.fn()}
       />,
     );
     expect(screen.getByLabelText("カテゴリ")).toHaveValue("調味料");
+  });
+
+  it("initialName が指定されると名前フィールドに初期入力される", () => {
+    render(<CreateItemModal {...defaultProps} initialName="醤油" />);
+    expect(screen.getByLabelText("名前")).toHaveValue("醤油");
+  });
+
+  it("initialName が空文字の場合は名前フィールドも空", () => {
+    render(<CreateItemModal {...defaultProps} initialName="" />);
+    expect(screen.getByLabelText("名前")).toHaveValue("");
+  });
+
+  it("initialWantToBuy=true のとき買いたいトグルが ON になる", () => {
+    render(<CreateItemModal {...defaultProps} initialWantToBuy={true} />);
+    expect(screen.getByRole("button", { name: "買いたい" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("initialWantToBuy=false のとき買いたいトグルが OFF になる", () => {
+    render(<CreateItemModal {...defaultProps} initialWantToBuy={false} />);
+    expect(screen.getByRole("button", { name: "買いたい" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("モーダルを閉じて再度開くと initialName / initialWantToBuy で再初期化される", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <CreateItemModal
+        {...defaultProps}
+        initialName="醤油"
+        initialWantToBuy={true}
+      />,
+    );
+    await user.clear(screen.getByLabelText("名前"));
+    await user.click(screen.getByRole("button", { name: "買いたい" }));
+
+    rerender(
+      <CreateItemModal
+        {...defaultProps}
+        isOpen={false}
+        initialName="醤油"
+        initialWantToBuy={true}
+      />,
+    );
+    rerender(
+      <CreateItemModal
+        {...defaultProps}
+        isOpen={true}
+        initialName="醤油"
+        initialWantToBuy={true}
+      />,
+    );
+
+    expect(screen.getByLabelText("名前")).toHaveValue("醤油");
+    expect(screen.getByRole("button", { name: "買いたい" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });

@@ -1,32 +1,43 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MdShoppingCart } from "react-icons/md";
 import { CATEGORIES } from "@/constants/categories";
 
 type CreateItemModalProps = {
   isOpen: boolean;
+  initialName: string;
   initialCategory: string;
+  initialWantToBuy: boolean;
   onClose: () => void;
-  onCreate: (name: string, category: string) => Promise<void>;
+  onCreate: (
+    name: string,
+    category: string,
+    wantToBuy: boolean,
+  ) => Promise<void>;
 };
 
 export default function CreateItemModal({
   isOpen,
+  initialName,
   initialCategory,
+  initialWantToBuy,
   onClose,
   onCreate,
 }: CreateItemModalProps) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName);
   const [category, setCategory] = useState(initialCategory);
+  const [wantToBuy, setWantToBuy] = useState(initialWantToBuy);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setName("");
+      setName(initialName);
       setCategory(initialCategory);
+      setWantToBuy(initialWantToBuy);
       setError(null);
     }
-  }, [isOpen, initialCategory]);
+  }, [isOpen, initialName, initialCategory, initialWantToBuy]);
 
   if (!isOpen) return null;
   return (
@@ -40,7 +51,7 @@ export default function CreateItemModal({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            onCreate(name, category)
+            onCreate(name, category, wantToBuy)
               .then(onClose)
               .catch((err) => {
                 const error =
@@ -70,7 +81,7 @@ export default function CreateItemModal({
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          <div className="mb-6">
+          <div className="mb-4">
             <label
               htmlFor="category"
               className="block text-sm font-medium text-gray-700 mb-1"
@@ -91,6 +102,24 @@ export default function CreateItemModal({
                 </option>
               ))}
             </select>
+          </div>
+          <div className="mb-6">
+            <span className="block text-sm font-medium text-gray-700 mb-1">
+              買いたい
+            </span>
+            <button
+              type="button"
+              aria-label="買いたい"
+              aria-pressed={wantToBuy}
+              onClick={() => setWantToBuy((v) => !v)}
+              className={
+                wantToBuy
+                  ? "inline-flex items-center justify-center rounded bg-[#00d1b2] hover:bg-[#00c4a7] px-3 py-2 text-white"
+                  : "inline-flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 px-3 py-2 text-gray-500"
+              }
+            >
+              <MdShoppingCart aria-hidden size={20} />
+            </button>
           </div>
           <div className="flex justify-end gap-2">
             <button

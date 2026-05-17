@@ -23,7 +23,7 @@ import (
 type mockStockItemRepo struct {
 	listFn   func(ctx context.Context) ([]repository.StockItem, error)
 	getFn    func(ctx context.Context, id uuid.UUID) (*repository.StockItem, error)
-	createFn func(ctx context.Context, name, category string) (*repository.StockItem, error)
+	createFn func(ctx context.Context, name, category string, wantToBuy *bool) (*repository.StockItem, error)
 	updateFn func(ctx context.Context, id uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error)
 	deleteFn func(ctx context.Context, id uuid.UUID) error
 }
@@ -34,8 +34,8 @@ func (m *mockStockItemRepo) List(ctx context.Context) ([]repository.StockItem, e
 func (m *mockStockItemRepo) Get(ctx context.Context, id uuid.UUID) (*repository.StockItem, error) {
 	return m.getFn(ctx, id)
 }
-func (m *mockStockItemRepo) Create(ctx context.Context, name, category string) (*repository.StockItem, error) {
-	return m.createFn(ctx, name, category)
+func (m *mockStockItemRepo) Create(ctx context.Context, name, category string, wantToBuy *bool) (*repository.StockItem, error) {
+	return m.createFn(ctx, name, category, wantToBuy)
 }
 func (m *mockStockItemRepo) Update(ctx context.Context, id uuid.UUID, params repository.UpdateParams) (*repository.StockItem,
 	error) {
@@ -129,7 +129,7 @@ func TestCreate_Success(t *testing.T) {
 		UpdatedAt: now,
 	}
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, name, category string) (*repository.StockItem, error) {
+		createFn: func(ctx context.Context, name, category string, wantToBuy *bool) (*repository.StockItem, error) {
 			assert.Equal(t, "醤油", name)
 			assert.Equal(t, "調味料", category)
 			return expected, nil
@@ -155,9 +155,43 @@ func TestCreate_Success(t *testing.T) {
 	assert.Equal(t, expected.WantToBuy, body.WantToBuy)
 }
 
+func TestCreate_WithWantToBuyTrue(t *testing.T) {
+	now := time.Now()
+	expected := &repository.StockItem{
+		ID:        uuid.New(),
+		Name:      "醤油",
+		Category:  "調味料",
+		WantToBuy: true,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	mock := &mockStockItemRepo{
+		createFn: func(ctx context.Context, name, category string, wantToBuy *bool) (*repository.StockItem, error) {
+			require.NotNil(t, wantToBuy)
+			assert.True(t, *wantToBuy)
+			return expected, nil
+		},
+	}
+	h := NewStockItemHandler(mock)
+	e := setupRouter(h)
+
+	reqBody := strings.NewReader(`{"name": "醤油", "category": "調味料", "wantToBuy": true}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/stock-items", reqBody)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var body repository.StockItem
+	err := json.NewDecoder(rec.Body).Decode(&body)
+	require.NoError(t, err)
+	assert.True(t, body.WantToBuy)
+}
+
 func TestCreate_EmptyName(t *testing.T) {
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, name, category string) (*repository.StockItem, error) {
+		createFn: func(ctx context.Context, name, category string, wantToBuy *bool) (*repository.StockItem, error) {
 			return nil, nil
 		},
 	}
@@ -175,7 +209,7 @@ func TestCreate_EmptyName(t *testing.T) {
 
 func TestCreate_EmptyCategory(t *testing.T) {
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, name, category string) (*repository.StockItem, error) {
+		createFn: func(ctx context.Context, name, category string, wantToBuy *bool) (*repository.StockItem, error) {
 			return nil, nil
 		},
 	}
@@ -193,7 +227,7 @@ func TestCreate_EmptyCategory(t *testing.T) {
 
 func TestCreate_DuplicateName(t *testing.T) {
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, name, category string) (*repository.StockItem, error) {
+		createFn: func(ctx context.Context, name, category string, wantToBuy *bool) (*repository.StockItem, error) {
 			return nil, &pgconn.PgError{Code: "23505"}
 		},
 	}

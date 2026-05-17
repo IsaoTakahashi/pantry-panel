@@ -11,6 +11,7 @@ type StockItem = {
 type CreateStockItemRequest = {
   name: string;
   category: string;
+  wantToBuy?: boolean;
 };
 
 type UpdateStockItemRequest = {

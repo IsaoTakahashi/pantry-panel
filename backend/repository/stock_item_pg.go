@@ -30,10 +30,10 @@ func (r *PgStockItemRepository) Get(ctx context.Context, id uuid.UUID) (*StockIt
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[StockItem])
 }
 
-func (r *PgStockItemRepository) Create(ctx context.Context, name, category string) (*StockItem, error) {
+func (r *PgStockItemRepository) Create(ctx context.Context, name, category string, wantToBuy *bool) (*StockItem, error) {
 	rows, _ := r.pool.Query(ctx,
-		"INSERT INTO stock_items (name, category) VALUES ($1, $2) RETURNING id, name, category, image_url, want_to_buy, created_at, updated_at",
-		name, category)
+		"INSERT INTO stock_items (name, category, want_to_buy) VALUES ($1, $2, COALESCE($3, false)) RETURNING id, name, category, image_url, want_to_buy, created_at, updated_at",
+		name, category, wantToBuy)
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[StockItem])
 }
