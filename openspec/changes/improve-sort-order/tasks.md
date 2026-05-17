@@ -27,4 +27,4 @@
 
 ## 6. CI
 
-- [ ] 6.1 ブランチを push して GitHub Actions (CI) がグリーンになることを確認する
+- [x] 6.1 ブランチを push して GitHub Actions (CI) がグリーンになることを確認する
