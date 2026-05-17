@@ -7,6 +7,7 @@ import { useStockItemsRealtime } from "@/lib/useStockItemsRealtime";
 
 vi.mock("@/lib/api");
 vi.mock("@/lib/useStockItemsRealtime");
+vi.mock("framer-motion");
 
 const mockItems = [
   {
