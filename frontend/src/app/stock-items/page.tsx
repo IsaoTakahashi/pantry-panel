@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import CreateItemModal from "@/components/CreateItemModal";
 import EditItemModal from "@/components/EditItemModal";
@@ -175,20 +176,31 @@ export default function StockItemsPage() {
                 該当する商品がありません
               </p>
             ) : (
-              <div
+              <motion.div
+                layout
                 className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 ${viewMode === "simple" ? "gap-1.5" : "gap-3"}`}
               >
-                {filteredItems.map((item) => (
-                  <Card
-                    key={item.id}
-                    item={item}
-                    onDelete={handleDelete}
-                    onEdit={handleOpenEdit}
-                    onToggleWantToBuy={handleToggleWantToBuy}
-                    onImageEdit={handleOpenImageEdit}
-                  />
-                ))}
-              </div>
+                <AnimatePresence>
+                  {filteredItems.map((item) => (
+                    <motion.div
+                      key={item.id}
+                      layout
+                      initial={{ opacity: 0, y: -12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -12 }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      <Card
+                        item={item}
+                        onDelete={handleDelete}
+                        onEdit={handleOpenEdit}
+                        onToggleWantToBuy={handleToggleWantToBuy}
+                        onImageEdit={handleOpenImageEdit}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
             )}
           </>
         )}
