@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>更新履歴 UI デザイン：カートボタン変形案</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f9fafb; color: #111; margin: 0; padding: 24px; }
+    h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .subtitle { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+    .section-label {
+      font-size: 10px; color: #9ca3af;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      margin: 16px 0 6px;
+    }
+    .mock-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      margin-bottom: 6px;
+      max-width: 480px;
+    }
+    .mock-img {
+      width: 56px; height: 56px;
+      border-radius: 6px; background: #f3f4f6;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .mock-info { flex: 1; min-width: 0; }
+    .mock-tag {
+      display: inline-block;
+      background: #ebfffc; color: #00947e;
+      font-size: 11px; padding: 1px 8px; border-radius: 999px; margin-bottom: 3px;
+    }
+    .mock-name { font-size: 16px; font-weight: 700; color: #111; }
+    .mock-btns { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+    .btn-delete {
+      width: 44px; height: 32px;
+      background: #ff3860; border: none; color: white;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 4px; font-size: 20px;
+    }
+    .btn-cart-off {
+      width: 44px; height: 32px;
+      background: transparent; border: none; color: #d1d5db;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 4px; font-size: 24px;
+    }
+    .seg {
+      display: flex;
+      border: 1.5px solid #3b82f6;
+      border-radius: 6px;
+      overflow: hidden;
+      height: 32px;
+    }
+    .seg-check {
+      background: #3b82f6; color: white; border: none;
+      width: 48px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 900; cursor: pointer;
+    }
+    .seg-divider { width: 1.5px; background: #3b82f6; flex-shrink: 0; }
+    .seg-undo {
+      background: white; color: #3b82f6; border: none;
+      width: 24px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; cursor: pointer;
+    }
+    .spec-box {
+      background: white; border: 1px solid #e5e7eb; border-radius: 8px;
+      padding: 16px; max-width: 480px; margin-top: 24px;
+    }
+    .spec-box h2 { font-size: 14px; font-weight: 700; margin: 0 0 10px; }
+    .spec-box ul { margin: 0; padding-left: 20px; color: #4b5563; font-size: 13px; line-height: 2; }
+  </style>
+</head>
+<body>
+  <h1>更新履歴 UI：カートボタン変形デザイン</h1>
+  <p class="subtitle">wantToBuy=ON のとき、カートボタンがセグメントボタンに変形する</p>
+
+  <div class="section-label">wantToBuy = ON（buy / undo を選択）</div>
+  <div class="mock-card">
+    <div class="mock-img">🍎</div>
+    <div class="mock-info">
+      <div class="mock-tag">野菜・果物</div>
+      <div class="mock-name">りんご</div>
+    </div>
+    <div class="mock-btns">
+      <div class="seg">
+        <button class="seg-check">✓</button>
+        <div class="seg-divider"></div>
+        <button class="seg-undo">↩</button>
+      </div>
+      <div class="btn-delete">🗑</div>
+    </div>
+  </div>
+
+  <div class="section-label">wantToBuy = OFF（通常時）</div>
+  <div class="mock-card">
+    <div class="mock-img">🍎</div>
+    <div class="mock-info">
+      <div class="mock-tag">野菜・果物</div>
+      <div class="mock-name">りんご</div>
+    </div>
+    <div class="mock-btns">
+      <div class="btn-cart-off">🛒</div>
+      <div class="btn-delete">🗑</div>
+    </div>
+  </div>
+
+  <div class="section-label">リスト全体イメージ</div>
+  <div class="mock-card">
+    <div class="mock-img">🥛</div>
+    <div class="mock-info">
+      <div class="mock-tag">乳製品</div>
+      <div class="mock-name">牛乳</div>
+    </div>
+    <div class="mock-btns">
+      <div class="seg">
+        <button class="seg-check">✓</button>
+        <div class="seg-divider"></div>
+        <button class="seg-undo">↩</button>
+      </div>
+      <div class="btn-delete">🗑</div>
+    </div>
+  </div>
+  <div class="mock-card">
+    <div class="mock-img">🍞</div>
+    <div class="mock-info">
+      <div class="mock-tag">パン・穀物</div>
+      <div class="mock-name">食パン</div>
+    </div>
+    <div class="mock-btns">
+      <div class="btn-cart-off">🛒</div>
+      <div class="btn-delete">🗑</div>
+    </div>
+  </div>
+
+  <div class="spec-box">
+    <h2>仕様メモ</h2>
+    <ul>
+      <li><strong>✓（青塗り・48px）</strong>：「買った」として履歴に記録し wantToBuy を OFF にする</li>
+      <li><strong>↩（白抜き・24px）</strong>：記録なしで wantToBuy を OFF にする（気が変わった等）</li>
+      <li>wantToBuy=OFF 時はカートボタン（🛒グレー）のみ表示（変化なし）</li>
+      <li>セグメントの幅比率は ✓:↩ = 2:1（48px : 24px）</li>
+    </ul>
+  </div>
+</body>
+</html>
