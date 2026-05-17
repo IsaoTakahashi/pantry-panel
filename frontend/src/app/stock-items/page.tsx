@@ -180,7 +180,7 @@ export default function StockItemsPage() {
                 layout
                 className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 ${viewMode === "simple" ? "gap-1.5" : "gap-3"}`}
               >
-                <AnimatePresence>
+                <AnimatePresence mode="popLayout">
                   {filteredItems.map((item) => (
                     <motion.div
                       key={item.id}
