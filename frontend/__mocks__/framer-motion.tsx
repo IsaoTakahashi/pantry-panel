@@ -24,4 +24,5 @@ export const AnimatePresence = ({
   children,
 }: {
   children: React.ReactNode;
+  mode?: string;
 }) => <>{children}</>;

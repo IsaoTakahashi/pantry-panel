@@ -6,7 +6,7 @@
 
 **Architecture:** `stock-items/page.tsx` のグリッド部分のみ変更。外側の `motion.div layout` がグリッド全体の FLIP を、内側の `motion.div` が各アイテムの enter/exit アニメーションを担当。既存コンポーネント（ItemCard・FilterBar 等）は変更なし。
 
-**Tech Stack:** framer-motion (v11 系)、Vitest + RTL（テスト）
+**Tech Stack:** framer-motion (v12 系)、Vitest + RTL（テスト）
 
 ---
 
