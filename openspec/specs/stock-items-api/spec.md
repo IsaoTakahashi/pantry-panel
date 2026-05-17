@@ -16,12 +16,17 @@ The system SHALL return all stock items ordered by updated_at descending via `GE
 - **AND** each item includes id, name, category, imageUrl, wantToBuy, createdAt, updatedAt
 
 ### Requirement: Create stock item
-The system SHALL create a new stock item via `POST /api/stock-items` with name and category.
+The system SHALL create a new stock item via `POST /api/stock-items` with name, category, and optional wantToBuy.
 
 #### Scenario: Successful creation
 - **WHEN** a valid request with name and category is sent
 - **THEN** the API returns 201 with the created item
 - **AND** the item has wantToBuy=false, imageUrl=null, and generated id/timestamps
+
+#### Scenario: Successful creation with wantToBuy=true
+- **WHEN** a valid request with name, category, and wantToBuy=true is sent
+- **THEN** the API returns 201 with the created item
+- **AND** the item has wantToBuy=true
 
 #### Scenario: Duplicate name
 - **WHEN** a request with a name that already exists is sent

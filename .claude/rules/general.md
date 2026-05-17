@@ -53,7 +53,7 @@ Unit を厚く、Integration 中程度、E2E を薄く保つ（テストピラ�
 | 設計・探索 | `superpowers:brainstorming` | 要件が曖昧・UIの視覚比較が必要なとき |
 | 変更登録・タスク化 | `opsx:propose` | 設計が固まったら openspec の change として登録 |
 | 実装 | `opsx:apply` | tasks.md に従って実装 |
-| 完了処理 | `opsx:archive` | 実装完了後にアーカイブ |
+| 完了処理 | `opsx:archive` | **PR マージ前**に実施。specs 同期・アーカイブのコミットも同じ feature ブランチに含める |
 
 設計が明確な場合は brainstorming を省略して `opsx:propose` から始めてよい。
 
