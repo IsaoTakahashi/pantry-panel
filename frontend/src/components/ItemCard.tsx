@@ -20,7 +20,7 @@ export default function ItemCard({
   return (
     <article
       aria-label={item.name}
-      className="flex items-center gap-4 rounded-lg border bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+      className="flex items-center gap-3 rounded-lg border bg-white px-3 py-2 shadow-sm transition-shadow hover:shadow-md"
     >
       <button
         type="button"

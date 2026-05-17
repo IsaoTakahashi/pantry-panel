@@ -105,10 +105,10 @@ export default function StockItemsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-gradient-to-br from-[#009e6c] via-[#00d1b2] to-[#00e7eb] text-white py-4 px-6">
+      <header className="bg-gradient-to-br from-[#009e6c] via-[#00d1b2] to-[#00e7eb] text-white py-2 px-4">
         <h1 className="text-2xl font-bold">Pantry Panel</h1>
       </header>
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      <main className="max-w-6xl mx-auto px-4 py-4">
         {loading ? (
           <p className="text-center py-12 text-gray-600">Loading...</p>
         ) : error ? (
@@ -117,7 +117,7 @@ export default function StockItemsPage() {
           </p>
         ) : (
           <>
-            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <FilterBar
                 value={filter}
                 onChange={setFilter}
@@ -169,7 +169,7 @@ export default function StockItemsPage() {
                 該当する商品がありません
               </p>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
                 {filteredItems.map((item) => (
                   <Card
                     key={item.id}
