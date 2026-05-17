@@ -34,6 +34,7 @@ Unit を厚く、Integration 中程度、E2E を薄く保つ（テストピラ�
 
 ## ブランチ・Issue・PR の運用
 
+- **ドキュメント変更を含む、プロジェクトへのすべての変更はブランチを切り、PR 経由で main にマージする。main への直接 push は原則禁止。**
 - ブランチ名: `{issue番号}-{概要}`（例: `4-stock-item-crud`）
 - PR 本文に `Closes #N` でマージ時に Issue 自動クローズ
 - 大きなテーマは Epic（親）と Sub-Issue（子）に分割。1 Issue = 1 PR、差分 300 行以内目安
