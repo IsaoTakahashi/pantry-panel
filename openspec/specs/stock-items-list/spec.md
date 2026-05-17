@@ -4,7 +4,7 @@
 TBD - created by archiving change phase1-stock-items-crud. Update Purpose after archive.
 ## Requirements
 ### Requirement: Display stock items list
-The system SHALL display all stock items on the main page, ordered by most recently updated first. Items MAY be filtered by user-controlled criteria (search text, wantToBuy, category).
+The system SHALL display all stock items on the main page, ordered by sorted_at descending. Items MAY be filtered by user-controlled criteria (search text, wantToBuy, category).
 
 #### Scenario: No items exist
 - **WHEN** the user opens the app and no stock items exist
@@ -13,7 +13,7 @@ The system SHALL display all stock items on the main page, ordered by most recen
 #### Scenario: Items exist
 - **WHEN** the user opens the app and stock items exist
 - **THEN** all items matching the current filter are displayed as cards with name, category, and a wantToBuy toggle button reflecting the current state
-- **AND** items are ordered by updated_at descending
+- **AND** items are ordered by sorted_at descending
 
 #### Scenario: Loading state
 - **WHEN** the app is fetching stock items from the API
@@ -146,10 +146,15 @@ The system SHALL provide a fixed list of categories for selection.
 - **THEN** トグルボタンは強調 (teal の塗り) スタイルで表示される
 - **AND** `aria-pressed="true"` が設定される
 
-#### Scenario: トグルクリックで wantToBuy が反転し一覧が更新される
-- **WHEN** ユーザーがトグルボタンをクリックする
-- **THEN** `PATCH /api/stock-items/:id` が `{ wantToBuy: !current }` で呼ばれる
-- **AND** 成功すると一覧が再取得され、対象商品は `updated_at DESC` の並びで先頭に来る
+#### Scenario: wantToBuy を true にすると先頭に移動する
+- **WHEN** ユーザーがトグルボタンをクリックして wantToBuy が false から true になる
+- **THEN** `PATCH /api/stock-items/:id` が `{ wantToBuy: true }` で呼ばれる
+- **AND** 成功すると一覧が再取得され、対象商品は sorted_at DESC の並びで先頭に来る
+
+#### Scenario: wantToBuy を false にしても順序は変わらない
+- **WHEN** ユーザーがトグルボタンをクリックして wantToBuy が true から false になる
+- **THEN** `PATCH /api/stock-items/:id` が `{ wantToBuy: false }` で呼ばれる
+- **AND** 成功すると一覧が再取得されるが、対象商品の位置は変わらない
 
 #### Scenario: トグルは編集モーダルを開かない
 - **WHEN** ユーザーがトグルボタンをクリックする
