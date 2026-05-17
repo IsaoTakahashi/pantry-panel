@@ -106,7 +106,7 @@ export default function StockItemsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-gradient-to-br from-[#009e6c] via-[#00d1b2] to-[#00e7eb] text-white py-2 px-4">
-        <h1 className="text-2xl font-bold">Pantry Panel</h1>
+        <h1 className="text-2xl font-bold text-center">Pantry Panel</h1>
       </header>
       <main className="max-w-6xl mx-auto px-4 py-4">
         {loading ? (
@@ -169,7 +169,9 @@ export default function StockItemsPage() {
                 該当する商品がありません
               </p>
             ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
+              <div
+                className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 ${viewMode === "simple" ? "gap-1.5" : "gap-3"}`}
+              >
                 {filteredItems.map((item) => (
                   <Card
                     key={item.id}
