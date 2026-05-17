@@ -17,14 +17,14 @@ func NewPgStockItemRepository(pool *pgxpool.Pool) *PgStockItemRepository {
 }
 
 func (r *PgStockItemRepository) List(ctx context.Context) ([]StockItem, error) {
-	rows, _ := r.pool.Query(ctx, "SELECT id, name, category, image_url, want_to_buy, created_at, updated_at FROM stock_items ORDER BY updated_at DESC")
+	rows, _ := r.pool.Query(ctx, "SELECT id, name, category, image_url, want_to_buy, created_at, updated_at, sorted_at FROM stock_items ORDER BY sorted_at DESC")
 
 	return pgx.CollectRows(rows, pgx.RowToStructByName[StockItem])
 }
 
 func (r *PgStockItemRepository) Get(ctx context.Context, id uuid.UUID) (*StockItem, error) {
 	rows, _ := r.pool.Query(ctx,
-		"SELECT id, name, category, image_url, want_to_buy, created_at, updated_at FROM stock_items WHERE id = $1",
+		"SELECT id, name, category, image_url, want_to_buy, created_at, updated_at, sorted_at FROM stock_items WHERE id = $1",
 		id)
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[StockItem])
@@ -32,7 +32,7 @@ func (r *PgStockItemRepository) Get(ctx context.Context, id uuid.UUID) (*StockIt
 
 func (r *PgStockItemRepository) Create(ctx context.Context, name, category string, wantToBuy *bool) (*StockItem, error) {
 	rows, _ := r.pool.Query(ctx,
-		"INSERT INTO stock_items (name, category, want_to_buy) VALUES ($1, $2, COALESCE($3, false)) RETURNING id, name, category, image_url, want_to_buy, created_at, updated_at",
+		"INSERT INTO stock_items (name, category, want_to_buy, sorted_at) VALUES ($1, $2, COALESCE($3, false), NOW()) RETURNING id, name, category, image_url, want_to_buy, created_at, updated_at, sorted_at",
 		name, category, wantToBuy)
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[StockItem])
@@ -52,9 +52,10 @@ func (r *PgStockItemRepository) Update(ctx context.Context, id uuid.UUID, params
 			category = COALESCE($3, category),
 			want_to_buy = COALESCE($4, want_to_buy),
 			image_url = CASE WHEN $5::boolean THEN $6 ELSE image_url END,
-			updated_at = NOW()
+			updated_at = NOW(),
+			sorted_at = CASE WHEN $4::boolean IS TRUE THEN NOW() ELSE sorted_at END
 		WHERE id = $1
-		RETURNING id, name, category, image_url, want_to_buy, created_at, updated_at`,
+		RETURNING id, name, category, image_url, want_to_buy, created_at, updated_at, sorted_at`,
 		id, params.Name, params.Category, params.WantToBuy, imageURLSet, imageURLValue)
 
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[StockItem])

@@ -1,8 +1,5 @@
-# stock-items-api Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change phase1-stock-items-crud. Update Purpose after archive.
-## Requirements
 ### Requirement: List stock items
 The system SHALL return all stock items ordered by sorted_at descending via `GET /api/stock-items`.
 
@@ -77,26 +74,9 @@ The system SHALL partially update a stock item via `PATCH /api/stock-items/:id`.
 - **WHEN** a request with a name that another item already has is sent
 - **THEN** the API returns 409 Conflict with an error message
 
-### Requirement: Delete stock item
-The system SHALL delete a stock item via `DELETE /api/stock-items/:id`.
-
-#### Scenario: Successful deletion
-- **WHEN** a delete request is sent for an existing item with wantToBuy=false
-- **THEN** the API returns 204 No Content
-- **AND** the item is removed from the database
-
-#### Scenario: Cannot delete item in shopping list
-- **WHEN** a delete request is sent for an item with wantToBuy=true
-- **THEN** the API returns 409 Conflict with an error message
-
-#### Scenario: Item not found
-- **WHEN** a delete request is sent for a non-existent item ID
-- **THEN** the API returns 404 Not Found
-
 ### Requirement: JSON response format
 The system SHALL return JSON responses with camelCase keys.
 
 #### Scenario: Response key format
 - **WHEN** any stock item is returned in a response
 - **THEN** keys use camelCase (e.g., wantToBuy, imageUrl, createdAt, updatedAt, sortedAt)
-

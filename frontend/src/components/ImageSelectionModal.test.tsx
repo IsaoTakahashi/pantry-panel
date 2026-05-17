@@ -18,6 +18,7 @@ const item: StockItem = {
   wantToBuy: false,
   createdAt: "",
   updatedAt: "",
+  sortedAt: "",
 };
 
 afterEach(() => {

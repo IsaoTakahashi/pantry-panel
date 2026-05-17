@@ -6,6 +6,7 @@ type StockItem = {
   wantToBuy: boolean;
   createdAt: string;
   updatedAt: string;
+  sortedAt: string;
 };
 
 type CreateStockItemRequest = {
