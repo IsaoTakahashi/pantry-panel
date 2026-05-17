@@ -1,0 +1,596 @@
+{
+  "stockItems": {
+    "2": {
+      "category": "飲み物",
+      "imageUrl": "https://images-na.ssl-images-amazon.com/images/I/41jIIPvUXzL._SX425_.jpg",
+      "name": "おーいお茶　濃い茶",
+      "negateCreatedTime": -1532106447470,
+      "negateUpdatedTime": -1778671086579,
+      "wantToBuy": false
+    },
+    "-LNYGJY9qvGmP8XE97XQ": {
+      "category": "★",
+      "imageUrl": "https://images-na.ssl-images-amazon.com/images/I/51YQDI7zWTL._SX425_.jpg",
+      "name": "牛乳 ",
+      "negateCreatedTime": -1538190035146,
+      "negateUpdatedTime": -1778671079008,
+      "wantToBuy": true,
+      "wantToBy": true
+    },
+    "-LXLD-SEsPoIkirsMoUh": {
+      "category": "洗面",
+      "imageUrl": "https://m.media-amazon.com/images/I/71ZpZluMLgL.jpg",
+      "name": "ビオレu 泡ハンドソープ",
+      "negateCreatedTime": -1548708480907,
+      "negateUpdatedTime": -1773054250506,
+      "wantToBuy": false,
+      "wantToBy": false
+    },
+    "-LXNCfe8y7OgmiLZ7Dhd": {
+      "category": "その他",
+      "imageUrl": "https://pbs.twimg.com/profile_images/890737659/illust3038_400x400.png",
+      "name": "りえのやる気",
+      "negateCreatedTime": -1548741950868,
+      "negateUpdatedTime": -1550023112302,
+      "wantToBuy": false,
+      "wantToBy": false
+    },
+    "-LXYzuj3MtLhlFFrw_VI": {
+      "category": "その他",
+      "imageUrl": "https://image.sofmap.com/images/product/pim/4901422153502_A01.jpg",
+      "name": "クレラップ 30cm",
+      "negateCreatedTime": -1548939668517,
+      "negateUpdatedTime": -1756075670741,
+      "wantToBuy": false
+    },
+    "-LXZ-4963BW4BaXlH1yf": {
+      "category": "その他",
+      "imageUrl": "https://askul.c.yimg.jp/img/product/3L1/6309206_3L1.jpg",
+      "name": "クレラップ 22cm",
+      "negateCreatedTime": -1548939711226,
+      "negateUpdatedTime": -1769414644512,
+      "wantToBuy": false
+    },
+    "-LYGupkSfxMu56meXj_m": {
+      "category": "調味料",
+      "imageUrl": "https://shop.r10s.jp/e-sbfoods/cabinet/item/12949.jpg",
+      "name": "バジルペースト ラベットラ",
+      "negateCreatedTime": -1549710090678,
+      "negateUpdatedTime": -1726214106472,
+      "wantToBuy": false
+    },
+    "-LYaXkfOUXyHtC3gX8kn": {
+      "category": "おかずの素",
+      "imageUrl": "https://images-na.ssl-images-amazon.com/images/I/71T4UopCFaL._SY445_.jpg",
+      "name": "辛さほとばしる麻婆豆腐",
+      "negateCreatedTime": -1550056100125,
+      "negateUpdatedTime": -1674715999676,
+      "wantToBuy": false
+    },
+    "-Ls4nel-J-bDAxiK974K": {
+      "category": "飲み物",
+      "imageUrl": "https://images-na.ssl-images-amazon.com/images/I/61fLTJp4R8L._AC_SX342_.jpg",
+      "name": "爽健美茶",
+      "negateCreatedTime": -1572055460923,
+      "negateUpdatedTime": -1778671085733,
+      "wantToBuy": false
+    },
+    "-M0CI1tueRatcA_Y1BW4": {
+      "category": "調味料",
+      "imageUrl": "/images/no-image.png",
+      "inventories": [
+        {
+          "bestBy": "2099-12-31"
+        }
+      ],
+      "name": "ヤマキ にぼしっ子",
+      "negateCreatedTime": -1581844803190,
+      "negateUpdatedTime": -1584396213292,
+      "wantToBuy": false
+    },
+    "-M0bqSzpFSEd40UVt3ZE": {
+      "category": "洗面",
+      "imageUrl": "https://kao-h.assetsadobe3.com/is/image/content/dam/sites/kao/www-kao-com/jp/ja/products/magiclean/25418266/GG01.jpg?wid=840",
+      "name": "トイレマジックリン",
+      "negateCreatedTime": -1582290296816,
+      "negateUpdatedTime": -1775992600378,
+      "wantToBuy": false
+    },
+    "-MIRec1s7MNo9-oPkStZ": {
+      "category": "こども",
+      "imageUrl": "/images/no-image.png",
+      "name": "佑維のボディミルク",
+      "negateCreatedTime": -1601429995701,
+      "negateUpdatedTime": -1774369440091,
+      "wantToBuy": false
+    },
+    "-MJ_auXlHTwCnxPtQQXU": {
+      "category": "洗面",
+      "imageUrl": "https://askul.c.yimg.jp/img/product/3L2/7878715_3L2.jpg",
+      "name": "ボックスティッシュ",
+      "negateCreatedTime": -1602653759663,
+      "negateUpdatedTime": -1775841817943,
+      "wantToBuy": false
+    },
+    "-MJnvqgp0VGw1z0n0VQP": {
+      "category": "調味料",
+      "imageUrl": "https://images-na.ssl-images-amazon.com/images/I/612pBl8dWsL._AC_SX679_.jpg",
+      "name": "四つ葉バター",
+      "negateCreatedTime": -1602894129970,
+      "negateUpdatedTime": -1771839901135,
+      "wantToBuy": false
+    },
+    "-MLhVRRRfgTwlZU384IJ": {
+      "category": "こども",
+      "imageUrl": "/images/no-image.png",
+      "name": "佑維のボディソープ (キッズ用?)",
+      "negateCreatedTime": -1604933763977,
+      "negateUpdatedTime": -1768435491888,
+      "wantToBuy": false
+    },
+    "-MSfx474NVVBMfRZvyUu": {
+      "category": "調味料",
+      "imageUrl": "https://www.morinagamilk.co.jp/files/43530-large",
+      "name": "粉チーズ",
+      "negateCreatedTime": -1612423906715,
+      "negateUpdatedTime": -1774343388224,
+      "wantToBuy": false
+    },
+    "-MVRQSLG-jDZrWZ7ZRgC": {
+      "category": "★",
+      "imageUrl": "https://images-na.ssl-images-amazon.com/images/I/71-KdddUOfL._AC_SY606_.jpg",
+      "name": "ごまワカメスープ",
+      "negateCreatedTime": -1615384661485,
+      "negateUpdatedTime": -1773386965342,
+      "wantToBuy": false
+    },
+    "-MXCttb76Yy2-5UwtylM": {
+      "category": "★",
+      "imageUrl": "https://shop.r10s.jp/fieldboss/cabinet/syouhin10822/10822480.jpg",
+      "name": "箱のマスク",
+      "negateCreatedTime": -1617288468852,
+      "negateUpdatedTime": -1772408193738,
+      "wantToBuy": false
+    },
+    "-MYoIh73jYDZmDB-BclR": {
+      "category": "こども",
+      "imageUrl": "https://askul.c.yimg.jp/img/product/LL1/345448_LL1.jpg",
+      "name": "赤ちゃん綿棒",
+      "negateCreatedTime": -1619006507813,
+      "negateUpdatedTime": -1758436132568,
+      "wantToBuy": false
+    },
+    "-MdBhgNdcngSi91zYve2": {
+      "category": "その他",
+      "imageUrl": "https://www.ibonoito.or.jp/sp/img/slide_top01-sp.jpg",
+      "name": "揖保乃糸",
+      "negateCreatedTime": -1624784683267,
+      "negateUpdatedTime": -1625217350596,
+      "wantToBuy": false
+    },
+    "-Mg6U7KLarHhTRqCi7EL": {
+      "category": "洗面",
+      "imageUrl": "/images/no-image.png",
+      "name": "ボディソープ詰替用",
+      "negateCreatedTime": -1627918204249,
+      "negateUpdatedTime": -1772926419860,
+      "wantToBuy": false
+    },
+    "-Ml2rEawqDHZU3lVMmJk": {
+      "category": "★",
+      "imageUrl": "https://image1.shopserve.jp/kanayahotelbakery-shop.jp/pic-labo/llimg/1105_01.jpg?t=20200909084959",
+      "name": "食パン",
+      "negateCreatedTime": -1633226127857,
+      "negateUpdatedTime": -1778482254528,
+      "wantToBuy": false
+    },
+    "-Mmq5CAj0LmhPdmndJsi": {
+      "category": "KALDI",
+      "imageUrl": "/images/no-image.png",
+      "name": "かけるチーズ",
+      "negateCreatedTime": -1635142652725,
+      "negateUpdatedTime": -1775705391514,
+      "wantToBuy": false
+    },
+    "-MqOU7sZKVdw8ExVAE17": {
+      "category": "★",
+      "imageUrl": "https://m.media-amazon.com/images/I/81D8kbdZIQL._AC_SY450_.jpg",
+      "name": "ルック　バスタブクレンジング",
+      "negateCreatedTime": -1638957616737,
+      "negateUpdatedTime": -1778714846812,
+      "wantToBuy": false
+    },
+    "-MrbCpiaHyqF-20O7Z29": {
+      "category": "洗面",
+      "imageUrl": "https://jp.images-monotaro.com/Monotaro3/pi/full/mono28659026-230530-08.jpg",
+      "name": "キュキュット 泡スプレー 詰め替え用",
+      "negateCreatedTime": -1640261702678,
+      "negateUpdatedTime": -1774695631905,
+      "wantToBuy": false
+    },
+    "-N1JfXgTEOEH7FidGjqx": {
+      "category": "★",
+      "imageUrl": "https://ddnavi.com/wp-content/uploads/2018/11/cutyasai_7.jpg",
+      "name": "カット野菜",
+      "negateCreatedTime": -1651761883989,
+      "negateUpdatedTime": -1768435333890,
+      "wantToBuy": false
+    },
+    "-N5UMPDbdNvKKmFuG1vE": {
+      "category": "★",
+      "imageUrl": "https://m.media-amazon.com/images/S/aplus-media/vc/1219063c-33ca-4adb-9579-650210a9c7ec.__CR0,0,300,300_PT0_SX300_V1___.jpg",
+      "name": "コレステロール0 ごま油",
+      "negateCreatedTime": -1656236123064,
+      "negateUpdatedTime": -1778056064423,
+      "wantToBuy": false
+    },
+    "-NB0B_JlitVQBu1s9VDH": {
+      "category": "★",
+      "imageUrl": "https://pbs.twimg.com/media/EuJ1JxxU4AgYtY7.jpg",
+      "name": "カルディ　トリュフクリーミーソース",
+      "negateCreatedTime": -1662172419482,
+      "negateUpdatedTime": -1662172419482,
+      "wantToBuy": true
+    },
+    "-NBsvl9fsyvxif3nUJJw": {
+      "category": "★",
+      "imageUrl": "https://doggy-way.com/wp-content/uploads/2022/04/IMG_5360-1024x848.jpeg",
+      "name": "ヨーグルト",
+      "negateCreatedTime": -1663107535448,
+      "negateUpdatedTime": -1778671078613,
+      "wantToBuy": true
+    },
+    "-NJ2Sou5WHk6ekAjZEUh": {
+      "category": "★",
+      "imageUrl": "https://m.media-amazon.com/images/I/81prpquNSqL._AC_SX679_.jpg",
+      "name": "りえ カフェラトリー①",
+      "negateCreatedTime": -1670800428587,
+      "negateUpdatedTime": -1728797018548,
+      "wantToBuy": false
+    },
+    "-NJ2SvpD2WGgQnxB8hL3": {
+      "category": "★",
+      "imageUrl": "https://item-shopping.c.yimg.jp/i/l/tanomail_9617737",
+      "name": "りえ カフェラトリー ディカフェ",
+      "negateCreatedTime": -1670800456950,
+      "negateUpdatedTime": -1723988577094,
+      "wantToBuy": false
+    },
+    "-NLobk92HHlBnkGFyK69": {
+      "category": "★",
+      "imageUrl": "https://askul.c.yimg.jp/img/product/3L1/681422_3L1.jpg",
+      "name": "ウェルチ　ぶどうジュース",
+      "negateCreatedTime": -1673772597956,
+      "negateUpdatedTime": -1724218607888,
+      "wantToBuy": false
+    },
+    "-NM1Eea-FHmOH0JVnkpB": {
+      "category": "★",
+      "imageUrl": "https://s.mognavi.jp/image/food/00/01/45/4902115522018.jpg",
+      "name": "モーニングサーブ",
+      "negateCreatedTime": -1674001164363,
+      "negateUpdatedTime": -1765428984206,
+      "wantToBuy": false
+    },
+    "-NRmKPoTlk3v1OofdHrT": {
+      "category": "KALDI",
+      "imageUrl": "https://www.kaldi.co.jp/ec/img/644/4515996937644_M_1m.jpg",
+      "name": "青にんにく辣油",
+      "negateCreatedTime": -1680176688482,
+      "negateUpdatedTime": -1746784605764,
+      "wantToBuy": false
+    },
+    "-NTn2t6i68V9EqZapoDb": {
+      "category": "★",
+      "imageUrl": "https://www.suntory.co.jp/news/article/mt_items/l_sbf0947-1.jpg",
+      "name": "カフェベース",
+      "negateCreatedTime": -1682336354872,
+      "negateUpdatedTime": -1774614926725,
+      "wantToBuy": false
+    },
+    "-Na6U7oKWNV8bQZsQnZK": {
+      "category": "KALDI",
+      "imageUrl": "https://www.kaldi.co.jp/ec/img/423/8410010270423_M_2m.jpg",
+      "name": "カルボネール　オーガニック　エクストラバージン　オリーブオイル",
+      "negateCreatedTime": -1690195234098,
+      "negateUpdatedTime": -1708681967598,
+      "wantToBuy": false
+    },
+    "-NbUuY7BmKbqlGJXAuAg": {
+      "category": "★",
+      "imageUrl": "/images/no-image.png",
+      "name": "琥珀糖の素　ケイズコーポレーション",
+      "negateCreatedTime": -1691678813029,
+      "negateUpdatedTime": -1691678815045,
+      "wantToBuy": true
+    },
+    "-NdUffvg5RGL1-Nsq-_7": {
+      "category": "KALDI",
+      "imageUrl": "https://www.yasumoto-kk.jp/data/yasumoto/product/20220127_1d6c99.jpg",
+      "name": "くんせいナッツドレッシング",
+      "negateCreatedTime": -1693822398176,
+      "negateUpdatedTime": -1775722987207,
+      "wantToBuy": true
+    },
+    "-NjFLXxHunT2vOB8-Guy": {
+      "category": "こども",
+      "imageUrl": "/images/no-image.png",
+      "name": "シャンプー",
+      "negateCreatedTime": -1700007653287,
+      "negateUpdatedTime": -1743721738276,
+      "wantToBuy": false
+    },
+    "-Nnc1WtqpHwjLHQlB9lK": {
+      "category": "★",
+      "imageUrl": "https://www.marukome.co.jp/files/product/114/63fddb08-a5b0-42c2-bbad-35d20a0001f7.png",
+      "name": "塩麹",
+      "negateCreatedTime": -1704700026510,
+      "negateUpdatedTime": -1773116062619,
+      "wantToBuy": false
+    },
+    "-Np4emuLG2L-guR5VLnp": {
+      "category": "こども",
+      "imageUrl": "/images/no-image.png",
+      "name": "ベビーパウダー",
+      "negateCreatedTime": -1706270862965,
+      "negateUpdatedTime": -1778925489875,
+      "wantToBuy": true
+    },
+    "-Nqv4Bxj8J8s7bZlSKDc": {
+      "category": "こども",
+      "imageUrl": "/images/no-image.png",
+      "name": "保育園用ビニール袋(M or L)",
+      "negateCreatedTime": -1708240719749,
+      "negateUpdatedTime": -1732870077050,
+      "wantToBuy": false
+    },
+    "-Nw_a3jL3X7Ocg2jkQWL": {
+      "category": "100均",
+      "imageUrl": "https://img.knb.ne.jp/fcontents/abc/original/program_article_block_image/21/IMG_1017.jpg",
+      "name": "セリア　泡立つ使い切りスポンジ",
+      "negateCreatedTime": -1714322688462,
+      "negateUpdatedTime": -1714322690320,
+      "wantToBuy": true
+    },
+    "-Nwlk_jLgp_swX9zPS2j": {
+      "category": "100均",
+      "imageUrl": "https://grapee.jp/wp-content/uploads/2024/02/97839_02.jpg",
+      "name": "回転式ほこり取り",
+      "negateCreatedTime": -1714526772283,
+      "negateUpdatedTime": -1714526772283,
+      "wantToBuy": true
+    },
+    "-O0o7PwmZT-2dbydnZ_t": {
+      "category": "★",
+      "imageUrl": "https://m.media-amazon.com/images/I/61BaBVAxDdL._AC_UF894,1000_QL80_DpWeblab_.jpg",
+      "name": "ハーゲンダッツ",
+      "negateCreatedTime": -1719935283056,
+      "negateUpdatedTime": -1778714838624,
+      "wantToBuy": false
+    },
+    "-O6Q1BUkcTiPMIAoPKoI": {
+      "category": "★",
+      "imageUrl": "https://img.kewpie.co.jp/products_src/g3/imgs/4901577337390L.jpg",
+      "name": "ミックスビーンズ",
+      "negateCreatedTime": -1725956671532,
+      "negateUpdatedTime": -1778289254196,
+      "wantToBuy": false
+    },
+    "-OBPGLZQz_xpLkQXQcDr": {
+      "category": "★",
+      "imageUrl": "/images/no-image.png",
+      "name": "ゴミ袋(Mサイズ)",
+      "negateCreatedTime": -1731312576871,
+      "negateUpdatedTime": -1773116059222,
+      "wantToBuy": false
+    },
+    "-ODnl4cODe0VQ3VFgViW": {
+      "category": "★",
+      "imageUrl": "https://item-shopping.c.yimg.jp/i/n/wine-com_4909411097806-f2",
+      "name": "午後ティーグレープ(3本くらい)",
+      "negateCreatedTime": -1733887810172,
+      "negateUpdatedTime": -1734138565199,
+      "wantToBuy": false
+    },
+    "-OF-gAdVxpWjYhfi_ju1": {
+      "category": "★",
+      "imageUrl": "https://www.bellemaison.jp/cpg/interior/tower_special/bt_images/main_ttl_sp_220907.jpg",
+      "name": "towerシリーズ",
+      "negateCreatedTime": -1735178369712,
+      "negateUpdatedTime": -1737419531329,
+      "wantToBuy": true
+    },
+    "-OHVTOwjrJLijbB_LIpb": {
+      "category": "★",
+      "imageUrl": "https://alocohawaii.com/files/article/%E3%83%8F%E3%83%AF%E3%82%A4%20%E3%83%95%E3%83%AB%E3%83%BC%E3%83%84/%E3%83%8F%E3%83%AF%E3%82%A4%20%E3%83%95%E3%83%AB%E3%83%BC%E3%83%84_01.webp",
+      "name": "フルーツ",
+      "negateCreatedTime": -1737859112843,
+      "negateUpdatedTime": -1778671081141,
+      "wantToBuy": false
+    },
+    "-OJrTDE2Z2dpuW9z33f_": {
+      "category": "★",
+      "imageUrl": "/images/no-image.png",
+      "name": "トリュフソース",
+      "negateCreatedTime": -1740392424341,
+      "negateUpdatedTime": -1743417511594,
+      "wantToBuy": false
+    },
+    "-OJw9ieL70F0kVLEMb_J": {
+      "category": "★",
+      "imageUrl": "https://m.media-amazon.com/images/I/71e2vsnJvuL._UF894,1000_QL80_.jpg",
+      "name": "ニトリル手袋",
+      "negateCreatedTime": -1740471200458,
+      "negateUpdatedTime": -1775470324359,
+      "wantToBuy": false
+    },
+    "-OL6eyXOAY4qd-6vETwx": {
+      "category": "★",
+      "imageUrl": "https://cdn.kyodonewsprwire.jp/prwfile/release/M106506/202502144240/_prw_PI8im_Opedd845.jpg",
+      "name": "ポイッともんじゃ",
+      "negateCreatedTime": -1741737944423,
+      "negateUpdatedTime": -1741737947631,
+      "wantToBuy": true
+    },
+    "-OMCFZnBfiVljA8VOt4M": {
+      "category": "★",
+      "imageUrl": "https://tshop.r10s.jp/misono-support/cabinet/202305_05/r_a401-25-1.jpg?fitin=720%3A720",
+      "name": "じゃがビー箱",
+      "negateCreatedTime": -1742905427278,
+      "negateUpdatedTime": -1755495849608,
+      "wantToBuy": false
+    },
+    "-ONK5F1TQG8NY0GJzV1h": {
+      "category": "こども",
+      "imageUrl": "https://www.satofull.jp/upload/save_image/46/004600027/1285692_01_1645669278.jpg",
+      "name": "おーいお茶　玄米茶",
+      "negateCreatedTime": -1744110681269,
+      "negateUpdatedTime": -1773116093269,
+      "wantToBuy": false
+    },
+    "-ORLVTs3X3VzQSMizxBB": {
+      "category": "★",
+      "imageUrl": "https://www.kaldi.co.jp/ec/img/105/4571347775105_M_1m.jpg",
+      "name": "いぶりがっこタルタル",
+      "negateCreatedTime": -1748429303362,
+      "negateUpdatedTime": -1776049358173,
+      "wantToBuy": false
+    },
+    "-OSJBhXkGN5yuE_XDcC8": {
+      "category": "調味料",
+      "imageUrl": "https://cdn.nijiya.com/864zi6duwlj7siuonzzadgnrd7yl",
+      "name": "片栗粉",
+      "negateCreatedTime": -1749464306541,
+      "negateUpdatedTime": -1749464308186,
+      "wantToBuy": false
+    },
+    "-OV7tfpe92SuB-GWdD_n": {
+      "category": "★",
+      "imageUrl": "https://www.imuraya.co.jp/media_images/2020/05/lemon-2-1.jpg",
+      "name": "井村屋　塩ぷるレモン",
+      "negateCreatedTime": -1752495996335,
+      "negateUpdatedTime": -1754700179665,
+      "wantToBuy": true
+    },
+    "-OWFcoTaix71EHYh-HLm": {
+      "category": "★",
+      "imageUrl": "/images/no-image.png",
+      "name": "ペーパータオル",
+      "negateCreatedTime": -1753699534825,
+      "negateUpdatedTime": -1753699534825,
+      "wantToBuy": false
+    },
+    "-O_HRN3-88RyFenqrpUa": {
+      "category": "★",
+      "imageUrl": "https://prcdn.freetls.fastly.net/release_image/6237/277/6237-277-0c7e6d027e9c17cc8ac229a9f1052c13-1984x2475.jpg?width=1950&height=1350&quality=85%2C65&format=jpeg&auto=webp&fit=bounds&bg-color=fff",
+      "name": "アリエール MiRAi",
+      "negateCreatedTime": -1758024794440,
+      "negateUpdatedTime": -1777465379977,
+      "wantToBuy": false
+    },
+    "-OboIfqa2aWBR4waAzGn": {
+      "category": "こども",
+      "imageUrl": "/images/no-image.png",
+      "name": "佑維のマスク",
+      "negateCreatedTime": -1760740425053,
+      "negateUpdatedTime": -1772408192467,
+      "wantToBuy": false
+    },
+    "-OeuFNUU4svbavsMziS1": {
+      "category": "100均",
+      "imageUrl": "/images/no-image.png",
+      "name": "珪藻土プレート",
+      "negateCreatedTime": -1764061448222,
+      "negateUpdatedTime": -1766354334664,
+      "wantToBuy": true
+    },
+    "-OgfdcICzJeVS5zQCA6g": {
+      "category": "★",
+      "imageUrl": "/images/no-image.png",
+      "name": "無印のフリーズドライスープ",
+      "negateCreatedTime": -1765963891462,
+      "negateUpdatedTime": -1766354316612,
+      "wantToBuy": false
+    },
+    "-Oh80PZOPSeXrC9PsMPx": {
+      "category": "★",
+      "imageUrl": "/images/no-image.png",
+      "name": "養生テープ",
+      "negateCreatedTime": -1766456666458,
+      "negateUpdatedTime": -1766456666458,
+      "wantToBuy": true
+    },
+    "-Oib8wZKGqv6AG_AJREh": {
+      "category": "調味料",
+      "imageUrl": "https://www.yamasa.com/wp-content/uploads/2019/02/09fdce8c5fee2515b6d8a877c2c1ebe6.png",
+      "name": "減塩　絹しょうゆ",
+      "negateCreatedTime": -1768035961146,
+      "negateUpdatedTime": -1768035962965,
+      "wantToBuy": false
+    },
+    "-Oj_7Kr8WehdnX0DAKS8": {
+      "category": "★",
+      "imageUrl": "https://makeshop-multi-images.akamaized.net/imashiga/itemimages/000000000377_7HGyd8E.jpg",
+      "name": "花様ドレッシング",
+      "negateCreatedTime": -1769075726982,
+      "negateUpdatedTime": -1769075728588,
+      "wantToBuy": false
+    },
+    "-Oj_G7YPl8cgGhZ3x3RW": {
+      "category": "★",
+      "imageUrl": "/images/no-image.png",
+      "name": "フルーツ缶詰",
+      "negateCreatedTime": -1769078032667,
+      "negateUpdatedTime": -1774856306054,
+      "wantToBuy": false
+    },
+    "-OlUH2fQ_EefvyjlDIWF": {
+      "category": "★",
+      "imageUrl": "/images/no-image.png",
+      "name": "カップ焼きそば",
+      "negateCreatedTime": -1771125095212,
+      "negateUpdatedTime": -1776483807802,
+      "wantToBuy": false
+    },
+    "-OnMc0GevXsXwd8JCbS9": {
+      "category": "こども",
+      "imageUrl": "https://image.yodobashi.com/product/100/000/001/008/623/038/100000001008623038_10203_001.jpg",
+      "name": "メンソレータム　リペアワン",
+      "negateCreatedTime": -1773144117073,
+      "negateUpdatedTime": -1773144118888,
+      "wantToBuy": false
+    },
+    "-OnlCXYGRb-o7covMVrN": {
+      "category": "★",
+      "imageUrl": "/images/no-image.png",
+      "name": "鼻スプレー",
+      "negateCreatedTime": -1773573384475,
+      "negateUpdatedTime": -1774695630796,
+      "wantToBuy": false
+    },
+    "-OoU5ZBbnDSLF6WJTZTd": {
+      "category": "★",
+      "imageUrl": "/images/no-image.png",
+      "name": "カンタン酢",
+      "negateCreatedTime": -1774343308144,
+      "negateUpdatedTime": -1774343309125,
+      "wantToBuy": false
+    },
+    "-Oovcp59oJbIS1utrWRM": {
+      "category": "★",
+      "imageUrl": "https://furunavi.jp/discovery/wp-content/uploads/2023/09/202309_banana_1.jpg",
+      "name": "バナナ",
+      "negateCreatedTime": -1774822052317,
+      "negateUpdatedTime": -1776488221472,
+      "wantToBuy": false
+    },
+    "-OskD90Gxsnw-d9ge6gl": {
+      "category": "★",
+      "imageUrl": "/images/no-image.png",
+      "name": "めんつゆ",
+      "negateCreatedTime": -1778925478062,
+      "negateUpdatedTime": -1778925478062,
+      "wantToBuy": true
+    }
+  }
+}
