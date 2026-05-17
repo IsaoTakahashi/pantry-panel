@@ -1,3 +1,7 @@
+---
+paths:
+  - "frontend/**"
+---
 # Frontend
 
 ## 技術スタック

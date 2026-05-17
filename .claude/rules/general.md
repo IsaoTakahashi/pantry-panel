@@ -24,65 +24,20 @@ AWS マネージドサービスを利用する。
 
 ## テスト戦略
 
-テストピラミッドに従い、Unit を厚く、E2E を薄く保つ。
-
-```
-        /  E2E  \         ← 少数: 主要ユーザーフロー + リアルタイム同期
-       /----------\
-      / Integration \      ← 中程度: DB操作、API結合
-     /----------------\
-    /      Unit        \   ← 多数: ロジック、バリデーション、コンポーネント
-```
-
-詳細は各 rules ファイル（frontend.md, backend.md）を参照。
+Unit を厚く、Integration 中程度、E2E を薄く保つ（テストピラミッド）。詳細は frontend.md / backend.md 参照。
 
 ## CI (GitHub Actions)
 
-### ci.yml — push to main / pull_request
-
-frontend と backend を**並列ジョブ**で実行。各ジョブ内は lint → test の順で直列（lint 失敗で早期終了）。
-
-| Job | Steps |
-|-----|-------|
-| frontend | Biome (lint + format) → tsc (型チェック) → Vitest (unit test) |
-| backend | golangci-lint → go test (unit) → testcontainers + PG (integration) |
-
-### e2e.yml — pull_request (main へのマージ時のみ)
-
-backend + DB (testcontainers) + frontend を起動し、Playwright で E2E テストを実行。実行コストが高いため main への PR 時のみに限定する。
-
-### deploy-backend.yml — push to main (`backend/**`) / workflow_dispatch
-
-OIDC で `pantry-panel-deploy-role` を assume → ECR build & push (`linux/amd64`、`provenance=false`) → `aws lambda update-function-code` → `function-updated` waiter → `/health` smoke test。3 ジョブ直列。`backend/` 配下の変更時のみトリガ。手動再実行は `workflow_dispatch`。
+- **ci.yml**: frontend (Biome → tsc → Vitest) / backend (golangci-lint → go test → testcontainers) を並列実行
+- **e2e.yml**: main への PR 時のみ Playwright E2E
+- **deploy-backend.yml**: `backend/**` push → ECR → Lambda 自動デプロイ（OIDC、`workflow_dispatch` で手動再実行可）
 
 ## ブランチ・Issue・PR の運用
 
-### フロー
-
-| Step | 作業 | 担当 |
-|------|------|------|
-| 1 | やりたいことを提示 | ユーザー |
-| 2 | 意図の深堀り・goal 提案 | Claude |
-| 3 | goal 合意 → GitHub Issue 作成 | Claude |
-| 4 | Issue ベースでブランチ作成 | Claude |
-| 5 | 作業開始、早期に Draft PR 作成 | 協業 |
-| 6 | goal 変更時は Issue を更新 | 都度 |
-| 7 | PR マージで Issue 自動クローズ | Claude |
-
-### ルール
-
 - ブランチ名: `{issue番号}-{概要}`（例: `4-stock-item-crud`）
-- PR 本文に `Closes #N` を記載し、マージ時に Issue を自動クローズする
-- 作業が長期化する場合は Draft PR を早めに作成し、CI 実行と進捗の可視化に活用する
-
-### Epic / Sub-Issue
-
-大きなテーマは Epic Issue（親）と Sub-Issue（子）に分割して管理する。
-
-- **Epic Issue**: テーマの全体像を記述し、タスクリストで Sub-Issue を参照する
-- **Sub-Issue**: 各 Sub-Issue が独自のブランチ・PR を持つ。PR は main にマージする
-- **粒度の目安**: 1 Issue = 1 PR でレビュー可能なサイズ（目安: 差分 300 行以内）
-- **Epic のクローズ**: 全 Sub-Issue がクローズされたら Epic をクローズする
+- PR 本文に `Closes #N` でマージ時に Issue 自動クローズ
+- 大きなテーマは Epic（親）と Sub-Issue（子）に分割。1 Issue = 1 PR、差分 300 行以内目安
+- 作業が長期化する場合は Draft PR を早めに作成
 
 ## 旧仕様の参照
 
@@ -102,20 +57,6 @@ TypeScript / Go の実装はユーザーがメインで記述する（言語・F
 | 4.5 | 動作確認（サーバー起動、手動テスト） | ユーザーが実施 |
 | 5 | リファクタリング | 協業（観点を事前に明示） |
 
-### 各ステップの補足
-
-- **Step 1.5**: API のリクエスト/レスポンス型、コンポーネントの props/state 型、DB テーブルスキーマを先に定義する。テスト設計の前提を明確にするため。
-- **Step 3**: Claude はテストで使うべきライブラリ、アサーション手法、モック手法を提示する。ユーザーがテストコードを書くことで言語・FW の学習効果を高める。
-- **Step 4**: Claude はレビュー時に、利用すべき言語・FW 機能も提案する。
-- **Step 4.5**: ユニットテストでは検出できない問題（WebSocket 接続、CORS、DB 接続など）を手動で確認する。
-- **Step 5**: リファクタリングの観点 — 命名の一貫性、責務の分離、エラーハンドリングの網羅性、テストの可読性。
-
 ### Claude の提案ルール
 
-- 可能な限り複数の選択肢を提示する
-- 複数提案がある場合、理由付きで最も推奨する選択肢を明示する
-
-### 動作確認の環境
-
-- 当面はローカルの作業環境でサーバー起動などを行い動作確認する
-- 将来的には Docker Compose やAWS 上の preview 環境を用意し、環境依存を減らす
+- 可能な限り複数の選択肢を提示し、理由付きで推奨を明示する

@@ -1,3 +1,7 @@
+---
+paths:
+  - "backend/**"
+---
 # Backend
 
 ## 技術スタック
