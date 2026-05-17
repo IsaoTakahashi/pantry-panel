@@ -71,11 +71,11 @@ export default function FilterBar({
           onClick={toggleWantToBuyOnly}
           className={
             value.wantToBuyOnly
-              ? "w-full inline-flex items-center justify-center rounded bg-[#00d1b2] hover:bg-[#00c4a7] px-3 py-2 text-white"
+              ? "w-full inline-flex items-center justify-center rounded bg-blue-500 hover:bg-blue-600 px-3 py-2 text-white"
               : "w-full inline-flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 px-3 py-2 text-gray-500"
           }
         >
-          <MdShoppingCart aria-hidden size={20} />
+          <MdShoppingCart aria-hidden size={24} />
         </button>
         <select
           aria-label="カテゴリ"
