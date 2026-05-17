@@ -227,3 +227,10 @@ The system SHALL provide a fixed list of categories for selection.
 - **THEN** 初回ロードの `loading` フラグは true に戻さない（無音で再取得する）
 - **AND** 取得が失敗してもページ全体の `error` 表示には切り替えず、現在の一覧を維持する
 
+### Requirement: 商品一覧の表示密度
+商品一覧は、より多くの商品を一画面に表示できるよう、フィルターエリアとグリッドの間の余白を最小限に抑える SHALL。
+
+#### Scenario: フィルターエリア下の余白
+- **WHEN** 商品一覧ページが描画される
+- **THEN** フィルターバー・商品追加ボタンと商品グリッドの間のマージンは `mb-4` 以下である
+
