@@ -161,6 +161,7 @@ export default function StockItemsPage() {
                   wantToBuy: false,
                   createdAt: "",
                   updatedAt: "",
+                  sortedAt: "",
                 }
               }
               isOpen={!!imageEditingItem}

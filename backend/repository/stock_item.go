@@ -15,6 +15,7 @@ type StockItem struct {
 	WantToBuy bool      `json:"wantToBuy" db:"want_to_buy"`
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
+	SortedAt  time.Time `json:"sortedAt" db:"sorted_at"`
 }
 
 type StockItemRepository interface {

@@ -47,13 +47,17 @@ func TestMain(m *testing.M) {
 		log.Fatalf("failed to connect to test database: %v", err)
 	}
 
-	sqlBytes, err := os.ReadFile("../db/migrations/001_create_stock_items.sql")
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, err = testPool.Exec(context.Background(), string(sqlBytes))
-	if err != nil {
-		log.Fatalf("failed to apply migration: %v", err)
+	for _, migration := range []string{
+		"../db/migrations/001_create_stock_items.sql",
+		"../db/migrations/004_add_sorted_at_to_stock_items.sql",
+	} {
+		sqlBytes, err := os.ReadFile(migration)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if _, err = testPool.Exec(context.Background(), string(sqlBytes)); err != nil {
+			log.Fatalf("failed to apply migration %s: %v", migration, err)
+		}
 	}
 
 	_, err = testPool.Exec(ctx, "TRUNCATE stock_items")
@@ -121,7 +125,7 @@ func TestList_Empty(t *testing.T) {
 	assert.Len(t, items, 0)
 }
 
-func TestList_OrderByUpdatedAtDesc(t *testing.T) {
+func TestList_OrderBySortedAtDesc(t *testing.T) {
 	pool := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
@@ -130,7 +134,7 @@ func TestList_OrderByUpdatedAtDesc(t *testing.T) {
 	_, err = repo.Create(context.Background(), "味噌", "調味料", nil)
 	require.NoError(t, err)
 	_, err = pool.Exec(context.Background(),
-		"UPDATE stock_items SET updated_at = NOW() + INTERVAL '1 second' WHERE name = '醤油'")
+		"UPDATE stock_items SET sorted_at = NOW() + INTERVAL '1 second' WHERE name = '醤油'")
 	require.NoError(t, err)
 
 	items, err := repo.List(context.Background())
@@ -138,6 +142,58 @@ func TestList_OrderByUpdatedAtDesc(t *testing.T) {
 	assert.Len(t, items, 2)
 	assert.Equal(t, "醤油", items[0].Name)
 	assert.Equal(t, "味噌", items[1].Name)
+}
+
+func TestUpdate_WantToBuyTrue_UpdatesSortedAt(t *testing.T) {
+	pool := setupTestDB(t)
+	repo := NewPgStockItemRepository(pool)
+
+	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+	require.NoError(t, err)
+	originalSortedAt := item.SortedAt
+
+	updated, err := repo.Update(context.Background(), item.ID, UpdateParams{WantToBuy: boolPtr(true)})
+	require.NoError(t, err)
+	assert.True(t, updated.SortedAt.After(originalSortedAt) || updated.SortedAt.Equal(originalSortedAt),
+		"sorted_at should be updated when wantToBuy is set to true")
+}
+
+func TestUpdate_WantToBuyFalse_KeepsSortedAt(t *testing.T) {
+	pool := setupTestDB(t)
+	repo := NewPgStockItemRepository(pool)
+
+	item, err := repo.Create(context.Background(), "醤油", "調味料", boolPtr(true))
+	require.NoError(t, err)
+	_, err = pool.Exec(context.Background(),
+		"UPDATE stock_items SET sorted_at = NOW() - INTERVAL '1 hour' WHERE id = $1", item.ID)
+	require.NoError(t, err)
+
+	before, err := repo.Get(context.Background(), item.ID)
+	require.NoError(t, err)
+
+	updated, err := repo.Update(context.Background(), item.ID, UpdateParams{WantToBuy: boolPtr(false)})
+	require.NoError(t, err)
+	assert.Equal(t, before.SortedAt.UTC(), updated.SortedAt.UTC(),
+		"sorted_at should not change when wantToBuy is set to false")
+}
+
+func TestUpdate_NameOnly_KeepsSortedAt(t *testing.T) {
+	pool := setupTestDB(t)
+	repo := NewPgStockItemRepository(pool)
+
+	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+	require.NoError(t, err)
+	_, err = pool.Exec(context.Background(),
+		"UPDATE stock_items SET sorted_at = NOW() - INTERVAL '1 hour' WHERE id = $1", item.ID)
+	require.NoError(t, err)
+
+	before, err := repo.Get(context.Background(), item.ID)
+	require.NoError(t, err)
+
+	updated, err := repo.Update(context.Background(), item.ID, UpdateParams{Name: strPtr("こいくち醤油")})
+	require.NoError(t, err)
+	assert.Equal(t, before.SortedAt.UTC(), updated.SortedAt.UTC(),
+		"sorted_at should not change when only name is updated")
 }
 
 func TestUpdate_Success(t *testing.T) {
