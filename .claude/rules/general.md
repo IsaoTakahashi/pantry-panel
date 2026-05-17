@@ -43,6 +43,19 @@ Unit を厚く、Integration 中程度、E2E を薄く保つ（テストピラ�
 
 旧製品の仕様は `specs/old-product.md` を参照。新製品で再現すべき機能の原典となる。
 
+## 設計・変更管理ワークフロー
+
+要件探索から実装完了まで、以下のツールを組み合わせて進める。
+
+| フェーズ | ツール | タイミング |
+|---------|--------|-----------|
+| 設計・探索 | `superpowers:brainstorming` | 要件が曖昧・UIの視覚比較が必要なとき |
+| 変更登録・タスク化 | `opsx:propose` | 設計が固まったら openspec の change として登録 |
+| 実装 | `opsx:apply` | tasks.md に従って実装 |
+| 完了処理 | `opsx:archive` | 実装完了後にアーカイブ |
+
+設計が明確な場合は brainstorming を省略して `opsx:propose` から始めてよい。
+
 ## 開発フロー
 
 TypeScript / Go の実装はユーザーがメインで記述する（言語・FW の学習目的）。各機能は以下の TDD ベースのフローで進める。
