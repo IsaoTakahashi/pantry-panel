@@ -13,17 +13,18 @@ type StockItem struct {
 	Category  string    `json:"category" db:"category"`
 	ImageURL  *string   `json:"imageUrl" db:"image_url"`
 	WantToBuy bool      `json:"wantToBuy" db:"want_to_buy"`
+	GroupID   uuid.UUID `json:"groupId" db:"group_id"`
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 	SortedAt  time.Time `json:"sortedAt" db:"sorted_at"`
 }
 
 type StockItemRepository interface {
-	List(ctx context.Context) ([]StockItem, error)
-	Get(ctx context.Context, id uuid.UUID) (*StockItem, error)
-	Create(ctx context.Context, name, category string, wantToBuy *bool) (*StockItem, error)
-	Update(ctx context.Context, id uuid.UUID, params UpdateParams) (*StockItem, error)
-	Delete(ctx context.Context, id uuid.UUID) error
+	List(ctx context.Context, groupID uuid.UUID) ([]StockItem, error)
+	Get(ctx context.Context, id uuid.UUID, groupID uuid.UUID) (*StockItem, error)
+	Create(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool) (*StockItem, error)
+	Update(ctx context.Context, id uuid.UUID, groupID uuid.UUID, params UpdateParams) (*StockItem, error)
+	Delete(ctx context.Context, id uuid.UUID, groupID uuid.UUID) error
 }
 
 type UpdateParams struct {

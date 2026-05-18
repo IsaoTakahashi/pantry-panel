@@ -62,7 +62,7 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	_, err = testPool.Exec(ctx, "TRUNCATE stock_items")
+	_, err = testPool.Exec(ctx, "TRUNCATE invitations, group_members, groups, stock_items CASCADE")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -77,19 +77,25 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func setupTestDB(t *testing.T) *pgxpool.Pool {
-	_, err := testPool.Exec(context.Background(), "TRUNCATE stock_items")
-	if err != nil {
-		t.Fatalf("failed to truncate stock_items: %v", err)
-	}
-	return testPool
+func setupTestDB(t *testing.T) (*pgxpool.Pool, uuid.UUID) {
+	t.Helper()
+	_, err := testPool.Exec(context.Background(),
+		"TRUNCATE invitations, group_members, groups, stock_items CASCADE")
+	require.NoError(t, err)
+
+	var groupID uuid.UUID
+	err = testPool.QueryRow(context.Background(),
+		"INSERT INTO groups (name) VALUES ('テストグループ') RETURNING id").Scan(&groupID)
+	require.NoError(t, err)
+
+	return testPool, groupID
 }
 
 func TestCreate_Success(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+	item, err := repo.Create(context.Background(), groupID, "醤油", "調味料", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "醤油", item.Name)
 	assert.Equal(t, "調味料", item.Category)
@@ -99,47 +105,47 @@ func TestCreate_Success(t *testing.T) {
 }
 
 func TestCreate_WithWantToBuyTrue(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料", boolPtr(true))
+	item, err := repo.Create(context.Background(), groupID, "醤油", "調味料", boolPtr(true))
 	require.NoError(t, err)
 	assert.True(t, item.WantToBuy)
 }
 
 func TestCreate_DuplicateName(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	_, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+	_, err := repo.Create(context.Background(), groupID, "醤油", "調味料", nil)
 	require.NoError(t, err)
-	_, err = repo.Create(context.Background(), "醤油", "飲み物", nil)
+	_, err = repo.Create(context.Background(), groupID, "醤油", "飲み物", nil)
 	require.Error(t, err)
 	assert.Error(t, err, "should not allow duplicate names")
 }
 
 func TestList_Empty(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	items, err := repo.List(context.Background())
+	items, err := repo.List(context.Background(), groupID)
 	require.NoError(t, err)
 	assert.Len(t, items, 0)
 }
 
 func TestList_OrderBySortedAtDesc(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	_, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+	_, err := repo.Create(context.Background(), groupID, "醤油", "調味料", nil)
 	require.NoError(t, err)
-	_, err = repo.Create(context.Background(), "味噌", "調味料", nil)
+	_, err = repo.Create(context.Background(), groupID, "味噌", "調味料", nil)
 	require.NoError(t, err)
 	_, err = pool.Exec(context.Background(),
 		"UPDATE stock_items SET sorted_at = NOW() + INTERVAL '1 second' WHERE name = '醤油'")
 	require.NoError(t, err)
 
-	items, err := repo.List(context.Background())
+	items, err := repo.List(context.Background(), groupID)
 	require.NoError(t, err)
 	assert.Len(t, items, 2)
 	assert.Equal(t, "醤油", items[0].Name)
@@ -147,52 +153,52 @@ func TestList_OrderBySortedAtDesc(t *testing.T) {
 }
 
 func TestUpdate_WantToBuyTrue_UpdatesSortedAt(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+	item, err := repo.Create(context.Background(), groupID, "醤油", "調味料", nil)
 	require.NoError(t, err)
 	originalSortedAt := item.SortedAt
 
-	updated, err := repo.Update(context.Background(), item.ID, UpdateParams{WantToBuy: boolPtr(true)})
+	updated, err := repo.Update(context.Background(), item.ID, groupID, UpdateParams{WantToBuy: boolPtr(true)})
 	require.NoError(t, err)
 	assert.True(t, updated.SortedAt.After(originalSortedAt) || updated.SortedAt.Equal(originalSortedAt),
 		"sorted_at should be updated when wantToBuy is set to true")
 }
 
 func TestUpdate_WantToBuyFalse_KeepsSortedAt(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料", boolPtr(true))
+	item, err := repo.Create(context.Background(), groupID, "醤油", "調味料", boolPtr(true))
 	require.NoError(t, err)
 	_, err = pool.Exec(context.Background(),
 		"UPDATE stock_items SET sorted_at = NOW() - INTERVAL '1 hour' WHERE id = $1", item.ID)
 	require.NoError(t, err)
 
-	before, err := repo.Get(context.Background(), item.ID)
+	before, err := repo.Get(context.Background(), item.ID, groupID)
 	require.NoError(t, err)
 
-	updated, err := repo.Update(context.Background(), item.ID, UpdateParams{WantToBuy: boolPtr(false)})
+	updated, err := repo.Update(context.Background(), item.ID, groupID, UpdateParams{WantToBuy: boolPtr(false)})
 	require.NoError(t, err)
 	assert.Equal(t, before.SortedAt.UTC(), updated.SortedAt.UTC(),
 		"sorted_at should not change when wantToBuy is set to false")
 }
 
 func TestUpdate_NameOnly_KeepsSortedAt(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+	item, err := repo.Create(context.Background(), groupID, "醤油", "調味料", nil)
 	require.NoError(t, err)
 	_, err = pool.Exec(context.Background(),
 		"UPDATE stock_items SET sorted_at = NOW() - INTERVAL '1 hour' WHERE id = $1", item.ID)
 	require.NoError(t, err)
 
-	before, err := repo.Get(context.Background(), item.ID)
+	before, err := repo.Get(context.Background(), item.ID, groupID)
 	require.NoError(t, err)
 
-	updated, err := repo.Update(context.Background(), item.ID, UpdateParams{Name: strPtr("こいくち醤油")})
+	updated, err := repo.Update(context.Background(), item.ID, groupID, UpdateParams{Name: strPtr("こいくち醤油")})
 	require.NoError(t, err)
 	assert.Equal(t, before.SortedAt.UTC(), updated.SortedAt.UTC(),
 		"sorted_at should not change when only name is updated")
@@ -235,12 +241,12 @@ func TestUpdate_Success(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pool := setupTestDB(t)
+			pool, groupID := setupTestDB(t)
 			repo := NewPgStockItemRepository(pool)
 
-			item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+			item, err := repo.Create(context.Background(), groupID, "醤油", "調味料", nil)
 			require.NoError(t, err)
-			updatedItem, err := repo.Update(context.Background(), item.ID, tt.params)
+			updatedItem, err := repo.Update(context.Background(), item.ID, groupID, tt.params)
 			require.NoError(t, err)
 			tt.check(t, updatedItem)
 			assert.True(t, updatedItem.UpdatedAt.After(item.UpdatedAt) || updatedItem.UpdatedAt.Equal(item.UpdatedAt),
@@ -250,14 +256,14 @@ func TestUpdate_Success(t *testing.T) {
 }
 
 func TestUpdate_ImageURL_SetValue(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+	item, err := repo.Create(context.Background(), groupID, "醤油", "調味料", nil)
 	require.NoError(t, err)
 
 	url := "https://example.com/a.jpg"
-	updated, err := repo.Update(context.Background(), item.ID, UpdateParams{
+	updated, err := repo.Update(context.Background(), item.ID, groupID, UpdateParams{
 		ImageURL: &ImageURLUpdate{Value: &url},
 	})
 	require.NoError(t, err)
@@ -266,19 +272,19 @@ func TestUpdate_ImageURL_SetValue(t *testing.T) {
 }
 
 func TestUpdate_ImageURL_ClearToNull(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+	item, err := repo.Create(context.Background(), groupID, "醤油", "調味料", nil)
 	require.NoError(t, err)
 
 	url := "https://example.com/a.jpg"
-	_, err = repo.Update(context.Background(), item.ID, UpdateParams{
+	_, err = repo.Update(context.Background(), item.ID, groupID, UpdateParams{
 		ImageURL: &ImageURLUpdate{Value: &url},
 	})
 	require.NoError(t, err)
 
-	updated, err := repo.Update(context.Background(), item.ID, UpdateParams{
+	updated, err := repo.Update(context.Background(), item.ID, groupID, UpdateParams{
 		ImageURL: &ImageURLUpdate{Value: nil},
 	})
 	require.NoError(t, err)
@@ -286,19 +292,19 @@ func TestUpdate_ImageURL_ClearToNull(t *testing.T) {
 }
 
 func TestUpdate_ImageURL_UnspecifiedKeepsExisting(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+	item, err := repo.Create(context.Background(), groupID, "醤油", "調味料", nil)
 	require.NoError(t, err)
 
 	url := "https://example.com/b.jpg"
-	_, err = repo.Update(context.Background(), item.ID, UpdateParams{
+	_, err = repo.Update(context.Background(), item.ID, groupID, UpdateParams{
 		ImageURL: &ImageURLUpdate{Value: &url},
 	})
 	require.NoError(t, err)
 
-	updated, err := repo.Update(context.Background(), item.ID, UpdateParams{
+	updated, err := repo.Update(context.Background(), item.ID, groupID, UpdateParams{
 		Name: strPtr("こいくち醤油"),
 	})
 	require.NoError(t, err)
@@ -307,7 +313,7 @@ func TestUpdate_ImageURL_UnspecifiedKeepsExisting(t *testing.T) {
 }
 
 func TestUpdate_NotFound(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
 	newName := "こいくち醤油"
@@ -315,45 +321,45 @@ func TestUpdate_NotFound(t *testing.T) {
 		Name: &newName,
 	}
 
-	_, err := repo.Update(context.Background(), uuid.New(), updateParams)
+	_, err := repo.Update(context.Background(), uuid.New(), groupID, updateParams)
 	assert.Error(t, err, "should return error when updating non-existent item")
 }
 
 func TestUpdate_DuplicateName(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item1, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+	item1, err := repo.Create(context.Background(), groupID, "醤油", "調味料", nil)
 	require.NoError(t, err)
-	item2, err := repo.Create(context.Background(), "味噌", "調味料", nil)
+	item2, err := repo.Create(context.Background(), groupID, "味噌", "調味料", nil)
 	require.NoError(t, err)
 
 	updateParams := UpdateParams{
 		Name: &item1.Name,
 	}
 
-	_, err = repo.Update(context.Background(), item2.ID, updateParams)
+	_, err = repo.Update(context.Background(), item2.ID, groupID, updateParams)
 	assert.Error(t, err, "should not allow updating to duplicate name")
 }
 
 func TestDelete_Success(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	item, err := repo.Create(context.Background(), "醤油", "調味料", nil)
+	item, err := repo.Create(context.Background(), groupID, "醤油", "調味料", nil)
 	require.NoError(t, err)
-	err = repo.Delete(context.Background(), item.ID)
+	err = repo.Delete(context.Background(), item.ID, groupID)
 	require.NoError(t, err)
 
-	items, err := repo.List(context.Background())
+	items, err := repo.List(context.Background(), groupID)
 	require.NoError(t, err)
 	assert.Len(t, items, 0)
 }
 
 func TestDelete_NotFound(t *testing.T) {
-	pool := setupTestDB(t)
+	pool, groupID := setupTestDB(t)
 	repo := NewPgStockItemRepository(pool)
 
-	err := repo.Delete(context.Background(), uuid.New())
+	err := repo.Delete(context.Background(), uuid.New(), groupID)
 	assert.Error(t, err, "should return error when deleting non-existent item")
 }
