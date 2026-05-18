@@ -104,6 +104,9 @@ export default function StockItemsPage() {
   useStockItemsRealtime(handleRealtimeChange);
 
   useEffect(() => {
+    if (!accessToken) return;
+    setLoading(true);
+    setError(null);
     fetchStockItems(accessToken)
       .then((data) => setItems(data))
       .catch((err) =>

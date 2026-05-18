@@ -51,6 +51,9 @@ export default function InvitePage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4">
       <h1 className="text-2xl font-bold text-[#00d1b2]">招待リンクを生成</h1>
+      <a href="/stock-items" className="text-sm text-[#00d1b2] underline">
+        ← 商品一覧に戻る
+      </a>
       <p className="text-gray-600 text-center text-sm">
         リンクは7日間有効です。家族に送ってグループに招待してください。
       </p>

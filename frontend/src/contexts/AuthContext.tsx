@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadGroup = useCallback(async (accessToken: string) => {
-    const g = await fetchMyGroup(accessToken);
+    const g = await fetchMyGroup(accessToken).catch(() => null);
     setGroup(g);
   }, []);
 

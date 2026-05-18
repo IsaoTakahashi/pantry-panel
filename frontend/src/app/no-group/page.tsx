@@ -45,7 +45,7 @@ export default function NoGroupPage() {
           value={groupName}
           onChange={(e) => setGroupName(e.target.value)}
           placeholder="グループ名（例: 我が家）"
-          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-900"
         />
         {error && <p className="text-red-500 text-sm">{error}</p>}
         <button
