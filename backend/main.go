@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -54,7 +55,13 @@ func main() {
 
 	jwksURL := os.Getenv("SUPABASE_JWKS_URL")
 	if jwksURL != "" {
-		given, err := keyfunc.NewDefaultCtx(context.Background(), []string{jwksURL})
+		override := keyfunc.Override{}
+		if anonKey := os.Getenv("SUPABASE_ANON_KEY"); anonKey != "" {
+			override.Client = &http.Client{
+				Transport: &apiKeyTransport{key: anonKey},
+			}
+		}
+		given, err := keyfunc.NewDefaultOverrideCtx(context.Background(), []string{jwksURL}, override)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -104,6 +111,14 @@ func main() {
 	if err := e.Start(":" + parsePort(os.Getenv("PORT"))); err != nil {
 		log.Fatal(err)
 	}
+}
+
+type apiKeyTransport struct{ key string }
+
+func (t *apiKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+	req.Header.Set("apikey", t.key)
+	return http.DefaultTransport.RoundTrip(req)
 }
 
 func parsePort(env string) string {

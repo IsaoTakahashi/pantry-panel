@@ -34,7 +34,7 @@ func NewJWTAuth(cfg JWTAuthConfig) echo.MiddlewareFunc {
 			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
 			token, err := jwt.Parse(tokenStr, cfg.KeyFunc,
-				jwt.WithValidMethods([]string{"RS256", "HS256"}))
+				jwt.WithValidMethods([]string{"RS256", "HS256", "ES256"}))
 			if err != nil || !token.Valid {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Unauthorized"})
 			}
