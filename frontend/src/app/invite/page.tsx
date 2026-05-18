@@ -1,17 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { createInvitation } from "@/lib/authApi";
 import type { InvitationResponse } from "@/types/group";
 
 export default function InvitePage() {
-  const { session } = useAuth();
+  const router = useRouter();
+  const { session, group, loading } = useAuth();
   const [invitation, setInvitation] = useState<InvitationResponse | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (loading) return;
+    if (group?.role !== "owner") {
+      router.push("/stock-items");
+    }
+  }, [loading, group, router]);
 
   const inviteUrl = invitation
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/join?token=${invitation.token}`
@@ -36,6 +45,8 @@ export default function InvitePage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  if (loading || group?.role !== "owner") return null;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4">
