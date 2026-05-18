@@ -9,6 +9,11 @@ import type {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 
+function bearerHeaders(accessToken?: string): HeadersInit {
+  if (!accessToken) return {};
+  return { Authorization: `Bearer ${accessToken}` };
+}
+
 async function fetchHealth(): Promise<HealthResponse> {
   const response = await fetch(`${API_BASE_URL}/health`);
   if (!response.ok) {
@@ -17,8 +22,10 @@ async function fetchHealth(): Promise<HealthResponse> {
   return response.json();
 }
 
-async function fetchStockItems(): Promise<StockItem[]> {
-  const response = await fetch(`${API_BASE_URL}/api/stock-items`);
+async function fetchStockItems(accessToken?: string): Promise<StockItem[]> {
+  const response = await fetch(`${API_BASE_URL}/api/stock-items`, {
+    headers: bearerHeaders(accessToken),
+  });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }
@@ -27,11 +34,13 @@ async function fetchStockItems(): Promise<StockItem[]> {
 
 async function createStockItem(
   req: CreateStockItemRequest,
+  accessToken?: string,
 ): Promise<StockItem> {
   const response = await fetch(`${API_BASE_URL}/api/stock-items`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...bearerHeaders(accessToken),
     },
     body: JSON.stringify(req),
   });
@@ -44,11 +53,13 @@ async function createStockItem(
 async function updateStockItem(
   id: string,
   req: UpdateStockItemRequest,
+  accessToken?: string,
 ): Promise<StockItem> {
   const response = await fetch(`${API_BASE_URL}/api/stock-items/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
+      ...bearerHeaders(accessToken),
     },
     body: JSON.stringify(req),
   });
@@ -58,9 +69,13 @@ async function updateStockItem(
   return response.json();
 }
 
-async function deleteStockItem(id: string): Promise<void> {
+async function deleteStockItem(
+  id: string,
+  accessToken?: string,
+): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/stock-items/${id}`, {
     method: "DELETE",
+    headers: bearerHeaders(accessToken),
   });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
@@ -85,9 +100,12 @@ export class ImageSearchError extends Error {
 async function searchImages(
   query: string,
   num = 10,
+  accessToken?: string,
 ): Promise<ImageSearchResult[]> {
   const params = new URLSearchParams({ q: query, num: String(num) });
-  const response = await fetch(`${API_BASE_URL}/api/image-search?${params}`);
+  const response = await fetch(`${API_BASE_URL}/api/image-search?${params}`, {
+    headers: bearerHeaders(accessToken),
+  });
   if (!response.ok) {
     if (response.status === 429) throw new ImageSearchError("quota");
     if (response.status === 502) throw new ImageSearchError("upstream");
