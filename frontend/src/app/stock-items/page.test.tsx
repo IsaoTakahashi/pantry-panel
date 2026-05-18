@@ -14,7 +14,8 @@ vi.mock("@/components/AuthGuard", () => ({
 }));
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
-    session: null,
+    // biome-ignore lint/suspicious/noExplicitAny: minimal mock; full Session type not needed in tests
+    session: { access_token: "test-token" } as any,
     user: null,
     group: null,
     loading: false,
@@ -115,7 +116,7 @@ describe("StockItemsPage", () => {
     );
 
     await waitFor(() => {
-      expect(deleteStockItem).toHaveBeenCalledWith("1", undefined);
+      expect(deleteStockItem).toHaveBeenCalledWith("1", "test-token");
       expect(screen.queryByText("醤油")).not.toBeInTheDocument();
     });
   });
@@ -170,7 +171,7 @@ describe("StockItemsPage", () => {
           name: "濃口醤油",
           category: "調味料",
         },
-        undefined,
+        "test-token",
       );
       expect(screen.getByText("濃口醤油")).toBeInTheDocument();
     });
@@ -200,7 +201,7 @@ describe("StockItemsPage", () => {
       expect(updateStockItem).toHaveBeenCalledWith(
         "1",
         { wantToBuy: true },
-        undefined,
+        "test-token",
       );
     });
 
@@ -340,7 +341,7 @@ describe("StockItemsPage", () => {
       expect(updateStockItem).toHaveBeenCalledWith(
         "1",
         { wantToBuy: true },
-        undefined,
+        "test-token",
       );
     });
   });
