@@ -21,7 +21,7 @@ import { useStockItemsRealtime } from "@/lib/useStockItemsRealtime";
 import type { StockItem } from "@/types/stockItem";
 
 export default function StockItemsPage() {
-  const { session, group, signOut } = useAuth();
+  const { session, group, signOut, loading: authLoading } = useAuth();
   const accessToken = session?.access_token;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [items, setItems] = useState<StockItem[]>([]);
@@ -104,7 +104,7 @@ export default function StockItemsPage() {
   useStockItemsRealtime(handleRealtimeChange);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (authLoading) return;
     setLoading(true);
     setError(null);
     fetchStockItems(accessToken)
@@ -113,7 +113,7 @@ export default function StockItemsPage() {
         setError(err instanceof Error ? err.message : "Unknown error"),
       )
       .finally(() => setLoading(false));
-  }, [accessToken]);
+  }, [authLoading, accessToken]);
 
   return (
     <AuthGuard>

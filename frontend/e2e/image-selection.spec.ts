@@ -1,8 +1,13 @@
 import { expect, test } from "@playwright/test";
 
 const hasGoogleCSE = !!process.env.PLAYWRIGHT_GOOGLE_CSE_ENABLED;
+const hasSupabase = !!(
+  process.env.PLAYWRIGHT_SUPABASE_URL &&
+  process.env.PLAYWRIGHT_SUPABASE_ANON_KEY
+);
 
 test.describe("画像設定", () => {
+  test.skip(!hasSupabase, "PLAYWRIGHT_SUPABASE_URL / _ANON_KEY not set");
   let itemName: string;
 
   test.beforeEach(async ({ page }) => {
