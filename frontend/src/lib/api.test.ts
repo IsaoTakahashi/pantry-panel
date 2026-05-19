@@ -70,6 +70,30 @@ describe("fetchStockItems", () => {
 
     await expect(fetchStockItems()).rejects.toThrow("HTTP 500");
   });
+
+  it("accessToken を渡すと Authorization ヘッダーが付加される", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    await fetchStockItems("my-token");
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: { Authorization: "Bearer my-token" },
+      }),
+    );
+  });
+
+  it("accessToken なしのとき Authorization ヘッダーなし（後方互換）", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    await fetchStockItems();
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ headers: {} }),
+    );
+  });
 });
 
 describe("createStockItem", () => {

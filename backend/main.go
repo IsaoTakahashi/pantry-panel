@@ -1,15 +1,19 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
 
+	keyfunc "github.com/MicahParks/keyfunc/v3"
 	"github.com/IsaoTakahashi/pantry-panel/backend/db"
 	"github.com/IsaoTakahashi/pantry-panel/backend/handler"
 	"github.com/IsaoTakahashi/pantry-panel/backend/imagesearch"
+	jwtmiddleware "github.com/IsaoTakahashi/pantry-panel/backend/middleware"
 	"github.com/IsaoTakahashi/pantry-panel/backend/repository"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -22,7 +26,6 @@ func main() {
 	}
 
 	pool, err := db.Connect(dsn)
-
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -33,6 +36,9 @@ func main() {
 	stockItemRepo := repository.NewPgStockItemRepository(pool)
 	stockItemHandler := handler.NewStockItemHandler(stockItemRepo)
 
+	groupRepo := repository.NewPgGroupRepository(pool)
+	groupHandler := handler.NewGroupHandler(groupRepo)
+
 	var imageClient imagesearch.Client
 	googleKey := os.Getenv("GOOGLE_CSE_API_KEY")
 	googleCSE := os.Getenv("GOOGLE_CSE_ID")
@@ -42,6 +48,37 @@ func main() {
 		log.Println("warning: GOOGLE_CSE_API_KEY / GOOGLE_CSE_ID not set; image search disabled")
 	}
 	imageSearchHandler := handler.NewImageSearchHandler(imageClient)
+
+	noopMW := func(next echo.HandlerFunc) echo.HandlerFunc { return next }
+	jwtGroupMW := echo.MiddlewareFunc(noopMW)
+	jwtOnlyMW := echo.MiddlewareFunc(noopMW)
+
+	jwksURL := os.Getenv("SUPABASE_JWKS_URL")
+	if jwksURL != "" {
+		override := keyfunc.Override{}
+		if anonKey := os.Getenv("SUPABASE_ANON_KEY"); anonKey != "" {
+			override.Client = &http.Client{
+				Transport: &apiKeyTransport{key: anonKey},
+			}
+		}
+		given, err := keyfunc.NewDefaultOverrideCtx(context.Background(), []string{jwksURL}, override)
+		if err != nil {
+			log.Fatal(err)
+		}
+		jwtGroupMW = jwtmiddleware.NewJWTAuth(jwtmiddleware.JWTAuthConfig{
+			KeyFunc:      given.Keyfunc,
+			GroupRepo:    groupRepo,
+			RequireGroup: true,
+		})
+		jwtOnlyMW = jwtmiddleware.NewJWTAuth(jwtmiddleware.JWTAuthConfig{
+			KeyFunc:      given.Keyfunc,
+			GroupRepo:    groupRepo,
+			RequireGroup: false,
+		})
+		log.Println("JWT authentication enabled")
+	} else {
+		log.Println("warning: SUPABASE_JWKS_URL not set; authentication disabled")
+	}
 
 	matcher, err := compileOriginMatcher(parseCORSAllowedOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")))
 	if err != nil {
@@ -59,15 +96,29 @@ func main() {
 	}))
 
 	e.GET("/health", handler.HealthCheck(pool))
-	e.GET("/api/stock-items", stockItemHandler.List)
-	e.GET("/api/image-search", imageSearchHandler.Search)
-	e.POST("/api/stock-items", stockItemHandler.Create)
-	e.PATCH("/api/stock-items/:id", stockItemHandler.Update)
-	e.DELETE("/api/stock-items/:id", stockItemHandler.Delete)
+
+	e.POST("/api/groups", groupHandler.CreateGroup, jwtOnlyMW)
+	e.GET("/api/groups/me", groupHandler.GetMyGroup, jwtOnlyMW)
+	e.POST("/api/invitations", groupHandler.CreateInvitation, jwtGroupMW)
+	e.POST("/api/invitations/:token/accept", groupHandler.AcceptInvitation, jwtOnlyMW)
+
+	e.GET("/api/stock-items", stockItemHandler.List, jwtGroupMW)
+	e.GET("/api/image-search", imageSearchHandler.Search, jwtGroupMW)
+	e.POST("/api/stock-items", stockItemHandler.Create, jwtGroupMW)
+	e.PATCH("/api/stock-items/:id", stockItemHandler.Update, jwtGroupMW)
+	e.DELETE("/api/stock-items/:id", stockItemHandler.Delete, jwtGroupMW)
 
 	if err := e.Start(":" + parsePort(os.Getenv("PORT"))); err != nil {
 		log.Fatal(err)
 	}
+}
+
+type apiKeyTransport struct{ key string }
+
+func (t *apiKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+	req.Header.Set("apikey", t.key)
+	return http.DefaultTransport.RoundTrip(req)
 }
 
 func parsePort(env string) string {

@@ -2,12 +2,14 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import AuthGuard from "@/components/AuthGuard";
 import CreateItemModal from "@/components/CreateItemModal";
 import EditItemModal from "@/components/EditItemModal";
 import FilterBar from "@/components/FilterBar";
 import ImageSelectionModal from "@/components/ImageSelectionModal";
 import ItemCard from "@/components/ItemCard";
 import ItemCardSimple from "@/components/ItemCardSimple";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   createStockItem,
   deleteStockItem,
@@ -19,6 +21,8 @@ import { useStockItemsRealtime } from "@/lib/useStockItemsRealtime";
 import type { StockItem } from "@/types/stockItem";
 
 export default function StockItemsPage() {
+  const { session, group, signOut, loading: authLoading } = useAuth();
+  const accessToken = session?.access_token;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [items, setItems] = useState<StockItem[]>([]);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
@@ -46,8 +50,8 @@ export default function StockItemsPage() {
     category: string,
     wantToBuy: boolean,
   ) => {
-    await createStockItem({ name, category, wantToBuy });
-    const data = await fetchStockItems();
+    await createStockItem({ name, category, wantToBuy }, accessToken);
+    const data = await fetchStockItems(accessToken);
     setItems(data);
   };
 
@@ -61,21 +65,21 @@ export default function StockItemsPage() {
 
   const handleSave = async (name: string, category: string) => {
     if (!editingItem) return;
-    await updateStockItem(editingItem.id, { name, category });
-    const data = await fetchStockItems();
+    await updateStockItem(editingItem.id, { name, category }, accessToken);
+    const data = await fetchStockItems(accessToken);
     setItems(data);
   };
 
   const handleToggleWantToBuy = async (item: StockItem) => {
-    await updateStockItem(item.id, { wantToBuy: !item.wantToBuy });
-    const data = await fetchStockItems();
+    await updateStockItem(item.id, { wantToBuy: !item.wantToBuy }, accessToken);
+    const data = await fetchStockItems(accessToken);
     setItems(data);
   };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("この商品を削除しますか？")) return;
-    await deleteStockItem(id);
-    const data = await fetchStockItems();
+    await deleteStockItem(id, accessToken);
+    const data = await fetchStockItems(accessToken);
     setItems(data);
   };
 
@@ -85,127 +89,152 @@ export default function StockItemsPage() {
 
   const handleImageSelect = async (imageUrl: string | null) => {
     if (!imageEditingItem) return;
-    await updateStockItem(imageEditingItem.id, { imageUrl });
+    await updateStockItem(imageEditingItem.id, { imageUrl }, accessToken);
     setImageEditingItem(null);
-    const data = await fetchStockItems();
+    const data = await fetchStockItems(accessToken);
     setItems(data);
   };
 
   const handleRealtimeChange = useCallback(() => {
-    fetchStockItems()
+    fetchStockItems(accessToken)
       .then((data) => setItems(data))
       .catch(() => {});
-  }, []);
+  }, [accessToken]);
 
   useStockItemsRealtime(handleRealtimeChange);
 
   useEffect(() => {
-    fetchStockItems()
+    if (authLoading) return;
+    setLoading(true);
+    setError(null);
+    fetchStockItems(accessToken)
       .then((data) => setItems(data))
       .catch((err) =>
         setError(err instanceof Error ? err.message : "Unknown error"),
       )
       .finally(() => setLoading(false));
-  }, []);
+  }, [authLoading, accessToken]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-gradient-to-br from-[#009e6c] via-[#00d1b2] to-[#00e7eb] text-white py-2 px-4">
-        <h1 className="text-3xl font-bold text-center">Pantry Panel</h1>
-      </header>
-      <main className="max-w-6xl mx-auto px-4 py-4">
-        {loading ? (
-          <p className="text-center py-12 text-gray-600">Loading...</p>
-        ) : error ? (
-          <p className="text-center py-12 text-red-600">
-            商品を取得できませんでした
-          </p>
-        ) : (
-          <>
-            <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <FilterBar
-                value={filter}
-                onChange={setFilter}
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-              />
+    <AuthGuard>
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-gradient-to-br from-[#009e6c] via-[#00d1b2] to-[#00e7eb] text-white py-2 px-4">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Pantry Panel</h1>
+            <div className="flex items-center gap-3 text-sm">
+              {group && <span className="opacity-80">{group.name}</span>}
+              {group?.role === "owner" && (
+                <a
+                  href="/invite"
+                  className="opacity-80 hover:opacity-100 underline"
+                >
+                  招待
+                </a>
+              )}
               <button
                 type="button"
-                onClick={() => setIsModalOpen(true)}
-                className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium md:self-start"
+                onClick={() => signOut()}
+                className="opacity-80 hover:opacity-100"
               >
-                商品を追加
+                サインアウト
               </button>
             </div>
-            <CreateItemModal
-              isOpen={isModalOpen}
-              initialName={filter.searchText}
-              initialCategory={filter.category ?? "★"}
-              initialWantToBuy={filter.wantToBuyOnly}
-              onClose={() => setIsModalOpen(false)}
-              onCreate={handleCreate}
-            />
-            <EditItemModal
-              item={editingItem}
-              isOpen={!!editingItem}
-              onClose={handleCloseEdit}
-              onSave={handleSave}
-            />
-            <ImageSelectionModal
-              item={
-                imageEditingItem ?? {
-                  id: "",
-                  name: "",
-                  category: "",
-                  imageUrl: null,
-                  wantToBuy: false,
-                  createdAt: "",
-                  updatedAt: "",
-                  sortedAt: "",
+          </div>
+        </header>
+        <main className="max-w-6xl mx-auto px-4 py-4">
+          {loading ? (
+            <p className="text-center py-12 text-gray-600">Loading...</p>
+          ) : error ? (
+            <p className="text-center py-12 text-red-600">
+              商品を取得できませんでした
+            </p>
+          ) : (
+            <>
+              <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <FilterBar
+                  value={filter}
+                  onChange={setFilter}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(true)}
+                  className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium md:self-start"
+                >
+                  商品を追加
+                </button>
+              </div>
+              <CreateItemModal
+                isOpen={isModalOpen}
+                initialName={filter.searchText}
+                initialCategory={filter.category ?? "★"}
+                initialWantToBuy={filter.wantToBuyOnly}
+                onClose={() => setIsModalOpen(false)}
+                onCreate={handleCreate}
+              />
+              <EditItemModal
+                item={editingItem}
+                isOpen={!!editingItem}
+                onClose={handleCloseEdit}
+                onSave={handleSave}
+              />
+              <ImageSelectionModal
+                item={
+                  imageEditingItem ?? {
+                    id: "",
+                    name: "",
+                    category: "",
+                    imageUrl: null,
+                    wantToBuy: false,
+                    createdAt: "",
+                    updatedAt: "",
+                    sortedAt: "",
+                  }
                 }
-              }
-              isOpen={!!imageEditingItem}
-              onClose={() => setImageEditingItem(null)}
-              onSelect={handleImageSelect}
-            />
-            {items.length === 0 ? (
-              <p className="text-center py-12 text-gray-600">
-                商品がありません
-              </p>
-            ) : filteredItems.length === 0 ? (
-              <p className="text-center py-12 text-gray-600">
-                該当する商品がありません
-              </p>
-            ) : (
-              <motion.div
-                layout
-                className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 ${viewMode === "simple" ? "gap-1.5" : "gap-3"}`}
-              >
-                <AnimatePresence mode="popLayout">
-                  {filteredItems.map((item) => (
-                    <motion.div
-                      key={item.id}
-                      layout
-                      initial={{ opacity: 0, y: -12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -12 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <Card
-                        item={item}
-                        onDelete={handleDelete}
-                        onEdit={handleOpenEdit}
-                        onToggleWantToBuy={handleToggleWantToBuy}
-                        onImageEdit={handleOpenImageEdit}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </motion.div>
-            )}
-          </>
-        )}
-      </main>
-    </div>
+                isOpen={!!imageEditingItem}
+                onClose={() => setImageEditingItem(null)}
+                onSelect={handleImageSelect}
+              />
+              {items.length === 0 ? (
+                <p className="text-center py-12 text-gray-600">
+                  商品がありません
+                </p>
+              ) : filteredItems.length === 0 ? (
+                <p className="text-center py-12 text-gray-600">
+                  該当する商品がありません
+                </p>
+              ) : (
+                <motion.div
+                  layout
+                  className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 ${viewMode === "simple" ? "gap-1.5" : "gap-3"}`}
+                >
+                  <AnimatePresence mode="popLayout">
+                    {filteredItems.map((item) => (
+                      <motion.div
+                        key={item.id}
+                        layout
+                        initial={{ opacity: 0, y: -12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -12 }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        <Card
+                          item={item}
+                          onDelete={handleDelete}
+                          onEdit={handleOpenEdit}
+                          onToggleWantToBuy={handleToggleWantToBuy}
+                          onImageEdit={handleOpenImageEdit}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+              )}
+            </>
+          )}
+        </main>
+      </div>
+    </AuthGuard>
   );
 }

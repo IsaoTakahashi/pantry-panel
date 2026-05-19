@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/IsaoTakahashi/pantry-panel/backend/middleware"
 	"github.com/IsaoTakahashi/pantry-panel/backend/repository"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -39,15 +40,23 @@ func NewStockItemHandler(repo repository.StockItemRepository) *StockItemHandler 
 }
 
 func (h *StockItemHandler) List(c *echo.Context) error {
-	items, err := h.repo.List(c.Request().Context())
+	authInfo, ok := middleware.GetAuthInfo(c)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Message: "Unauthorized"})
+	}
+	items, err := h.repo.List(c.Request().Context(), authInfo.GroupID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Message: "Internal Server Error"})
 	}
-
 	return c.JSON(http.StatusOK, items)
 }
 
 func (h *StockItemHandler) Create(c *echo.Context) error {
+	authInfo, ok := middleware.GetAuthInfo(c)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Message: "Unauthorized"})
+	}
+
 	var req CreateStockItemRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "Invalid request body"})
@@ -57,7 +66,7 @@ func (h *StockItemHandler) Create(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "Name and category are required"})
 	}
 
-	item, err := h.repo.Create(c.Request().Context(), req.Name, req.Category, req.WantToBuy)
+	item, err := h.repo.Create(c.Request().Context(), authInfo.GroupID, req.Name, req.Category, req.WantToBuy)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -70,6 +79,11 @@ func (h *StockItemHandler) Create(c *echo.Context) error {
 }
 
 func (h *StockItemHandler) Update(c *echo.Context) error {
+	authInfo, ok := middleware.GetAuthInfo(c)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Message: "Unauthorized"})
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "Invalid ID"})
@@ -92,7 +106,7 @@ func (h *StockItemHandler) Update(c *echo.Context) error {
 		ImageURL:  imageURLPatch,
 	}
 
-	item, err := h.repo.Update(c.Request().Context(), id, params)
+	item, err := h.repo.Update(c.Request().Context(), id, authInfo.GroupID, params)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -127,12 +141,17 @@ func parseImageURLPatch(raw json.RawMessage) (*repository.ImageURLUpdate, error)
 }
 
 func (h *StockItemHandler) Delete(c *echo.Context) error {
+	authInfo, ok := middleware.GetAuthInfo(c)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Message: "Unauthorized"})
+	}
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "Invalid ID"})
 	}
 
-	item, err := h.repo.Get(c.Request().Context(), id)
+	item, err := h.repo.Get(c.Request().Context(), id, authInfo.GroupID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, ErrorResponse{Message: "Stock item not found"})
@@ -144,7 +163,7 @@ func (h *StockItemHandler) Delete(c *echo.Context) error {
 		return c.JSON(http.StatusConflict, ErrorResponse{Message: "Cannot delete item that is marked as want to buy"})
 	}
 
-	err = h.repo.Delete(c.Request().Context(), id)
+	err = h.repo.Delete(c.Request().Context(), id, authInfo.GroupID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Message: "Internal Server Error"})
 	}

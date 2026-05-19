@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import StockItemsPage from "@/app/stock-items/page";
 import { fetchStockItems } from "@/lib/api";
@@ -8,6 +9,21 @@ import { useStockItemsRealtime } from "@/lib/useStockItemsRealtime";
 vi.mock("@/lib/api");
 vi.mock("@/lib/useStockItemsRealtime");
 vi.mock("framer-motion");
+vi.mock("@/components/AuthGuard", () => ({
+  default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({
+    // biome-ignore lint/suspicious/noExplicitAny: minimal mock; full Session type not needed in tests
+    session: { access_token: "test-token" } as any,
+    user: null,
+    group: null,
+    loading: false,
+    signInWithGoogle: vi.fn(),
+    signOut: vi.fn(),
+    refreshGroup: vi.fn(),
+  }),
+}));
 
 const mockItems = [
   {
@@ -100,7 +116,7 @@ describe("StockItemsPage", () => {
     );
 
     await waitFor(() => {
-      expect(deleteStockItem).toHaveBeenCalledWith("1");
+      expect(deleteStockItem).toHaveBeenCalledWith("1", "test-token");
       expect(screen.queryByText("醤油")).not.toBeInTheDocument();
     });
   });
@@ -149,10 +165,14 @@ describe("StockItemsPage", () => {
     await user.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => {
-      expect(updateStockItem).toHaveBeenCalledWith("1", {
-        name: "濃口醤油",
-        category: "調味料",
-      });
+      expect(updateStockItem).toHaveBeenCalledWith(
+        "1",
+        {
+          name: "濃口醤油",
+          category: "調味料",
+        },
+        "test-token",
+      );
       expect(screen.getByText("濃口醤油")).toBeInTheDocument();
     });
   });
@@ -178,9 +198,11 @@ describe("StockItemsPage", () => {
     );
 
     await waitFor(() => {
-      expect(updateStockItem).toHaveBeenCalledWith("1", {
-        wantToBuy: true,
-      });
+      expect(updateStockItem).toHaveBeenCalledWith(
+        "1",
+        { wantToBuy: true },
+        "test-token",
+      );
     });
 
     await waitFor(() => {
@@ -316,9 +338,11 @@ describe("StockItemsPage", () => {
     );
 
     await waitFor(() => {
-      expect(updateStockItem).toHaveBeenCalledWith("1", {
-        wantToBuy: true,
-      });
+      expect(updateStockItem).toHaveBeenCalledWith(
+        "1",
+        { wantToBuy: true },
+        "test-token",
+      );
     });
   });
 
