@@ -45,7 +45,11 @@ describe("ImageSelectionModal", () => {
     );
 
     await waitFor(() =>
-      expect(searchImages).toHaveBeenCalledWith("りんご", expect.any(Number)),
+      expect(searchImages).toHaveBeenCalledWith(
+        "りんご",
+        expect.any(Number),
+        undefined,
+      ),
     );
     expect(await screen.findByAltText("A")).toBeInTheDocument();
   });
@@ -225,7 +229,11 @@ describe("ImageSelectionModal", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /^検索$/ }));
     await waitFor(() =>
-      expect(searchImages).toHaveBeenCalledWith("もも", expect.any(Number)),
+      expect(searchImages).toHaveBeenCalledWith(
+        "もも",
+        expect.any(Number),
+        undefined,
+      ),
     );
   });
 });

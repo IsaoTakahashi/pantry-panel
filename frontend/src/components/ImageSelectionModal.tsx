@@ -11,6 +11,7 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (imageUrl: string | null) => void;
+  accessToken?: string;
 };
 
 type FetchState =
@@ -24,23 +25,27 @@ export default function ImageSelectionModal({
   isOpen,
   onClose,
   onSelect,
+  accessToken,
 }: Props) {
   const [query, setQuery] = useState(item.name);
   const [state, setState] = useState<FetchState>({ status: "idle" });
 
-  const runSearch = useCallback(async (q: string) => {
-    setState({ status: "loading" });
-    try {
-      const results = await searchImages(q, 10);
-      setState({ status: "success", results });
-    } catch (err) {
-      const kind =
-        err instanceof ImageSearchError && err.kind === "quota"
-          ? "quota"
-          : "other";
-      setState({ status: "error", kind });
-    }
-  }, []);
+  const runSearch = useCallback(
+    async (q: string) => {
+      setState({ status: "loading" });
+      try {
+        const results = await searchImages(q, 10, accessToken);
+        setState({ status: "success", results });
+      } catch (err) {
+        const kind =
+          err instanceof ImageSearchError && err.kind === "quota"
+            ? "quota"
+            : "other";
+        setState({ status: "error", kind });
+      }
+    },
+    [accessToken],
+  );
 
   useEffect(() => {
     if (!isOpen) return;

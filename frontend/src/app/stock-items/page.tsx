@@ -195,6 +195,7 @@ export default function StockItemsPage() {
                 isOpen={!!imageEditingItem}
                 onClose={() => setImageEditingItem(null)}
                 onSelect={handleImageSelect}
+                accessToken={accessToken}
               />
               {items.length === 0 ? (
                 <p className="text-center py-12 text-gray-600">
