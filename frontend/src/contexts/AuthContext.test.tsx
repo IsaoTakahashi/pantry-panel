@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider, useAuth } from "./AuthContext";
 
@@ -21,19 +21,24 @@ vi.mock("@/lib/supabaseClient", () => ({
 }));
 
 vi.mock("@/lib/authApi", () => ({
-  fetchMyGroup: vi.fn(),
+  fetchMyGroups: vi.fn(),
 }));
 
-import { fetchMyGroup } from "@/lib/authApi";
+import { fetchMyGroups } from "@/lib/authApi";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 function TestConsumer() {
-  const { session, group, loading } = useAuth();
+  const { session, group, groups, loading, switchGroup } = useAuth();
   if (loading) return <span>loading</span>;
   return (
     <span>
       {session ? "authenticated" : "anonymous"}
       {group ? `:${group.name}` : ":no-group"}
+      {groups.length > 1 && (
+        <button type="button" onClick={() => switchGroup(groups[1].groupId)}>
+          switch
+        </button>
+      )}
     </span>
   );
 }
@@ -51,10 +56,12 @@ beforeEach(() => {
   mockOnAuthStateChange.mockReturnValue({
     data: { subscription: { unsubscribe: vi.fn() } },
   });
+  localStorage.clear();
 });
 
 afterEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
 });
 
 describe("AuthContext", () => {
@@ -77,22 +84,20 @@ describe("AuthContext", () => {
   it("セッションがあるときグループ情報を取得して表示する", async () => {
     const session = { access_token: "tok", user: { id: "u1" } };
     mockGetSession.mockResolvedValue({ data: { session } });
-    vi.mocked(fetchMyGroup).mockResolvedValue({
-      groupId: "g1",
-      name: "我が家",
-      role: "owner",
-    });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "owner" },
+    ]);
     renderWithAuth();
     await waitFor(() =>
       expect(screen.getByText("authenticated:我が家")).toBeInTheDocument(),
     );
-    expect(fetchMyGroup).toHaveBeenCalledWith("tok");
+    expect(fetchMyGroups).toHaveBeenCalledWith("tok");
   });
 
   it("グループ未所属のとき no-group を表示する", async () => {
     const session = { access_token: "tok", user: { id: "u1" } };
     mockGetSession.mockResolvedValue({ data: { session } });
-    vi.mocked(fetchMyGroup).mockResolvedValue(null);
+    vi.mocked(fetchMyGroups).mockResolvedValue([]);
     renderWithAuth();
     await waitFor(() =>
       expect(screen.getByText("authenticated:no-group")).toBeInTheDocument(),
@@ -106,11 +111,9 @@ describe("AuthContext", () => {
       stateCallback = cb;
       return { data: { subscription: { unsubscribe: vi.fn() } } };
     });
-    vi.mocked(fetchMyGroup).mockResolvedValue({
-      groupId: "g1",
-      name: "我が家",
-      role: "member",
-    });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "member" },
+    ]);
 
     renderWithAuth();
     await waitFor(() =>
@@ -118,10 +121,51 @@ describe("AuthContext", () => {
     );
 
     // SIGNED_IN イベントをシミュレート
-    stateCallback("SIGNED_IN", { access_token: "tok2", user: { id: "u1" } });
+    act(() => {
+      stateCallback("SIGNED_IN", { access_token: "tok2", user: { id: "u1" } });
+    });
 
     await waitFor(() =>
       expect(screen.getByText("authenticated:我が家")).toBeInTheDocument(),
+    );
+  });
+
+  it("switchGroup updates active group and saves to localStorage", async () => {
+    const session = { access_token: "tok", user: { id: "u1" } };
+    mockGetSession.mockResolvedValue({ data: { session } });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "owner" },
+      { groupId: "g2", name: "実家", role: "member" },
+    ]);
+
+    renderWithAuth();
+    await waitFor(() =>
+      expect(screen.getByText("authenticated:我が家")).toBeInTheDocument(),
+    );
+
+    act(() => {
+      screen.getByRole("button", { name: "switch" }).click();
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText("authenticated:実家")).toBeInTheDocument(),
+    );
+
+    expect(localStorage.getItem("pantry-panel:active-group-id")).toBe("g2");
+  });
+
+  it("localStorage に保存された active group id を復元する", async () => {
+    localStorage.setItem("pantry-panel:active-group-id", "g2");
+    const session = { access_token: "tok", user: { id: "u1" } };
+    mockGetSession.mockResolvedValue({ data: { session } });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "owner" },
+      { groupId: "g2", name: "実家", role: "member" },
+    ]);
+
+    renderWithAuth();
+    await waitFor(() =>
+      expect(screen.getByText("authenticated:実家")).toBeInTheDocument(),
     );
   });
 });
