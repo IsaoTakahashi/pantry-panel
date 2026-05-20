@@ -94,6 +94,21 @@ describe("fetchStockItems", () => {
       expect.objectContaining({ headers: {} }),
     );
   });
+
+  it("sends X-Active-Group-ID header when activeGroupId provided", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    await fetchStockItems("access-token", "group-uuid");
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/stock-items"),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "X-Active-Group-ID": "group-uuid",
+        }),
+      }),
+    );
+  });
 });
 
 describe("createStockItem", () => {

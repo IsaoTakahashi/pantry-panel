@@ -9,44 +9,44 @@ import type {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
 
-function bearerHeaders(accessToken?: string): HeadersInit {
-  if (!accessToken) return {};
-  return { Authorization: `Bearer ${accessToken}` };
+function apiHeaders(accessToken?: string, activeGroupId?: string): HeadersInit {
+  const headers: Record<string, string> = {};
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (activeGroupId) headers["X-Active-Group-ID"] = activeGroupId;
+  return headers;
 }
 
 async function fetchHealth(): Promise<HealthResponse> {
   const response = await fetch(`${API_BASE_URL}/health`);
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }
 
-async function fetchStockItems(accessToken?: string): Promise<StockItem[]> {
+async function fetchStockItems(
+  accessToken?: string,
+  activeGroupId?: string,
+): Promise<StockItem[]> {
   const response = await fetch(`${API_BASE_URL}/api/stock-items`, {
-    headers: bearerHeaders(accessToken),
+    headers: apiHeaders(accessToken, activeGroupId),
   });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }
 
 async function createStockItem(
   req: CreateStockItemRequest,
   accessToken?: string,
+  activeGroupId?: string,
 ): Promise<StockItem> {
   const response = await fetch(`${API_BASE_URL}/api/stock-items`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...bearerHeaders(accessToken),
+      ...apiHeaders(accessToken, activeGroupId),
     },
     body: JSON.stringify(req),
   });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }
 
@@ -54,32 +54,30 @@ async function updateStockItem(
   id: string,
   req: UpdateStockItemRequest,
   accessToken?: string,
+  activeGroupId?: string,
 ): Promise<StockItem> {
   const response = await fetch(`${API_BASE_URL}/api/stock-items/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
-      ...bearerHeaders(accessToken),
+      ...apiHeaders(accessToken, activeGroupId),
     },
     body: JSON.stringify(req),
   });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }
 
 async function deleteStockItem(
   id: string,
   accessToken?: string,
+  activeGroupId?: string,
 ): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/stock-items/${id}`, {
     method: "DELETE",
-    headers: bearerHeaders(accessToken),
+    headers: apiHeaders(accessToken, activeGroupId),
   });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
 }
 
 export type ImageSearchErrorKind =
@@ -101,10 +99,11 @@ async function searchImages(
   query: string,
   num = 10,
   accessToken?: string,
+  activeGroupId?: string,
 ): Promise<ImageSearchResult[]> {
   const params = new URLSearchParams({ q: query, num: String(num) });
   const response = await fetch(`${API_BASE_URL}/api/image-search?${params}`, {
-    headers: bearerHeaders(accessToken),
+    headers: apiHeaders(accessToken, activeGroupId),
   });
   if (!response.ok) {
     if (response.status === 429) throw new ImageSearchError("quota");
