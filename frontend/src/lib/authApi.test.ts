@@ -1,128 +1,98 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  acceptInvitation,
   createGroup,
   createInvitation,
-  fetchMyGroup,
+  fetchMyGroups,
+  updateGroupName,
 } from "./authApi";
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const token = "test-access-token";
-
-describe("fetchMyGroup", () => {
-  it("200 のとき GroupInfo を返す", async () => {
+describe("fetchMyGroups", () => {
+  it("returns group list on success", async () => {
+    const groups = [{ groupId: "g1", name: "我が家", role: "owner" }];
     vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({ groupId: "g1", name: "我が家", role: "owner" }),
-        { status: 200 },
-      ),
+      new Response(JSON.stringify(groups), { status: 200 }),
     );
-    const result = await fetchMyGroup(token);
-    expect(result).toEqual({ groupId: "g1", name: "我が家", role: "owner" });
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/groups/me"),
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: `Bearer ${token}` }),
-      }),
-    );
+    const result = await fetchMyGroups("token");
+    expect(result).toEqual(groups);
   });
 
-  it("403 のとき null を返す（グループ未所属）", async () => {
+  it("returns empty array on 404", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 404 }),
+    );
+    expect(await fetchMyGroups("token")).toEqual([]);
+  });
+
+  it("returns empty array on 403", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(null, { status: 403 }),
     );
-    const result = await fetchMyGroup(token);
-    expect(result).toBeNull();
-  });
-
-  it("401 のとき throw する", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(null, { status: 401 }),
-    );
-    await expect(fetchMyGroup(token)).rejects.toThrow("HTTP 401");
+    expect(await fetchMyGroups("token")).toEqual([]);
   });
 });
 
 describe("createGroup", () => {
-  it("201 のとき Group を返す", async () => {
+  it("sends POST and returns created group", async () => {
+    const created = {
+      id: "g1",
+      name: "我が家",
+      createdAt: "2024-01-01T00:00:00Z",
+    };
     vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({ id: "g1", name: "我が家", createdAt: "2026-01-01" }),
-        { status: 201 },
-      ),
+      new Response(JSON.stringify(created), { status: 201 }),
     );
-    const result = await createGroup("我が家", token);
-    expect(result.name).toBe("我が家");
+    const result = await createGroup("我が家", "token");
+    expect(result).toEqual(created);
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/groups"),
       expect.objectContaining({ method: "POST" }),
     );
   });
+});
 
-  it("409 のとき throw する（既にグループ所属）", async () => {
+describe("updateGroupName", () => {
+  it("sends PATCH with X-Active-Group-ID header", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(null, { status: 409 }),
+      new Response(JSON.stringify({}), { status: 200 }),
     );
-    await expect(createGroup("家", token)).rejects.toThrow("HTTP 409");
+    await updateGroupName("g1", "新名前", "token", "g1");
+    const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(String(call[0])).toContain("/api/groups/g1");
+    expect(call[1]?.method).toBe("PATCH");
+    const headers = call[1]?.headers as Record<string, string>;
+    expect(headers["X-Active-Group-ID"]).toBe("g1");
+  });
+
+  it("throws on error response", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 403 }),
+    );
+    await expect(updateGroupName("g1", "名前", "token", "g1")).rejects.toThrow(
+      "HTTP 403",
+    );
   });
 });
 
 describe("createInvitation", () => {
-  it("201 のとき InvitationResponse を返す", async () => {
+  it("sends X-Active-Group-ID header", async () => {
     const inv = {
-      token: "tok-1",
+      token: "t1",
       groupId: "g1",
       createdBy: "u1",
-      expiresAt: "2026-05-24T00:00:00Z",
+      expiresAt: "",
       useCount: 0,
-      createdAt: "2026-05-17T00:00:00Z",
+      createdAt: "",
     };
     vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(JSON.stringify(inv), { status: 201 }),
     );
-    const result = await createInvitation(token);
-    expect(result.token).toBe("tok-1");
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/invitations"),
-      expect.objectContaining({ method: "POST" }),
-    );
-  });
-});
-
-describe("acceptInvitation", () => {
-  it("200 のとき GroupInfo を返す", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({ groupId: "g1", name: "我が家", role: "member" }),
-        { status: 200 },
-      ),
-    );
-    const result = await acceptInvitation("inv-token", token);
-    expect(result.role).toBe("member");
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/invitations/inv-token/accept"),
-      expect.objectContaining({ method: "POST" }),
-    );
-  });
-
-  it("404 のとき throw する（招待が見つからない）", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(null, { status: 404 }),
-    );
-    await expect(acceptInvitation("bad-token", token)).rejects.toThrow(
-      "HTTP 404",
-    );
-  });
-
-  it("410 のとき throw する（招待期限切れ）", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(null, { status: 410 }),
-    );
-    await expect(acceptInvitation("expired-token", token)).rejects.toThrow(
-      "HTTP 410",
-    );
+    await createInvitation("token", "g1");
+    const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const headers = call[1]?.headers as Record<string, string>;
+    expect(headers["X-Active-Group-ID"]).toBe("g1");
   });
 });

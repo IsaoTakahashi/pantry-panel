@@ -6,6 +6,7 @@ import AuthGuard from "@/components/AuthGuard";
 import CreateItemModal from "@/components/CreateItemModal";
 import EditItemModal from "@/components/EditItemModal";
 import FilterBar from "@/components/FilterBar";
+import GroupSwitcher from "@/components/GroupSwitcher";
 import ImageSelectionModal from "@/components/ImageSelectionModal";
 import ItemCard from "@/components/ItemCard";
 import ItemCardSimple from "@/components/ItemCardSimple";
@@ -16,13 +17,23 @@ import {
   fetchStockItems,
   updateStockItem,
 } from "@/lib/api";
+import { createGroup, updateGroupName } from "@/lib/authApi";
 import { type FilterCondition, filterStockItems } from "@/lib/filterStockItems";
 import { useStockItemsRealtime } from "@/lib/useStockItemsRealtime";
 import type { StockItem } from "@/types/stockItem";
 
 export default function StockItemsPage() {
-  const { session, group, signOut, loading: authLoading } = useAuth();
+  const {
+    session,
+    group,
+    groups,
+    switchGroup,
+    signOut,
+    loading: authLoading,
+    refreshGroup,
+  } = useAuth();
   const accessToken = session?.access_token;
+  const activeGroupId = group?.groupId;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [items, setItems] = useState<StockItem[]>([]);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
@@ -50,8 +61,12 @@ export default function StockItemsPage() {
     category: string,
     wantToBuy: boolean,
   ) => {
-    await createStockItem({ name, category, wantToBuy }, accessToken);
-    const data = await fetchStockItems(accessToken);
+    await createStockItem(
+      { name, category, wantToBuy },
+      accessToken,
+      activeGroupId,
+    );
+    const data = await fetchStockItems(accessToken, activeGroupId);
     setItems(data);
   };
 
@@ -65,21 +80,31 @@ export default function StockItemsPage() {
 
   const handleSave = async (name: string, category: string) => {
     if (!editingItem) return;
-    await updateStockItem(editingItem.id, { name, category }, accessToken);
-    const data = await fetchStockItems(accessToken);
+    await updateStockItem(
+      editingItem.id,
+      { name, category },
+      accessToken,
+      activeGroupId,
+    );
+    const data = await fetchStockItems(accessToken, activeGroupId);
     setItems(data);
   };
 
   const handleToggleWantToBuy = async (item: StockItem) => {
-    await updateStockItem(item.id, { wantToBuy: !item.wantToBuy }, accessToken);
-    const data = await fetchStockItems(accessToken);
+    await updateStockItem(
+      item.id,
+      { wantToBuy: !item.wantToBuy },
+      accessToken,
+      activeGroupId,
+    );
+    const data = await fetchStockItems(accessToken, activeGroupId);
     setItems(data);
   };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("この商品を削除しますか？")) return;
-    await deleteStockItem(id, accessToken);
-    const data = await fetchStockItems(accessToken);
+    await deleteStockItem(id, accessToken, activeGroupId);
+    const data = await fetchStockItems(accessToken, activeGroupId);
     setItems(data);
   };
 
@@ -89,17 +114,34 @@ export default function StockItemsPage() {
 
   const handleImageSelect = async (imageUrl: string | null) => {
     if (!imageEditingItem) return;
-    await updateStockItem(imageEditingItem.id, { imageUrl }, accessToken);
+    await updateStockItem(
+      imageEditingItem.id,
+      { imageUrl },
+      accessToken,
+      activeGroupId,
+    );
     setImageEditingItem(null);
-    const data = await fetchStockItems(accessToken);
+    const data = await fetchStockItems(accessToken, activeGroupId);
     setItems(data);
   };
 
+  const handleRenameGroup = async (groupId: string, name: string) => {
+    if (!accessToken || !activeGroupId) return;
+    await updateGroupName(groupId, name, accessToken, activeGroupId);
+    await refreshGroup();
+  };
+
+  const handleCreateNewGroup = async (name: string) => {
+    if (!accessToken) return;
+    await createGroup(name, accessToken);
+    await refreshGroup();
+  };
+
   const handleRealtimeChange = useCallback(() => {
-    fetchStockItems(accessToken)
+    fetchStockItems(accessToken, activeGroupId)
       .then((data) => setItems(data))
       .catch(() => {});
-  }, [accessToken]);
+  }, [accessToken, activeGroupId]);
 
   useStockItemsRealtime(handleRealtimeChange);
 
@@ -107,13 +149,13 @@ export default function StockItemsPage() {
     if (authLoading) return;
     setLoading(true);
     setError(null);
-    fetchStockItems(accessToken)
+    fetchStockItems(accessToken, activeGroupId)
       .then((data) => setItems(data))
       .catch((err) =>
         setError(err instanceof Error ? err.message : "Unknown error"),
       )
       .finally(() => setLoading(false));
-  }, [authLoading, accessToken]);
+  }, [authLoading, accessToken, activeGroupId]);
 
   return (
     <AuthGuard>
@@ -122,7 +164,13 @@ export default function StockItemsPage() {
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <h1 className="text-2xl font-bold">Pantry Panel</h1>
             <div className="flex items-center gap-3 text-sm">
-              {group && <span className="opacity-80">{group.name}</span>}
+              <GroupSwitcher
+                groups={groups}
+                activeGroup={group}
+                onSwitch={switchGroup}
+                onCreateGroup={handleCreateNewGroup}
+                onRenameGroup={handleRenameGroup}
+              />
               {group?.role === "owner" && (
                 <a
                   href="/invite"
@@ -196,6 +244,7 @@ export default function StockItemsPage() {
                 onClose={() => setImageEditingItem(null)}
                 onSelect={handleImageSelect}
                 accessToken={accessToken}
+                activeGroupId={activeGroupId}
               />
               {items.length === 0 ? (
                 <p className="text-center py-12 text-gray-600">

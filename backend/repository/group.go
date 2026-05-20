@@ -35,11 +35,14 @@ type Invitation struct {
 }
 
 type GroupRepository interface {
-	// FindMembershipByUserID はユーザーが所属するグループを返す。未所属なら nil, nil を返す。
-	FindMembershipByUserID(ctx context.Context, userID uuid.UUID) (*GroupMembership, error)
+	// FindMembershipsByUserID はユーザーが所属する全グループを返す。未所属なら空スライスを返す。
+	FindMembershipsByUserID(ctx context.Context, userID uuid.UUID) ([]GroupMembership, error)
 
 	// CreateGroup は新しいグループを作成し、ownerID を owner として追加する。
 	CreateGroup(ctx context.Context, name string, ownerID uuid.UUID) (*Group, error)
+
+	// UpdateGroupName はグループ名を更新し、更新後の Group を返す。見つからなければ ErrNotFound を返す。
+	UpdateGroupName(ctx context.Context, groupID uuid.UUID, name string) (*Group, error)
 
 	// CreateInvitation は有効期限付き招待トークンを生成する。
 	CreateInvitation(ctx context.Context, groupID, createdBy uuid.UUID, ttl time.Duration) (*Invitation, error)

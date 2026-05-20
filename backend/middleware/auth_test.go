@@ -37,24 +37,28 @@ func makeToken(t *testing.T, sub string, exp time.Time) string {
 }
 
 type mockGroupRepo struct {
-	findFn func(ctx context.Context, userID uuid.UUID) (*repository.GroupMembership, error)
+	findMembershipsFn func(ctx context.Context, userID uuid.UUID) ([]repository.GroupMembership, error)
 }
 
-func (m *mockGroupRepo) FindMembershipByUserID(ctx context.Context, userID uuid.UUID) (*repository.GroupMembership, error) {
-	return m.findFn(ctx, userID)
-}
-func (m *mockGroupRepo) CreateGroup(ctx context.Context, name string, ownerID uuid.UUID) (*repository.Group, error) {
+func (m *mockGroupRepo) FindMembershipsByUserID(ctx context.Context, userID uuid.UUID) ([]repository.GroupMembership, error) {
+	if m.findMembershipsFn != nil {
+		return m.findMembershipsFn(ctx, userID)
+	}
 	return nil, nil
 }
-func (m *mockGroupRepo) CreateInvitation(ctx context.Context, groupID, createdBy uuid.UUID, ttl time.Duration) (*repository.Invitation, error) {
+func (m *mockGroupRepo) CreateGroup(_ context.Context, _ string, _ uuid.UUID) (*repository.Group, error) {
 	return nil, nil
 }
-func (m *mockGroupRepo) FindInvitation(ctx context.Context, token uuid.UUID) (*repository.Invitation, error) {
+func (m *mockGroupRepo) UpdateGroupName(_ context.Context, _ uuid.UUID, _ string) (*repository.Group, error) {
 	return nil, nil
 }
-func (m *mockGroupRepo) AcceptInvitation(ctx context.Context, token, userID uuid.UUID) error {
-	return nil
+func (m *mockGroupRepo) CreateInvitation(_ context.Context, _, _ uuid.UUID, _ time.Duration) (*repository.Invitation, error) {
+	return nil, nil
 }
+func (m *mockGroupRepo) FindInvitation(_ context.Context, _ uuid.UUID) (*repository.Invitation, error) {
+	return nil, nil
+}
+func (m *mockGroupRepo) AcceptInvitation(_ context.Context, _, _ uuid.UUID) error { return nil }
 
 func setupMiddlewareTest(cfg middleware.JWTAuthConfig) (*echo.Echo, *httptest.ResponseRecorder) {
 	e := echo.New()
@@ -67,35 +71,18 @@ func setupMiddlewareTest(cfg middleware.JWTAuthConfig) (*echo.Echo, *httptest.Re
 }
 
 func TestJWTAuth_NoHeader(t *testing.T) {
-	groupID := uuid.New()
-	mock := &mockGroupRepo{
-		findFn: func(_ context.Context, _ uuid.UUID) (*repository.GroupMembership, error) {
-			return &repository.GroupMembership{GroupID: groupID, Name: "家", Role: "owner"}, nil
-		},
-	}
 	e, rec := setupMiddlewareTest(middleware.JWTAuthConfig{
-		KeyFunc:      testKeyFunc,
-		GroupRepo:    mock,
-		RequireGroup: true,
+		KeyFunc: testKeyFunc, GroupRepo: &mockGroupRepo{}, RequireGroup: true,
 	})
-
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	e.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestJWTAuth_InvalidToken(t *testing.T) {
-	mock := &mockGroupRepo{
-		findFn: func(_ context.Context, _ uuid.UUID) (*repository.GroupMembership, error) {
-			return nil, nil
-		},
-	}
 	e, rec := setupMiddlewareTest(middleware.JWTAuthConfig{
-		KeyFunc:      testKeyFunc,
-		GroupRepo:    mock,
-		RequireGroup: false,
+		KeyFunc: testKeyFunc, GroupRepo: &mockGroupRepo{}, RequireGroup: false,
 	})
-
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer not-a-jwt")
 	e.ServeHTTP(rec, req)
@@ -104,34 +91,94 @@ func TestJWTAuth_InvalidToken(t *testing.T) {
 
 func TestJWTAuth_ExpiredToken(t *testing.T) {
 	userID := uuid.New()
-	token := makeToken(t, userID.String(), time.Now().Add(-time.Hour)) // 期限切れ
-
-	mock := &mockGroupRepo{
-		findFn: func(_ context.Context, _ uuid.UUID) (*repository.GroupMembership, error) {
-			return nil, nil
-		},
-	}
+	token := makeToken(t, userID.String(), time.Now().Add(-time.Hour))
 	e, rec := setupMiddlewareTest(middleware.JWTAuthConfig{
-		KeyFunc:      testKeyFunc,
-		GroupRepo:    mock,
-		RequireGroup: false,
+		KeyFunc: testKeyFunc, GroupRepo: &mockGroupRepo{}, RequireGroup: false,
 	})
-
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	e.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-func TestJWTAuth_ValidToken_WithGroup(t *testing.T) {
+func TestJWTAuth_ValidToken_NoGroupRequired(t *testing.T) {
+	userID := uuid.New()
+	token := makeToken(t, userID.String(), time.Now().Add(time.Hour))
+
+	var capturedInfo *middleware.AuthInfo
+	e := echo.New()
+	e.Use(middleware.NewJWTAuth(middleware.JWTAuthConfig{
+		KeyFunc: testKeyFunc, GroupRepo: &mockGroupRepo{}, RequireGroup: false,
+	}))
+	e.GET("/test", func(c *echo.Context) error {
+		info, ok := middleware.GetAuthInfo(c)
+		require.True(t, ok)
+		capturedInfo = info
+		return c.String(http.StatusOK, "ok")
+	})
+	rec := httptest.NewRecorder()
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	e.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	require.NotNil(t, capturedInfo)
+	assert.Equal(t, userID, capturedInfo.UserID)
+	assert.Equal(t, uuid.Nil, capturedInfo.GroupID)
+}
+
+func TestJWTAuth_RequireGroup_MissingHeader(t *testing.T) {
+	userID := uuid.New()
+	token := makeToken(t, userID.String(), time.Now().Add(time.Hour))
+	e, rec := setupMiddlewareTest(middleware.JWTAuthConfig{
+		KeyFunc: testKeyFunc, GroupRepo: &mockGroupRepo{}, RequireGroup: true,
+	})
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	e.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+func TestJWTAuth_RequireGroup_InvalidGroupID(t *testing.T) {
+	userID := uuid.New()
+	token := makeToken(t, userID.String(), time.Now().Add(time.Hour))
+	e, rec := setupMiddlewareTest(middleware.JWTAuthConfig{
+		KeyFunc: testKeyFunc, GroupRepo: &mockGroupRepo{}, RequireGroup: true,
+	})
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Active-Group-ID", "not-a-uuid")
+	e.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+func TestJWTAuth_RequireGroup_NotMember(t *testing.T) {
+	userID := uuid.New()
+	token := makeToken(t, userID.String(), time.Now().Add(time.Hour))
+	mock := &mockGroupRepo{
+		findMembershipsFn: func(_ context.Context, _ uuid.UUID) ([]repository.GroupMembership, error) {
+			return []repository.GroupMembership{}, nil
+		},
+	}
+	e, rec := setupMiddlewareTest(middleware.JWTAuthConfig{
+		KeyFunc: testKeyFunc, GroupRepo: mock, RequireGroup: true,
+	})
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Active-Group-ID", uuid.New().String())
+	e.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+func TestJWTAuth_RequireGroup_ValidMember(t *testing.T) {
 	userID := uuid.New()
 	groupID := uuid.New()
 	token := makeToken(t, userID.String(), time.Now().Add(time.Hour))
-
 	mock := &mockGroupRepo{
-		findFn: func(_ context.Context, uid uuid.UUID) (*repository.GroupMembership, error) {
+		findMembershipsFn: func(_ context.Context, uid uuid.UUID) ([]repository.GroupMembership, error) {
 			assert.Equal(t, userID, uid)
-			return &repository.GroupMembership{GroupID: groupID, Name: "家", Role: "owner"}, nil
+			return []repository.GroupMembership{{GroupID: groupID, Name: "家", Role: "owner"}}, nil
 		},
 	}
 
@@ -150,6 +197,7 @@ func TestJWTAuth_ValidToken_WithGroup(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("X-Active-Group-ID", groupID.String())
 	e.ServeHTTP(rec, req)
 
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -157,46 +205,4 @@ func TestJWTAuth_ValidToken_WithGroup(t *testing.T) {
 	assert.Equal(t, userID, capturedInfo.UserID)
 	assert.Equal(t, groupID, capturedInfo.GroupID)
 	assert.Equal(t, "owner", capturedInfo.Role)
-}
-
-func TestJWTAuth_RequireGroup_NoGroup(t *testing.T) {
-	userID := uuid.New()
-	token := makeToken(t, userID.String(), time.Now().Add(time.Hour))
-
-	mock := &mockGroupRepo{
-		findFn: func(_ context.Context, _ uuid.UUID) (*repository.GroupMembership, error) {
-			return nil, nil // グループ未所属
-		},
-	}
-	e, rec := setupMiddlewareTest(middleware.JWTAuthConfig{
-		KeyFunc:      testKeyFunc,
-		GroupRepo:    mock,
-		RequireGroup: true,
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	e.ServeHTTP(rec, req)
-	assert.Equal(t, http.StatusForbidden, rec.Code)
-}
-
-func TestJWTAuth_NoGroupRequired_NoGroup_Passes(t *testing.T) {
-	userID := uuid.New()
-	token := makeToken(t, userID.String(), time.Now().Add(time.Hour))
-
-	mock := &mockGroupRepo{
-		findFn: func(_ context.Context, _ uuid.UUID) (*repository.GroupMembership, error) {
-			return nil, nil // グループ未所属でも通過
-		},
-	}
-	e, rec := setupMiddlewareTest(middleware.JWTAuthConfig{
-		KeyFunc:      testKeyFunc,
-		GroupRepo:    mock,
-		RequireGroup: false,
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	e.ServeHTTP(rec, req)
-	assert.Equal(t, http.StatusOK, rec.Code)
 }

@@ -49,6 +49,7 @@ describe("ImageSelectionModal", () => {
         "りんご",
         expect.any(Number),
         undefined,
+        undefined,
       ),
     );
     expect(await screen.findByAltText("A")).toBeInTheDocument();
@@ -232,6 +233,7 @@ describe("ImageSelectionModal", () => {
       expect(searchImages).toHaveBeenCalledWith(
         "もも",
         expect.any(Number),
+        undefined,
         undefined,
       ),
     );

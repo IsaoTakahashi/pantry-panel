@@ -20,11 +20,13 @@ function setup(auth: Partial<ReturnType<typeof useAuth>>) {
   vi.mocked(useAuth).mockReturnValue({
     session: null,
     user: null,
+    groups: [],
     group: null,
     loading: false,
     signInWithGoogle: vi.fn(),
     signOut: vi.fn(),
     refreshGroup: vi.fn(),
+    switchGroup: vi.fn(),
     ...auth,
   });
   vi.mocked(useRouter).mockReturnValue({ push: mockPush } as never);

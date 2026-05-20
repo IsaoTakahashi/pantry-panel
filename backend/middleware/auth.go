@@ -14,8 +14,8 @@ const authInfoKey = "authInfo"
 
 type AuthInfo struct {
 	UserID  uuid.UUID
-	GroupID uuid.UUID // グループ未所属なら uuid.Nil
-	Role    string    // グループ未所属なら ""
+	GroupID uuid.UUID // アクティブグループ未設定なら uuid.Nil
+	Role    string    // アクティブグループ未設定なら ""
 }
 
 type JWTAuthConfig struct {
@@ -54,15 +54,34 @@ func NewJWTAuth(cfg JWTAuthConfig) echo.MiddlewareFunc {
 
 			info := &AuthInfo{UserID: userID}
 
-			membership, err := cfg.GroupRepo.FindMembershipByUserID(c.Request().Context(), userID)
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Internal Server Error"})
-			}
-			if membership != nil {
-				info.GroupID = membership.GroupID
-				info.Role = membership.Role
-			} else if cfg.RequireGroup {
-				return c.JSON(http.StatusForbidden, map[string]string{"message": "Not a member of any group"})
+			if cfg.RequireGroup {
+				activeGroupHeader := c.Request().Header.Get("X-Active-Group-ID")
+				if activeGroupHeader == "" {
+					return c.JSON(http.StatusForbidden, map[string]string{"message": "X-Active-Group-ID header is required"})
+				}
+				activeGroupID, err := uuid.Parse(activeGroupHeader)
+				if err != nil {
+					return c.JSON(http.StatusForbidden, map[string]string{"message": "Invalid X-Active-Group-ID"})
+				}
+
+				memberships, err := cfg.GroupRepo.FindMembershipsByUserID(c.Request().Context(), userID)
+				if err != nil {
+					return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Internal Server Error"})
+				}
+
+				var found *repository.GroupMembership
+				for i := range memberships {
+					if memberships[i].GroupID == activeGroupID {
+						found = &memberships[i]
+						break
+					}
+				}
+				if found == nil {
+					return c.JSON(http.StatusForbidden, map[string]string{"message": "Not a member of the specified group"})
+				}
+
+				info.GroupID = found.GroupID
+				info.Role = found.Role
 			}
 
 			c.Set(authInfoKey, info)

@@ -27,11 +27,11 @@ export default function InvitePage() {
     : "";
 
   const handleGenerate = async () => {
-    if (!session) return;
+    if (!session || !group) return;
     setGenerating(true);
     setError(null);
     try {
-      const inv = await createInvitation(session.access_token);
+      const inv = await createInvitation(session.access_token, group.groupId);
       setInvitation(inv);
     } catch {
       setError("招待リンクの生成に失敗しました");
