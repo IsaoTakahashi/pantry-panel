@@ -18,10 +18,12 @@ vi.mock("@/contexts/AuthContext", () => ({
     session: { access_token: "test-token" } as any,
     user: null,
     group: null,
+    groups: [],
     loading: false,
     signInWithGoogle: vi.fn(),
     signOut: vi.fn(),
     refreshGroup: vi.fn(),
+    switchGroup: vi.fn(),
   }),
 }));
 
@@ -116,7 +118,11 @@ describe("StockItemsPage", () => {
     );
 
     await waitFor(() => {
-      expect(deleteStockItem).toHaveBeenCalledWith("1", "test-token");
+      expect(deleteStockItem).toHaveBeenCalledWith(
+        "1",
+        "test-token",
+        undefined,
+      );
       expect(screen.queryByText("醤油")).not.toBeInTheDocument();
     });
   });
@@ -172,6 +178,7 @@ describe("StockItemsPage", () => {
           category: "調味料",
         },
         "test-token",
+        undefined,
       );
       expect(screen.getByText("濃口醤油")).toBeInTheDocument();
     });
@@ -202,6 +209,7 @@ describe("StockItemsPage", () => {
         "1",
         { wantToBuy: true },
         "test-token",
+        undefined,
       );
     });
 
@@ -342,6 +350,7 @@ describe("StockItemsPage", () => {
         "1",
         { wantToBuy: true },
         "test-token",
+        undefined,
       );
     });
   });

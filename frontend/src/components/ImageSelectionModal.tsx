@@ -12,6 +12,7 @@ type Props = {
   onClose: () => void;
   onSelect: (imageUrl: string | null) => void;
   accessToken?: string;
+  activeGroupId?: string;
 };
 
 type FetchState =
@@ -26,6 +27,7 @@ export default function ImageSelectionModal({
   onClose,
   onSelect,
   accessToken,
+  activeGroupId,
 }: Props) {
   const [query, setQuery] = useState(item.name);
   const [state, setState] = useState<FetchState>({ status: "idle" });
@@ -34,7 +36,7 @@ export default function ImageSelectionModal({
     async (q: string) => {
       setState({ status: "loading" });
       try {
-        const results = await searchImages(q, 10, accessToken);
+        const results = await searchImages(q, 10, accessToken, activeGroupId);
         setState({ status: "success", results });
       } catch (err) {
         const kind =
@@ -44,7 +46,7 @@ export default function ImageSelectionModal({
         setState({ status: "error", kind });
       }
     },
-    [accessToken],
+    [accessToken, activeGroupId],
   );
 
   useEffect(() => {
