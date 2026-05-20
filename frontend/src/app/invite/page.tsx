@@ -27,7 +27,7 @@ export default function InvitePage() {
     : "";
 
   const handleGenerate = async () => {
-    if (!session) return;
+    if (!session || !group) return;
     setGenerating(true);
     setError(null);
     try {
