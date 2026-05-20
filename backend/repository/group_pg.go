@@ -17,28 +17,34 @@ func NewPgGroupRepository(pool *pgxpool.Pool) *PgGroupRepository {
 	return &PgGroupRepository{pool: pool}
 }
 
-func (r *PgGroupRepository) FindMembershipByUserID(ctx context.Context, userID uuid.UUID) (*GroupMembership, error) {
-	rows, _ := r.pool.Query(ctx,
+func (r *PgGroupRepository) FindMembershipsByUserID(ctx context.Context, userID uuid.UUID) ([]GroupMembership, error) {
+	rows, err := r.pool.Query(ctx,
 		`SELECT g.id, g.name, gm.role
 		 FROM group_members gm
 		 JOIN groups g ON g.id = gm.group_id
 		 WHERE gm.user_id = $1
-		 LIMIT 1`,
+		 ORDER BY gm.joined_at`,
 		userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
 	type row struct {
 		GroupID uuid.UUID `db:"id"`
 		Name    string    `db:"name"`
 		Role    string    `db:"role"`
 	}
-	r2, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[row])
-	if err == pgx.ErrNoRows {
-		return nil, nil
-	}
+	rs, err := pgx.CollectRows(rows, pgx.RowToStructByName[row])
 	if err != nil {
 		return nil, err
 	}
-	return &GroupMembership{GroupID: r2.GroupID, Name: r2.Name, Role: r2.Role}, nil
+
+	memberships := make([]GroupMembership, len(rs))
+	for i, r2 := range rs {
+		memberships[i] = GroupMembership(r2)
+	}
+	return memberships, nil
 }
 
 func (r *PgGroupRepository) CreateGroup(ctx context.Context, name string, ownerID uuid.UUID) (*Group, error) {
@@ -64,6 +70,20 @@ func (r *PgGroupRepository) CreateGroup(ctx context.Context, name string, ownerI
 	}
 
 	return &group, tx.Commit(ctx)
+}
+
+func (r *PgGroupRepository) UpdateGroupName(ctx context.Context, groupID uuid.UUID, name string) (*Group, error) {
+	var group Group
+	err := r.pool.QueryRow(ctx,
+		"UPDATE groups SET name = $1 WHERE id = $2 RETURNING id, name, created_at",
+		name, groupID).Scan(&group.ID, &group.Name, &group.CreatedAt)
+	if err == pgx.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &group, nil
 }
 
 func (r *PgGroupRepository) CreateInvitation(ctx context.Context, groupID, createdBy uuid.UUID, ttl time.Duration) (*Invitation, error) {

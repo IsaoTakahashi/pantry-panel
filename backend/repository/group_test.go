@@ -27,20 +27,59 @@ func TestCreateGroup_Success(t *testing.T) {
 	assert.NotEqual(t, uuid.Nil, group.ID)
 	assert.Equal(t, "我が家", group.Name)
 
-	// owner として登録されていること
-	membership, err := repo.FindMembershipByUserID(context.Background(), ownerID)
+	memberships, err := repo.FindMembershipsByUserID(context.Background(), ownerID)
 	require.NoError(t, err)
-	require.NotNil(t, membership)
-	assert.Equal(t, group.ID, membership.GroupID)
-	assert.Equal(t, "owner", membership.Role)
+	require.Len(t, memberships, 1)
+	assert.Equal(t, group.ID, memberships[0].GroupID)
+	assert.Equal(t, "owner", memberships[0].Role)
 }
 
-func TestFindMembershipByUserID_NotMember(t *testing.T) {
+func TestFindMembershipsByUserID_NotMember(t *testing.T) {
 	repo := setupGroupTestDB(t)
 
-	membership, err := repo.FindMembershipByUserID(context.Background(), uuid.New())
+	memberships, err := repo.FindMembershipsByUserID(context.Background(), uuid.New())
 	require.NoError(t, err)
-	assert.Nil(t, membership)
+	assert.Empty(t, memberships)
+}
+
+func TestFindMembershipsByUserID_MultipleGroups(t *testing.T) {
+	repo := setupGroupTestDB(t)
+	userID := uuid.New()
+
+	group1, err := repo.CreateGroup(context.Background(), "我が家", userID)
+	require.NoError(t, err)
+	group2, err := repo.CreateGroup(context.Background(), "実家", uuid.New())
+	require.NoError(t, err)
+	inv, err := repo.CreateInvitation(context.Background(), group2.ID, uuid.New(), 7*24*time.Hour)
+	require.NoError(t, err)
+	require.NoError(t, repo.AcceptInvitation(context.Background(), inv.Token, userID))
+
+	memberships, err := repo.FindMembershipsByUserID(context.Background(), userID)
+	require.NoError(t, err)
+	require.Len(t, memberships, 2)
+
+	ids := []uuid.UUID{memberships[0].GroupID, memberships[1].GroupID}
+	assert.Contains(t, ids, group1.ID)
+	assert.Contains(t, ids, group2.ID)
+}
+
+func TestUpdateGroupName_Success(t *testing.T) {
+	repo := setupGroupTestDB(t)
+	ownerID := uuid.New()
+	group, err := repo.CreateGroup(context.Background(), "旧名前", ownerID)
+	require.NoError(t, err)
+
+	updated, err := repo.UpdateGroupName(context.Background(), group.ID, "新しい名前")
+	require.NoError(t, err)
+	assert.Equal(t, group.ID, updated.ID)
+	assert.Equal(t, "新しい名前", updated.Name)
+}
+
+func TestUpdateGroupName_NotFound(t *testing.T) {
+	repo := setupGroupTestDB(t)
+
+	_, err := repo.UpdateGroupName(context.Background(), uuid.New(), "名前")
+	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 func TestCreateInvitation_AndFind(t *testing.T) {
@@ -76,13 +115,12 @@ func TestAcceptInvitation_Success(t *testing.T) {
 	err := repo.AcceptInvitation(context.Background(), inv.Token, newMemberID)
 	require.NoError(t, err)
 
-	membership, err := repo.FindMembershipByUserID(context.Background(), newMemberID)
+	memberships, err := repo.FindMembershipsByUserID(context.Background(), newMemberID)
 	require.NoError(t, err)
-	require.NotNil(t, membership)
-	assert.Equal(t, group.ID, membership.GroupID)
-	assert.Equal(t, "member", membership.Role)
+	require.Len(t, memberships, 1)
+	assert.Equal(t, group.ID, memberships[0].GroupID)
+	assert.Equal(t, "member", memberships[0].Role)
 
-	// use_count が増加していること
 	updated, _ := repo.FindInvitation(context.Background(), inv.Token)
 	assert.Equal(t, 1, updated.UseCount)
 }
@@ -95,7 +133,6 @@ func TestAcceptInvitation_Idempotent(t *testing.T) {
 	memberID := uuid.New()
 
 	require.NoError(t, repo.AcceptInvitation(context.Background(), inv.Token, memberID))
-	// 2回目は冪等（エラーなし）
 	require.NoError(t, repo.AcceptInvitation(context.Background(), inv.Token, memberID))
 }
 
@@ -103,7 +140,6 @@ func TestAcceptInvitation_Expired(t *testing.T) {
 	repo := setupGroupTestDB(t)
 	ownerID := uuid.New()
 	group, _ := repo.CreateGroup(context.Background(), "テスト家族", ownerID)
-	// TTL を -1 時間にして有効期限切れトークンを作成
 	inv, _ := repo.CreateInvitation(context.Background(), group.ID, ownerID, -time.Hour)
 
 	err := repo.AcceptInvitation(context.Background(), inv.Token, uuid.New())
