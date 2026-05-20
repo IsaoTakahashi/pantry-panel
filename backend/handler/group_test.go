@@ -18,18 +18,25 @@ import (
 )
 
 type mockGroupRepo struct {
-	findMembershipFn   func(ctx context.Context, userID uuid.UUID) (*repository.GroupMembership, error)
+	findMembershipsFn  func(ctx context.Context, userID uuid.UUID) ([]repository.GroupMembership, error)
 	createGroupFn      func(ctx context.Context, name string, ownerID uuid.UUID) (*repository.Group, error)
+	updateGroupNameFn  func(ctx context.Context, groupID uuid.UUID, name string) (*repository.Group, error)
 	createInvitationFn func(ctx context.Context, groupID, createdBy uuid.UUID, ttl time.Duration) (*repository.Invitation, error)
 	findInvitationFn   func(ctx context.Context, token uuid.UUID) (*repository.Invitation, error)
 	acceptInvitationFn func(ctx context.Context, token, userID uuid.UUID) error
 }
 
-func (m *mockGroupRepo) FindMembershipByUserID(ctx context.Context, userID uuid.UUID) (*repository.GroupMembership, error) {
-	return m.findMembershipFn(ctx, userID)
+func (m *mockGroupRepo) FindMembershipsByUserID(ctx context.Context, userID uuid.UUID) ([]repository.GroupMembership, error) {
+	if m.findMembershipsFn != nil {
+		return m.findMembershipsFn(ctx, userID)
+	}
+	return nil, nil
 }
 func (m *mockGroupRepo) CreateGroup(ctx context.Context, name string, ownerID uuid.UUID) (*repository.Group, error) {
 	return m.createGroupFn(ctx, name, ownerID)
+}
+func (m *mockGroupRepo) UpdateGroupName(ctx context.Context, groupID uuid.UUID, name string) (*repository.Group, error) {
+	return m.updateGroupNameFn(ctx, groupID, name)
 }
 func (m *mockGroupRepo) CreateInvitation(ctx context.Context, groupID, createdBy uuid.UUID, ttl time.Duration) (*repository.Invitation, error) {
 	return m.createInvitationFn(ctx, groupID, createdBy, ttl)
@@ -44,7 +51,8 @@ func (m *mockGroupRepo) AcceptInvitation(ctx context.Context, token, userID uuid
 func setupGroupRouter(h *GroupHandler) *echo.Echo {
 	e := echo.New()
 	e.POST("/api/groups", h.CreateGroup)
-	e.GET("/api/groups/me", h.GetMyGroup)
+	e.GET("/api/groups/me", h.GetMyGroups)
+	e.PATCH("/api/groups/:id", h.UpdateGroup)
 	e.POST("/api/invitations", h.CreateInvitation)
 	e.POST("/api/invitations/:token/accept", h.AcceptInvitation)
 	return e
@@ -54,10 +62,7 @@ func TestCreateGroup_Success(t *testing.T) {
 	userID := uuid.New()
 	groupID := uuid.New()
 	mock := &mockGroupRepo{
-		findMembershipFn: func(_ context.Context, _ uuid.UUID) (*repository.GroupMembership, error) {
-			return nil, nil // 未所属
-		},
-		createGroupFn: func(_ context.Context, name string, ownerID uuid.UUID) (*repository.Group, error) {
+		createGroupFn: func(_ context.Context, name string, _ uuid.UUID) (*repository.Group, error) {
 			return &repository.Group{ID: groupID, Name: name}, nil
 		},
 	}
@@ -68,7 +73,6 @@ func TestCreateGroup_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/groups", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
-
 	c := e.NewContext(req, rec)
 	middleware.SetAuthInfo(c, &middleware.AuthInfo{UserID: userID})
 	require.NoError(t, h.CreateGroup(c))
@@ -80,11 +84,12 @@ func TestCreateGroup_Success(t *testing.T) {
 	assert.Equal(t, "我が家", resp.Name)
 }
 
-func TestCreateGroup_AlreadyMember(t *testing.T) {
+func TestCreateGroup_AlreadyMember_StillSucceeds(t *testing.T) {
 	userID := uuid.New()
+	groupID := uuid.New()
 	mock := &mockGroupRepo{
-		findMembershipFn: func(_ context.Context, _ uuid.UUID) (*repository.GroupMembership, error) {
-			return &repository.GroupMembership{GroupID: uuid.New(), Name: "家", Role: "owner"}, nil
+		createGroupFn: func(_ context.Context, name string, _ uuid.UUID) (*repository.Group, error) {
+			return &repository.Group{ID: groupID, Name: name}, nil
 		},
 	}
 	h := NewGroupHandler(mock)
@@ -94,20 +99,23 @@ func TestCreateGroup_AlreadyMember(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/groups", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
-
 	c := e.NewContext(req, rec)
 	middleware.SetAuthInfo(c, &middleware.AuthInfo{UserID: userID})
 	require.NoError(t, h.CreateGroup(c))
 
-	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Equal(t, http.StatusCreated, rec.Code)
 }
 
-func TestGetMyGroup_Success(t *testing.T) {
+func TestGetMyGroups_ReturnsAll(t *testing.T) {
 	userID := uuid.New()
-	groupID := uuid.New()
+	groupID1 := uuid.New()
+	groupID2 := uuid.New()
 	mock := &mockGroupRepo{
-		findMembershipFn: func(_ context.Context, _ uuid.UUID) (*repository.GroupMembership, error) {
-			return &repository.GroupMembership{GroupID: groupID, Name: "我が家", Role: "owner"}, nil
+		findMembershipsFn: func(_ context.Context, _ uuid.UUID) ([]repository.GroupMembership, error) {
+			return []repository.GroupMembership{
+				{GroupID: groupID1, Name: "我が家", Role: "owner"},
+				{GroupID: groupID2, Name: "実家", Role: "member"},
+			}, nil
 		},
 	}
 	h := NewGroupHandler(mock)
@@ -116,14 +124,77 @@ func TestGetMyGroup_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/groups/me", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
-	middleware.SetAuthInfo(c, &middleware.AuthInfo{UserID: userID, GroupID: groupID, Role: "owner"})
-	require.NoError(t, h.GetMyGroup(c))
+	middleware.SetAuthInfo(c, &middleware.AuthInfo{UserID: userID})
+	require.NoError(t, h.GetMyGroups(c))
 
 	assert.Equal(t, http.StatusOK, rec.Code)
-	var resp repository.GroupMembership
+	var resp []repository.GroupMembership
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
-	assert.Equal(t, groupID, resp.GroupID)
-	assert.Equal(t, "我が家", resp.Name)
+	require.Len(t, resp, 2)
+	assert.Equal(t, groupID1, resp[0].GroupID)
+	assert.Equal(t, groupID2, resp[1].GroupID)
+}
+
+func TestUpdateGroup_Owner_Success(t *testing.T) {
+	groupID := uuid.New()
+	mock := &mockGroupRepo{
+		updateGroupNameFn: func(_ context.Context, gID uuid.UUID, name string) (*repository.Group, error) {
+			return &repository.Group{ID: gID, Name: name}, nil
+		},
+	}
+	h := NewGroupHandler(mock)
+	e := setupGroupRouter(h)
+
+	body := `{"name":"新しい名前"}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/groups/"+groupID.String(), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: groupID.String()}})
+	middleware.SetAuthInfo(c, &middleware.AuthInfo{UserID: uuid.New(), GroupID: groupID, Role: "owner"})
+	require.NoError(t, h.UpdateGroup(c))
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	var resp repository.Group
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+	assert.Equal(t, "新しい名前", resp.Name)
+}
+
+func TestUpdateGroup_Member_Forbidden(t *testing.T) {
+	groupID := uuid.New()
+	mock := &mockGroupRepo{}
+	h := NewGroupHandler(mock)
+	e := setupGroupRouter(h)
+
+	body := `{"name":"名前"}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/groups/"+groupID.String(), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: groupID.String()}})
+	middleware.SetAuthInfo(c, &middleware.AuthInfo{UserID: uuid.New(), GroupID: groupID, Role: "member"})
+	require.NoError(t, h.UpdateGroup(c))
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+func TestUpdateGroup_WrongGroup_Forbidden(t *testing.T) {
+	groupID := uuid.New()
+	otherGroupID := uuid.New()
+	mock := &mockGroupRepo{}
+	h := NewGroupHandler(mock)
+	e := setupGroupRouter(h)
+
+	body := `{"name":"名前"}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/groups/"+otherGroupID.String(), strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPathValues(echo.PathValues{{Name: "id", Value: otherGroupID.String()}})
+	middleware.SetAuthInfo(c, &middleware.AuthInfo{UserID: uuid.New(), GroupID: groupID, Role: "owner"})
+	require.NoError(t, h.UpdateGroup(c))
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
 
 func TestCreateInvitation_Success(t *testing.T) {
@@ -158,14 +229,15 @@ func TestCreateInvitation_Success(t *testing.T) {
 func TestAcceptInvitation_Success(t *testing.T) {
 	userID := uuid.New()
 	token := uuid.New()
+	groupID := uuid.New()
 	mock := &mockGroupRepo{
 		acceptInvitationFn: func(_ context.Context, tok, uid uuid.UUID) error {
 			assert.Equal(t, token, tok)
 			assert.Equal(t, userID, uid)
 			return nil
 		},
-		findMembershipFn: func(_ context.Context, _ uuid.UUID) (*repository.GroupMembership, error) {
-			return &repository.GroupMembership{GroupID: uuid.New(), Name: "家", Role: "member"}, nil
+		findMembershipsFn: func(_ context.Context, _ uuid.UUID) ([]repository.GroupMembership, error) {
+			return []repository.GroupMembership{{GroupID: groupID, Name: "家", Role: "member"}}, nil
 		},
 	}
 	h := NewGroupHandler(mock)
@@ -179,6 +251,9 @@ func TestAcceptInvitation_Success(t *testing.T) {
 	require.NoError(t, h.AcceptInvitation(c))
 
 	assert.Equal(t, http.StatusOK, rec.Code)
+	var resp []repository.GroupMembership
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+	require.Len(t, resp, 1)
 }
 
 func TestAcceptInvitation_Expired(t *testing.T) {

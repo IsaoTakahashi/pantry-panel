@@ -23,18 +23,14 @@ type CreateGroupRequest struct {
 	Name string `json:"name"`
 }
 
+type UpdateGroupRequest struct {
+	Name string `json:"name"`
+}
+
 func (h *GroupHandler) CreateGroup(c *echo.Context) error {
 	authInfo, ok := middleware.GetAuthInfo(c)
 	if !ok {
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Message: "Unauthorized"})
-	}
-
-	existing, err := h.repo.FindMembershipByUserID(c.Request().Context(), authInfo.UserID)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, ErrorResponse{Message: "Internal Server Error"})
-	}
-	if existing != nil {
-		return c.JSON(http.StatusConflict, ErrorResponse{Message: "Already a member of a group"})
 	}
 
 	var req CreateGroupRequest
@@ -49,20 +45,50 @@ func (h *GroupHandler) CreateGroup(c *echo.Context) error {
 	return c.JSON(http.StatusCreated, group)
 }
 
-func (h *GroupHandler) GetMyGroup(c *echo.Context) error {
+func (h *GroupHandler) GetMyGroups(c *echo.Context) error {
 	authInfo, ok := middleware.GetAuthInfo(c)
 	if !ok {
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Message: "Unauthorized"})
 	}
 
-	membership, err := h.repo.FindMembershipByUserID(c.Request().Context(), authInfo.UserID)
+	memberships, err := h.repo.FindMembershipsByUserID(c.Request().Context(), authInfo.UserID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Message: "Internal Server Error"})
 	}
-	if membership == nil {
-		return c.JSON(http.StatusNotFound, ErrorResponse{Message: "Not a member of any group"})
+	return c.JSON(http.StatusOK, memberships)
+}
+
+func (h *GroupHandler) UpdateGroup(c *echo.Context) error {
+	authInfo, ok := middleware.GetAuthInfo(c)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Message: "Unauthorized"})
 	}
-	return c.JSON(http.StatusOK, membership)
+
+	groupID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "Invalid group ID"})
+	}
+
+	if groupID != authInfo.GroupID {
+		return c.JSON(http.StatusForbidden, ErrorResponse{Message: "Forbidden"})
+	}
+	if authInfo.Role != "owner" {
+		return c.JSON(http.StatusForbidden, ErrorResponse{Message: "Forbidden"})
+	}
+
+	var req UpdateGroupRequest
+	if err := c.Bind(&req); err != nil || req.Name == "" {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "name is required"})
+	}
+
+	group, err := h.repo.UpdateGroupName(c.Request().Context(), groupID, req.Name)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return c.JSON(http.StatusNotFound, ErrorResponse{Message: "Group not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Message: "Internal Server Error"})
+	}
+	return c.JSON(http.StatusOK, group)
 }
 
 func (h *GroupHandler) CreateInvitation(c *echo.Context) error {
@@ -103,9 +129,9 @@ func (h *GroupHandler) AcceptInvitation(c *echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Message: "Internal Server Error"})
 	}
 
-	membership, err := h.repo.FindMembershipByUserID(c.Request().Context(), authInfo.UserID)
-	if err != nil || membership == nil {
+	memberships, err := h.repo.FindMembershipsByUserID(c.Request().Context(), authInfo.UserID)
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Message: "Internal Server Error"})
 	}
-	return c.JSON(http.StatusOK, membership)
+	return c.JSON(http.StatusOK, memberships)
 }

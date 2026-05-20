@@ -98,7 +98,8 @@ func main() {
 	e.GET("/health", handler.HealthCheck(pool))
 
 	e.POST("/api/groups", groupHandler.CreateGroup, jwtOnlyMW)
-	e.GET("/api/groups/me", groupHandler.GetMyGroup, jwtOnlyMW)
+	e.GET("/api/groups/me", groupHandler.GetMyGroups, jwtOnlyMW)
+	e.PATCH("/api/groups/:id", groupHandler.UpdateGroup, jwtGroupMW)
 	e.POST("/api/invitations", groupHandler.CreateInvitation, jwtGroupMW)
 	e.POST("/api/invitations/:token/accept", groupHandler.AcceptInvitation, jwtOnlyMW)
 
