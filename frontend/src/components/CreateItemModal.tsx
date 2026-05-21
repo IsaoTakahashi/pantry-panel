@@ -9,11 +9,13 @@ type CreateItemModalProps = {
   initialName: string;
   initialCategory: string;
   initialWantToBuy: boolean;
+  initialImageUrl?: string | null;
   onClose: () => void;
   onCreate: (
     name: string,
     category: string,
     wantToBuy: boolean,
+    imageUrl: string | null,
   ) => Promise<void>;
 };
 
@@ -22,12 +24,16 @@ export default function CreateItemModal({
   initialName,
   initialCategory,
   initialWantToBuy,
+  initialImageUrl,
   onClose,
   onCreate,
 }: CreateItemModalProps) {
   const [name, setName] = useState(initialName);
   const [category, setCategory] = useState(initialCategory);
   const [wantToBuy, setWantToBuy] = useState(initialWantToBuy);
+  const [imageUrl, setImageUrl] = useState<string | null>(
+    initialImageUrl ?? null,
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,9 +41,10 @@ export default function CreateItemModal({
       setName(initialName);
       setCategory(initialCategory);
       setWantToBuy(initialWantToBuy);
+      setImageUrl(initialImageUrl ?? null);
       setError(null);
     }
-  }, [isOpen, initialName, initialCategory, initialWantToBuy]);
+  }, [isOpen, initialName, initialCategory, initialWantToBuy, initialImageUrl]);
 
   if (!isOpen) return null;
   return (
@@ -51,7 +58,7 @@ export default function CreateItemModal({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            onCreate(name, category, wantToBuy)
+            onCreate(name, category, wantToBuy, imageUrl)
               .then(onClose)
               .catch((err) => {
                 const error =

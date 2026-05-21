@@ -60,6 +60,7 @@ export default function StockItemsClient() {
     name: string,
     category: string,
     wantToBuy: boolean,
+    _imageUrl: string | null,
   ) => {
     await createStockItem(
       { name, category, wantToBuy },

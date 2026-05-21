@@ -27,8 +27,8 @@
 
 ## 5. フロントエンド: UrlRegistrationModal コンポーネント
 
-- [ ] 5.1 `frontend/src/components/UrlRegistrationModal.tsx` を新規作成する（idle / loading / error の 3 状態）
-- [ ] 5.2 `frontend/src/components/UrlRegistrationModal.test.tsx` を書く（状態遷移・onExtracted コールバック・各エラーメッセージ）
+- [x] 5.1 `frontend/src/components/UrlRegistrationModal.tsx` を新規作成する（idle / loading / error の 3 状態）
+- [x] 5.2 `frontend/src/components/UrlRegistrationModal.test.tsx` を書く（状態遷移・onExtracted コールバック・各エラーメッセージ）
 
 ## 6. フロントエンド: CreateItemModal 拡張
 
