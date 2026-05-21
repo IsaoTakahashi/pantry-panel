@@ -109,7 +109,7 @@ func parseJSONLD(raw string, base *url.URL) (Result, bool) {
 		return Result{}, false
 	}
 
-	typ, _ := data["@type"].(string)
+	typ := extractJSONLDType(data["@type"])
 	if !strings.EqualFold(typ, "Product") {
 		return Result{}, false
 	}
@@ -125,6 +125,25 @@ func parseJSONLD(raw string, base *url.URL) (Result, bool) {
 		Name:     name,
 		ImageURL: resolveURL(base, imageURL),
 	}, true
+}
+
+// extractJSONLDType extracts the @type value from a JSON-LD object.
+// The field can be a plain string or an array of strings; the first matching value is returned.
+func extractJSONLDType(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	switch val := v.(type) {
+	case string:
+		return val
+	case []interface{}:
+		for _, item := range val {
+			if s, ok := item.(string); ok {
+				return s
+			}
+		}
+	}
+	return ""
 }
 
 // extractJSONLDImage extracts the image URL from the "image" field of a JSON-LD object.
