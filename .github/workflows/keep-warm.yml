@@ -1,0 +1,21 @@
+name: Keep Warm
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_APP_URL: ${{ secrets.VERCEL_APP_URL }}
+    steps:
+      - name: Check secret is set
+        if: env.VERCEL_APP_URL == ''
+        run: |
+          echo "Error: VERCEL_APP_URL secret is not set."
+          exit 1
+
+      - name: Ping health endpoint
+        run: curl -sf "$VERCEL_APP_URL/api/health"
