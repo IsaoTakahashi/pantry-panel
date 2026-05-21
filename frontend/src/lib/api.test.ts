@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createStockItem,
   deleteStockItem,
+  ExtractFromUrlError,
+  extractFromUrl,
   fetchHealth,
   fetchStockItems,
   ImageSearchError,
@@ -272,6 +274,73 @@ describe("searchImages", () => {
     } catch (e) {
       expect(e).toBeInstanceOf(ImageSearchError);
       expect((e as ImageSearchError).kind).toBe("unknown");
+    }
+  });
+});
+
+describe("extractFromUrl", () => {
+  it("200 で name と imageUrl(string) を返す", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({ name: "醤油", imageUrl: "https://x/a.jpg" }),
+        { status: 200 },
+      ),
+    );
+
+    const result = await extractFromUrl("https://example.com/product");
+    expect(result).toEqual({ name: "醤油", imageUrl: "https://x/a.jpg" });
+  });
+
+  it("200 で name と imageUrl(null) を返す", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ name: "醤油", imageUrl: null }), {
+        status: 200,
+      }),
+    );
+
+    const result = await extractFromUrl("https://example.com/product");
+    expect(result).toEqual({ name: "醤油", imageUrl: null });
+  });
+
+  it("400 で ExtractFromUrlError(kind=badRequest) をthrowする", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 400 }),
+    );
+
+    try {
+      await extractFromUrl("not-a-url");
+      expect.fail("should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ExtractFromUrlError);
+      expect((e as ExtractFromUrlError).kind).toBe("badRequest");
+    }
+  });
+
+  it("422 で ExtractFromUrlError(kind=extractionFailed) をthrowする", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 422 }),
+    );
+
+    try {
+      await extractFromUrl("https://example.com/product");
+      expect.fail("should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ExtractFromUrlError);
+      expect((e as ExtractFromUrlError).kind).toBe("extractionFailed");
+    }
+  });
+
+  it("502 で ExtractFromUrlError(kind=fetchFailed) をthrowする", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 502 }),
+    );
+
+    try {
+      await extractFromUrl("https://example.com/product");
+      expect.fail("should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ExtractFromUrlError);
+      expect((e as ExtractFromUrlError).kind).toBe("fetchFailed");
     }
   });
 });
