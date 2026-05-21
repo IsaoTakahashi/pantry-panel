@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { MdLink } from "react-icons/md";
 import AuthGuard from "@/components/AuthGuard";
 import CreateItemModal from "@/components/CreateItemModal";
 import EditItemModal from "@/components/EditItemModal";
@@ -10,6 +11,7 @@ import GroupSwitcher from "@/components/GroupSwitcher";
 import ImageSelectionModal from "@/components/ImageSelectionModal";
 import ItemCard from "@/components/ItemCard";
 import ItemCardSimple from "@/components/ItemCardSimple";
+import UrlRegistrationModal from "@/components/UrlRegistrationModal";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   createStockItem,
@@ -35,6 +37,11 @@ export default function StockItemsClient() {
   const accessToken = session?.access_token;
   const activeGroupId = group?.groupId;
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [urlModalOpen, setUrlModalOpen] = useState(false);
+  const [prefill, setPrefill] = useState<{
+    name: string;
+    imageUrl: string | null;
+  }>({ name: "", imageUrl: null });
   const [items, setItems] = useState<StockItem[]>([]);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [imageEditingItem, setImageEditingItem] = useState<StockItem | null>(
@@ -143,6 +150,12 @@ export default function StockItemsClient() {
     await refreshGroup();
   };
 
+  function handleExtracted(name: string, imageUrl: string | null) {
+    setUrlModalOpen(false);
+    setPrefill({ name, imageUrl });
+    setIsModalOpen(true);
+  }
+
   const handleRealtimeChange = useCallback(() => {
     fetchStockItems(accessToken, activeGroupId)
       .then((data) => setItems(data))
@@ -211,21 +224,42 @@ export default function StockItemsClient() {
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
                 />
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(true)}
-                  className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium md:self-start"
-                >
-                  商品を追加
-                </button>
+                <div className="flex items-center gap-2 md:self-start">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(true)}
+                    className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium"
+                  >
+                    商品を追加
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUrlModalOpen(true)}
+                    aria-label="URLから追加"
+                    className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white p-2 rounded font-medium"
+                  >
+                    <MdLink aria-hidden size={20} />
+                  </button>
+                </div>
               </div>
               <CreateItemModal
                 isOpen={isModalOpen}
-                initialName={filter.searchText}
+                initialName={prefill.name || filter.searchText}
                 initialCategory={filter.category ?? "★"}
                 initialWantToBuy={filter.wantToBuyOnly}
-                onClose={() => setIsModalOpen(false)}
+                initialImageUrl={prefill.imageUrl}
+                onClose={() => {
+                  setIsModalOpen(false);
+                  setPrefill({ name: "", imageUrl: null });
+                }}
                 onCreate={handleCreate}
+              />
+              <UrlRegistrationModal
+                isOpen={urlModalOpen}
+                onClose={() => setUrlModalOpen(false)}
+                onExtracted={handleExtracted}
+                accessToken={accessToken}
+                activeGroupId={activeGroupId}
               />
               <EditItemModal
                 item={editingItem}
