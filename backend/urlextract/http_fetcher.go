@@ -44,7 +44,7 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) ([]byte, error) {
 		return nil, fmt.Errorf("%w: status %d", ErrFetchFailed, resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 5<<20))
 	if err != nil {
 		return nil, fmt.Errorf("%w: read body: %v", ErrFetchFailed, err)
 	}
