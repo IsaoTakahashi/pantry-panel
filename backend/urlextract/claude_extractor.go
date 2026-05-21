@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/anthropics/anthropic-sdk-go"
 )
@@ -14,6 +15,16 @@ const (
 	maxHTMLTextLen = 8000
 	claudeModel    = anthropic.ModelClaudeHaiku4_5_20251001
 )
+
+// truncateText safely truncates a string to maxRunes characters, respecting UTF-8 rune boundaries.
+// This prevents panic when truncating multi-byte UTF-8 strings (e.g., Japanese text).
+func truncateText(s string, maxRunes int) string {
+	if utf8.RuneCountInString(s) <= maxRunes {
+		return s
+	}
+	runes := []rune(s)
+	return string(runes[:maxRunes])
+}
 
 // ClaudeExtractor uses Claude Haiku to extract product name and image URL from HTML text.
 type ClaudeExtractor struct {
@@ -30,13 +41,11 @@ func NewClaudeExtractor() *ClaudeExtractor {
 	return &ClaudeExtractor{client: &client}
 }
 
-// Extract sends htmlText (truncated to maxHTMLTextLen chars) to Claude Haiku and returns
+// Extract sends htmlText (truncated to maxHTMLTextLen runes) to Claude Haiku and returns
 // the extracted product name and image URL. Returns empty Result with nil error if Claude
 // cannot extract anything useful.
 func (e *ClaudeExtractor) Extract(ctx context.Context, htmlText string) (Result, error) {
-	if len(htmlText) > maxHTMLTextLen {
-		htmlText = htmlText[:maxHTMLTextLen]
-	}
+	htmlText = truncateText(htmlText, maxHTMLTextLen)
 
 	prompt := fmt.Sprintf(
 		`You are a product information extractor. Given the following HTML content from a product page, extract the product name and product image URL.
