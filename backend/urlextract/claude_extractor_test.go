@@ -29,10 +29,10 @@ func TestTruncateText_ShortStringUnchanged(t *testing.T) {
 
 func TestTruncateText_TruncatesToExactRunes(t *testing.T) {
 	// Build a string longer than maxHTMLTextLen using multi-byte runes (Japanese)
-	rune := 'あ' // 3-byte UTF-8 rune
+	r := 'あ' // 3-byte UTF-8 rune
 	longStr := ""
 	for i := 0; i < maxHTMLTextLen+100; i++ {
-		longStr += string(rune)
+		longStr += string(r)
 	}
 	require.Greater(t, utf8.RuneCountInString(longStr), maxHTMLTextLen)
 
@@ -41,10 +41,10 @@ func TestTruncateText_TruncatesToExactRunes(t *testing.T) {
 }
 
 func TestTruncateText_ExactLengthUnchanged(t *testing.T) {
-	rune := 'あ'
+	r := 'あ'
 	exactStr := ""
 	for i := 0; i < maxHTMLTextLen; i++ {
-		exactStr += string(rune)
+		exactStr += string(r)
 	}
 	got := truncateText(exactStr, maxHTMLTextLen)
 	assert.Equal(t, maxHTMLTextLen, utf8.RuneCountInString(got))
