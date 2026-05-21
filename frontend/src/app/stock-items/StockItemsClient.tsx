@@ -91,6 +91,11 @@ export default function StockItemsClient() {
   };
 
   const handleToggleWantToBuy = async (item: StockItem) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === item.id ? { ...i, wantToBuy: !item.wantToBuy } : i,
+      ),
+    );
     await updateStockItem(
       item.id,
       { wantToBuy: !item.wantToBuy },
