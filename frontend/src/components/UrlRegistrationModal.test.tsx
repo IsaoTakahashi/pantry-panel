@@ -157,22 +157,28 @@ describe("UrlRegistrationModal", () => {
     expect(onExtracted).toHaveBeenCalledWith("", null);
   });
 
-  it("badRequest エラーで「有効な URL を入力してください」が表示される", async () => {
+  it("badRequest エラーで「有効な URL を入力してください」が表示される（再試行ボタンなし）", async () => {
     const user = userEvent.setup();
     vi.mocked(extractFromUrl).mockRejectedValue(
       new ExtractFromUrlError("badRequest"),
     );
 
     render(<UrlRegistrationModal {...defaultProps} />);
-    await user.type(screen.getByLabelText("商品ページの URL"), "not-a-url");
+    await user.type(
+      screen.getByLabelText("商品ページの URL"),
+      "https://example.invalid",
+    );
     await user.click(screen.getByRole("button", { name: "抽出" }));
 
     expect(
       await screen.findByText("有効な URL を入力してください"),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "再試行" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("unknown エラーで「エラーが発生しました」が表示される", async () => {
+  it("unknown エラーで「エラーが発生しました」と「再試行」ボタンが表示される", async () => {
     const user = userEvent.setup();
     vi.mocked(extractFromUrl).mockRejectedValue(new Error("unexpected"));
 
@@ -184,6 +190,7 @@ describe("UrlRegistrationModal", () => {
     await user.click(screen.getByRole("button", { name: "抽出" }));
 
     expect(await screen.findByText("エラーが発生しました")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "再試行" })).toBeInTheDocument();
   });
 
   it("再試行ボタンをクリックすると extractFromUrl が再呼び出しされる", async () => {

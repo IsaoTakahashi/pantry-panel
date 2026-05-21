@@ -16,6 +16,7 @@ type ModalState = "idle" | "loading" | "error";
 function errorMessage(err: unknown): {
   message: string;
   isExtractionFailed: boolean;
+  hasRetryButton: boolean;
 } {
   if (err instanceof ExtractFromUrlError) {
     switch (err.kind) {
@@ -23,22 +24,33 @@ function errorMessage(err: unknown): {
         return {
           message: "有効な URL を入力してください",
           isExtractionFailed: false,
+          hasRetryButton: false,
         };
       case "fetchFailed":
         return {
           message: "ページを取得できませんでした",
           isExtractionFailed: false,
+          hasRetryButton: true,
         };
       case "extractionFailed":
         return {
           message: "商品情報を取得できませんでした。手動で入力してください",
           isExtractionFailed: true,
+          hasRetryButton: false,
         };
       default:
-        return { message: "エラーが発生しました", isExtractionFailed: false };
+        return {
+          message: "エラーが発生しました",
+          isExtractionFailed: false,
+          hasRetryButton: true,
+        };
     }
   }
-  return { message: "エラーが発生しました", isExtractionFailed: false };
+  return {
+    message: "エラーが発生しました",
+    isExtractionFailed: false,
+    hasRetryButton: true,
+  };
 }
 
 export default function UrlRegistrationModal({
@@ -107,7 +119,7 @@ export default function UrlRegistrationModal({
             <input
               id="url"
               name="url"
-              type="text"
+              type="url"
               className="w-full border border-gray-300 rounded px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:border-transparent"
               placeholder="https://example.com/product"
               value={url}
@@ -137,7 +149,7 @@ export default function UrlRegistrationModal({
                 >
                   手動で入力する
                 </button>
-              ) : (
+              ) : errInfo.hasRetryButton ? (
                 <button
                   type="button"
                   onClick={() => submit(url)}
@@ -145,7 +157,7 @@ export default function UrlRegistrationModal({
                 >
                   再試行
                 </button>
-              )}
+              ) : null}
             </div>
           )}
 
