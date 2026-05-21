@@ -125,3 +125,21 @@ aws lambda update-function-configuration \
 ```
 
 または AWS コンソール → Lambda → 環境変数 → `GOOGLE_CSE_API_KEY` / `GOOGLE_CSE_ID` を追加。
+
+### Phase 5: Web ページからの商品登録
+
+**状態: ✅ 完了（PR #93）**
+
+| 順 | 機能 | 状態 | 理由 |
+|----|------|------|------|
+| 10 | J. Web ページ URL から商品情報を取得して登録 | ✅ 完了 | URL を貼るだけで商品名・画像を自動取得できる。手入力の手間を削減 |
+
+**実装済み内容:**
+- Backend: `POST /api/extract-from-url` — URL から og:title / og:image → schema.org → Claude Haiku（AI フォールバック）の優先順位で商品名・画像を抽出
+- Frontend: `UrlRegistrationModal` — URL 入力 → API 呼び出し → `CreateItemModal` を抽出結果で事前入力して開く
+- Frontend: 在庫一覧ヘッダーに MdLink アイコンボタンを追加し `UrlRegistrationModal` を起動
+- `ANTHROPIC_API_KEY` 未設定時は Claude Haiku フォールバックをスキップするが、その他の抽出は正常動作
+
+**Lambda 環境変数の設定（AI フォールバックを使う場合）:**
+
+`ANTHROPIC_API_KEY` を Lambda 環境変数に追加することで Claude Haiku フォールバックが有効になる。未設定でも og:title / og:image / schema.org による抽出は動作する。
