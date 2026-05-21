@@ -32,21 +32,21 @@
 
 ## 6. フロントエンド: CreateItemModal 拡張
 
-- [ ] 6.1 `CreateItemModal.tsx` に `initialImageUrl?: string | null` prop を追加する
-- [ ] 6.2 `onCreate` コールバックに `imageUrl` を渡すよう拡張する
-- [ ] 6.3 `CreateItemModal.test.tsx` に `initialImageUrl` を受け取るケースのテストを追加する
+- [x] 6.1 `CreateItemModal.tsx` に `initialImageUrl?: string | null` prop を追加する
+- [x] 6.2 `onCreate` コールバックに `imageUrl` を渡すよう拡張する
+- [x] 6.3 `CreateItemModal.test.tsx` に `initialImageUrl` を受け取るケースのテストを追加する
 
 ## 7. フロントエンド: StockItemsClient 統合
 
-- [ ] 7.1 `StockItemsClient.tsx` にリンクアイコンボタン（`MdLink`）と `urlModalOpen` 状態を追加する
-- [ ] 7.2 `handleExtracted` を実装し `UrlRegistrationModal` → `CreateItemModal` の遷移を繋ぐ
+- [x] 7.1 `StockItemsClient.tsx` にリンクアイコンボタン（`MdLink`）と `urlModalOpen` 状態を追加する
+- [x] 7.2 `handleExtracted` を実装し `UrlRegistrationModal` → `CreateItemModal` の遷移を繋ぐ
 
 ## 8. E2E テスト
 
-- [ ] 8.1 `ANTHROPIC_API_KEY` 未設定時に 422 となり「手動で入力してください」が表示されることを Playwright でテストする（常時実行）
-- [ ] 8.2 `PLAYWRIGHT_ANTHROPIC_ENABLED=1` 時のフルフロー（URL 入力 → 商品名が確認モーダルに表示）の Playwright テストを書く
+- [x] 8.1 `ANTHROPIC_API_KEY` 未設定時に 422 となり「手動で入力してください」が表示されることを Playwright でテストする（常時実行）
+- [x] 8.2 `PLAYWRIGHT_ANTHROPIC_ENABLED=1` 時のフルフロー（URL 入力 → 商品名が確認モーダルに表示）の Playwright テストを書く
 
 ## 9. 環境変数・ドキュメント
 
-- [ ] 9.1 `frontend/.env.local.example` に `ANTHROPIC_API_KEY` を追記する
-- [ ] 9.2 `specs/features.md` に本機能の実装状況を追記する
+- [x] 9.1 `frontend/.env.local.example` に `ANTHROPIC_API_KEY` を追記する
+- [x] 9.2 `specs/features.md` に本機能の実装状況を追記する
