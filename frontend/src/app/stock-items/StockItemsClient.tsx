@@ -67,13 +67,21 @@ export default function StockItemsClient() {
     name: string,
     category: string,
     wantToBuy: boolean,
-    _imageUrl: string | null,
+    imageUrl: string | null,
   ) => {
-    await createStockItem(
+    const created = await createStockItem(
       { name, category, wantToBuy },
       accessToken,
       activeGroupId,
     );
+    if (imageUrl) {
+      await updateStockItem(
+        created.id,
+        { imageUrl },
+        accessToken,
+        activeGroupId,
+      );
+    }
     const data = await fetchStockItems(accessToken, activeGroupId);
     setItems(data);
   };
