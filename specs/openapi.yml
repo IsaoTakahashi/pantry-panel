@@ -126,6 +126,45 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/extract-from-url:
+    post:
+      summary: Extract product name and image from a web page URL
+      operationId: extractFromUrl
+      description: |
+        Fetches the given URL, extracts product name and image using HTML meta tags
+        (og:title / og:image / schema.org) with Claude Haiku as fallback.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtractFromURLRequest"
+      responses:
+        "200":
+          description: Extraction succeeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtractFromURLResponse"
+        "400":
+          description: URL is missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Page fetched but product name could not be extracted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Failed to fetch the target page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/stock-items/{id}:
     patch:
       summary: Update a stock item
@@ -294,6 +333,27 @@ components:
           enum:
             - connected
             - disconnected
+
+    ExtractFromURLRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          minLength: 1
+
+    ExtractFromURLResponse:
+      type: object
+      required:
+        - name
+        - imageUrl
+      properties:
+        name:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
 
     ErrorResponse:
       type: object
