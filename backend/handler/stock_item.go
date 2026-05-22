@@ -15,9 +15,10 @@ import (
 )
 
 type CreateStockItemRequest struct {
-	Name      string `json:"name"`
-	Category  string `json:"category"`
-	WantToBuy *bool  `json:"wantToBuy"`
+	Name      string  `json:"name"`
+	Category  string  `json:"category"`
+	WantToBuy *bool   `json:"wantToBuy"`
+	SourceURL *string `json:"sourceUrl"`
 }
 
 type UpdateStockItemRequest struct {
@@ -29,6 +30,7 @@ type UpdateStockItemRequest struct {
 
 type ErrorResponse struct {
 	Message string `json:"message"`
+	Detail  string `json:"detail,omitempty"`
 }
 
 type StockItemHandler struct {
@@ -66,7 +68,7 @@ func (h *StockItemHandler) Create(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "Name and category are required"})
 	}
 
-	item, err := h.repo.Create(c.Request().Context(), authInfo.GroupID, req.Name, req.Category, req.WantToBuy)
+	item, err := h.repo.Create(c.Request().Context(), authInfo.GroupID, req.Name, req.Category, req.WantToBuy, req.SourceURL)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {

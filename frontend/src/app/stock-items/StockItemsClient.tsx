@@ -41,7 +41,8 @@ export default function StockItemsClient() {
   const [prefill, setPrefill] = useState<{
     name: string;
     imageUrl: string | null;
-  }>({ name: "", imageUrl: null });
+    sourceUrl: string | null;
+  }>({ name: "", imageUrl: null, sourceUrl: null });
   const [items, setItems] = useState<StockItem[]>([]);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [imageEditingItem, setImageEditingItem] = useState<StockItem | null>(
@@ -68,9 +69,10 @@ export default function StockItemsClient() {
     category: string,
     wantToBuy: boolean,
     imageUrl: string | null,
+    sourceUrl: string | null,
   ) => {
     const created = await createStockItem(
-      { name, category, wantToBuy },
+      { name, category, wantToBuy, sourceUrl: sourceUrl ?? undefined },
       accessToken,
       activeGroupId,
     );
@@ -158,9 +160,13 @@ export default function StockItemsClient() {
     await refreshGroup();
   };
 
-  function handleExtracted(name: string, imageUrl: string | null) {
+  function handleExtracted(
+    name: string,
+    imageUrl: string | null,
+    sourceUrl: string,
+  ) {
     setUrlModalOpen(false);
-    setPrefill({ name, imageUrl });
+    setPrefill({ name, imageUrl, sourceUrl });
     setIsModalOpen(true);
   }
 
@@ -256,9 +262,10 @@ export default function StockItemsClient() {
                 initialCategory={filter.category ?? "★"}
                 initialWantToBuy={filter.wantToBuyOnly}
                 initialImageUrl={prefill.imageUrl}
+                initialSourceUrl={prefill.sourceUrl}
                 onClose={() => {
                   setIsModalOpen(false);
-                  setPrefill({ name: "", imageUrl: null });
+                  setPrefill({ name: "", imageUrl: null, sourceUrl: null });
                 }}
                 onCreate={handleCreate}
               />
@@ -282,6 +289,7 @@ export default function StockItemsClient() {
                     name: "",
                     category: "",
                     imageUrl: null,
+                    sourceUrl: null,
                     wantToBuy: false,
                     createdAt: "",
                     updatedAt: "",

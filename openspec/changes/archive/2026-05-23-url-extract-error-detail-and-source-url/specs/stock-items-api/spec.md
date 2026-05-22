@@ -1,8 +1,5 @@
-# stock-items-api Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change phase1-stock-items-crud. Update Purpose after archive.
-## Requirements
 ### Requirement: List stock items
 The system SHALL return all stock items ordered by sorted_at descending via `GET /api/stock-items`, including `sourceUrl` in each item.
 
@@ -89,22 +86,6 @@ The system SHALL partially update a stock item via `PATCH /api/stock-items/:id`,
 - **WHEN** a request with a name that another item already has is sent
 - **THEN** the API returns 409 Conflict with an error message
 
-### Requirement: Delete stock item
-The system SHALL delete a stock item via `DELETE /api/stock-items/:id`.
-
-#### Scenario: Successful deletion
-- **WHEN** a delete request is sent for an existing item with wantToBuy=false
-- **THEN** the API returns 204 No Content
-- **AND** the item is removed from the database
-
-#### Scenario: Cannot delete item in shopping list
-- **WHEN** a delete request is sent for an item with wantToBuy=true
-- **THEN** the API returns 409 Conflict with an error message
-
-#### Scenario: Item not found
-- **WHEN** a delete request is sent for a non-existent item ID
-- **THEN** the API returns 404 Not Found
-
 ### Requirement: JSON response format
 The system SHALL return JSON responses with camelCase keys, including `sourceUrl`.
 
@@ -112,6 +93,8 @@ The system SHALL return JSON responses with camelCase keys, including `sourceUrl
 - **WHEN** any stock item is returned in a response
 - **THEN** keys use camelCase (e.g., wantToBuy, imageUrl, sourceUrl, createdAt, updatedAt, sortedAt)
 - **AND** `sourceUrl` is `null` when no URL is associated with the item
+
+## ADDED Requirements
 
 ### Requirement: ItemCard source URL link
 The system SHALL display an external link icon in `ItemCard` when the item has a non-null `sourceUrl`, allowing navigation to the original product page.
@@ -124,11 +107,3 @@ The system SHALL display an external link icon in `ItemCard` when the item has a
 #### Scenario: Link icon hidden when sourceUrl is null
 - **WHEN** a stock item has `sourceUrl=null`
 - **THEN** `ItemCard` does NOT render the external link icon
-
-### Requirement: Extract product info from URL endpoint
-The system SHALL provide `POST /api/extract-from-url` as an extension to the stock items API surface.
-
-#### Scenario: Route is registered
-- **WHEN** the backend starts
-- **THEN** `POST /api/extract-from-url` is registered and returns a non-404 response for valid requests
-

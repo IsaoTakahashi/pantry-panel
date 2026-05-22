@@ -6,7 +6,11 @@ import { ExtractFromUrlError, extractFromUrl } from "@/lib/api";
 type UrlRegistrationModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onExtracted: (name: string, imageUrl: string | null) => void;
+  onExtracted: (
+    name: string,
+    imageUrl: string | null,
+    sourceUrl: string,
+  ) => void;
   accessToken?: string;
   activeGroupId?: string;
 };
@@ -17,6 +21,7 @@ function errorMessage(err: unknown): {
   message: string;
   isExtractionFailed: boolean;
   hasRetryButton: boolean;
+  detail?: string;
 } {
   if (err instanceof ExtractFromUrlError) {
     switch (err.kind) {
@@ -25,24 +30,28 @@ function errorMessage(err: unknown): {
           message: "有効な URL を入力してください",
           isExtractionFailed: false,
           hasRetryButton: false,
+          detail: err.detail,
         };
       case "fetchFailed":
         return {
           message: "ページを取得できませんでした",
           isExtractionFailed: false,
           hasRetryButton: true,
+          detail: err.detail,
         };
       case "extractionFailed":
         return {
           message: "商品情報を取得できませんでした。手動で入力してください",
           isExtractionFailed: true,
           hasRetryButton: false,
+          detail: err.detail,
         };
       default:
         return {
           message: "エラーが発生しました",
           isExtractionFailed: false,
           hasRetryButton: true,
+          detail: err.detail,
         };
     }
   }
@@ -63,12 +72,14 @@ export default function UrlRegistrationModal({
   const [url, setUrl] = useState("");
   const [state, setState] = useState<ModalState>("idle");
   const [error, setError] = useState<unknown>(null);
+  const [showDetail, setShowDetail] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setUrl("");
       setState("idle");
       setError(null);
+      setShowDetail(false);
     }
   }, [isOpen]);
 
@@ -82,7 +93,7 @@ export default function UrlRegistrationModal({
         accessToken,
         activeGroupId,
       );
-      onExtracted(result.name, result.imageUrl);
+      onExtracted(result.name, result.imageUrl, urlToSubmit);
     } catch (err) {
       setError(err);
       setState("error");
@@ -144,7 +155,7 @@ export default function UrlRegistrationModal({
               {errInfo.isExtractionFailed ? (
                 <button
                   type="button"
-                  onClick={() => onExtracted("", null)}
+                  onClick={() => onExtracted("", null, url)}
                   className="mt-2 bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded font-medium text-sm"
                 >
                   手動で入力する
@@ -158,6 +169,22 @@ export default function UrlRegistrationModal({
                   再試行
                 </button>
               ) : null}
+              {errInfo.detail && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowDetail((v) => !v)}
+                    className="text-xs text-gray-500 underline"
+                  >
+                    {showDetail ? "詳細を隠す" : "詳細を表示"}
+                  </button>
+                  {showDetail && (
+                    <pre className="mt-1 text-xs text-gray-600 bg-gray-50 rounded p-2 overflow-auto whitespace-pre-wrap break-all">
+                      {errInfo.detail}
+                    </pre>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

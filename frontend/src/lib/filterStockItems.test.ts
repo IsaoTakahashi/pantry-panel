@@ -7,6 +7,7 @@ const baseItem = (overrides: Partial<StockItem> = {}): StockItem => ({
   name: "醤油",
   category: "調味料",
   imageUrl: null,
+  sourceUrl: null,
   wantToBuy: false,
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",

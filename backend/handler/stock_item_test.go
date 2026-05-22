@@ -24,7 +24,7 @@ import (
 type mockStockItemRepo struct {
 	listFn   func(ctx context.Context, groupID uuid.UUID) ([]repository.StockItem, error)
 	getFn    func(ctx context.Context, id uuid.UUID, groupID uuid.UUID) (*repository.StockItem, error)
-	createFn func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool) (*repository.StockItem, error)
+	createFn func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*repository.StockItem, error)
 	updateFn func(ctx context.Context, id uuid.UUID, groupID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error)
 	deleteFn func(ctx context.Context, id uuid.UUID, groupID uuid.UUID) error
 }
@@ -35,8 +35,8 @@ func (m *mockStockItemRepo) List(ctx context.Context, groupID uuid.UUID) ([]repo
 func (m *mockStockItemRepo) Get(ctx context.Context, id uuid.UUID, groupID uuid.UUID) (*repository.StockItem, error) {
 	return m.getFn(ctx, id, groupID)
 }
-func (m *mockStockItemRepo) Create(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool) (*repository.StockItem, error) {
-	return m.createFn(ctx, groupID, name, category, wantToBuy)
+func (m *mockStockItemRepo) Create(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*repository.StockItem, error) {
+	return m.createFn(ctx, groupID, name, category, wantToBuy, sourceURL)
 }
 func (m *mockStockItemRepo) Update(ctx context.Context, id uuid.UUID, groupID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
 	return m.updateFn(ctx, id, groupID, params)
@@ -143,7 +143,7 @@ func TestCreate_Success(t *testing.T) {
 		UpdatedAt: now,
 	}
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool) (*repository.StockItem, error) {
+		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*repository.StockItem, error) {
 			assert.Equal(t, testGroupID, groupID)
 			assert.Equal(t, "醤油", name)
 			assert.Equal(t, "調味料", category)
@@ -183,7 +183,7 @@ func TestCreate_WithWantToBuyTrue(t *testing.T) {
 		UpdatedAt: now,
 	}
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool) (*repository.StockItem, error) {
+		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*repository.StockItem, error) {
 			require.NotNil(t, wantToBuy)
 			assert.True(t, *wantToBuy)
 			return expected, nil
@@ -209,7 +209,7 @@ func TestCreate_WithWantToBuyTrue(t *testing.T) {
 func TestCreate_EmptyName(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool) (*repository.StockItem, error) {
+		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*repository.StockItem, error) {
 			return nil, nil
 		},
 	}
@@ -228,7 +228,7 @@ func TestCreate_EmptyName(t *testing.T) {
 func TestCreate_EmptyCategory(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool) (*repository.StockItem, error) {
+		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*repository.StockItem, error) {
 			return nil, nil
 		},
 	}
@@ -247,7 +247,7 @@ func TestCreate_EmptyCategory(t *testing.T) {
 func TestCreate_DuplicateName(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool) (*repository.StockItem, error) {
+		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*repository.StockItem, error) {
 			return nil, &pgconn.PgError{Code: "23505"}
 		},
 	}

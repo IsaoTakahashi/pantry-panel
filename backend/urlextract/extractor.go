@@ -3,6 +3,7 @@ package urlextract
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"regexp"
 	"strings"
@@ -73,7 +74,11 @@ func (e *DefaultExtractor) Extract(ctx context.Context, rawURL string) (Result, 
 	htmlBytes, fetchErr := e.fetcher.Fetch(ctx, rawURL)
 	if fetchErr != nil {
 		log.Printf("urlextract: step1 fetch failed url=%s err=%v → trying Jina", rawURL, fetchErr)
-		return e.extractViaJina(ctx, rawURL)
+		res, jinaErr := e.extractViaJina(ctx, rawURL)
+		if jinaErr != nil {
+			return Result{}, fmt.Errorf("step1: %v; %w", fetchErr, jinaErr)
+		}
+		return res, nil
 	}
 	log.Printf("urlextract: step1 fetch ok url=%s htmlBytes=%d", rawURL, len(htmlBytes))
 
@@ -128,13 +133,13 @@ func (e *DefaultExtractor) Extract(ctx context.Context, rawURL string) (Result, 
 func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (Result, error) {
 	if e.jinaFetcher == nil {
 		log.Printf("urlextract: jina skipped (no jinaFetcher)")
-		return Result{}, ErrFetchFailed
+		return Result{}, fmt.Errorf("jina: not configured: %w", ErrFetchFailed)
 	}
 
 	jinaResult, err := e.jinaFetcher.Fetch(ctx, rawURL)
 	if err != nil {
 		log.Printf("urlextract: jina fetch failed url=%s err=%v", rawURL, err)
-		return Result{}, err
+		return Result{}, fmt.Errorf("jina: %v: %w", err, ErrFetchFailed)
 	}
 	log.Printf("urlextract: jina fetch ok title=%q contentLen=%d images=%d", jinaResult.Title, len(jinaResult.Content), len(jinaResult.Images))
 
@@ -147,7 +152,7 @@ func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (R
 		log.Printf("urlextract: jina claude name=%q imageURL=%q", claudeResult.Name, claudeResult.ImageURL)
 		if claudeResult.Name == "" {
 			log.Printf("urlextract: jina claude returned no name → ErrExtractionFailed")
-			return Result{}, ErrExtractionFailed
+			return Result{}, fmt.Errorf("claude returned empty name: %w", ErrExtractionFailed)
 		}
 		name := claudeResult.Name
 		imageURL := claudeResult.ImageURL
@@ -170,7 +175,7 @@ func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (R
 	name := jinaResult.Title
 	if name == "" {
 		log.Printf("urlextract: jina no claude, empty title → ErrExtractionFailed")
-		return Result{}, ErrExtractionFailed
+		return Result{}, fmt.Errorf("jina: empty title: %w", ErrExtractionFailed)
 	}
 	return Result{Name: name, ImageURL: imageURLFromJina(jinaResult.Images, jinaResult.Content, name)}, nil
 }
