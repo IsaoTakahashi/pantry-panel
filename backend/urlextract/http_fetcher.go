@@ -8,14 +8,14 @@ import (
 	"time"
 )
 
-const defaultTimeout = 10 * time.Second
+const defaultTimeout = 5 * time.Second
 
 // Fetcher fetches the raw HTML bytes from a URL.
 type Fetcher struct {
 	HTTPClient *http.Client
 }
 
-// NewFetcher returns a Fetcher with a 10-second timeout.
+// NewFetcher returns a Fetcher with a 5-second timeout.
 func NewFetcher() *Fetcher {
 	return &Fetcher{
 		HTTPClient: &http.Client{

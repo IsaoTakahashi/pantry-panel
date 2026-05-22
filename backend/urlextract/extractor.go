@@ -21,53 +21,118 @@ type Extractor interface {
 }
 
 // DefaultExtractor extracts product metadata from a URL using:
-//  1. HTTP fetch
-//  2. HTML meta tags (og:title, og:image, schema.org JSON-LD)
-//  3. Claude AI as a fallback (only if ANTHROPIC_API_KEY is configured)
+//  1. Direct HTTP fetch + meta tags (og:title, og:image, schema.org JSON-LD)
+//  2. Jina AI reader fallback (only when Step 1 fetch fails)
+//  3. Claude AI for clean product name extraction (when ANTHROPIC_API_KEY is configured)
 type DefaultExtractor struct {
-	fetcher *Fetcher
-	claude  *ClaudeExtractor // may be nil if ANTHROPIC_API_KEY is not set
+	fetcher      *Fetcher
+	jinaFetcher  *JinaFetcher
+	claude       *ClaudeExtractor // may be nil if ANTHROPIC_API_KEY is not set
 }
 
 // NewDefaultExtractor creates a DefaultExtractor with all configured sub-extractors.
 func NewDefaultExtractor() *DefaultExtractor {
 	return &DefaultExtractor{
-		fetcher: NewFetcher(),
-		claude:  NewClaudeExtractor(),
+		fetcher:     NewFetcher(),
+		jinaFetcher: NewJinaFetcher(),
+		claude:      NewClaudeExtractor(),
+	}
+}
+
+// NewDefaultExtractorWithDeps creates a DefaultExtractor with explicit dependencies.
+// Intended for testing; any argument may be nil.
+func NewDefaultExtractorWithDeps(fetcher *Fetcher, jina *JinaFetcher, claude *ClaudeExtractor) *DefaultExtractor {
+	return &DefaultExtractor{
+		fetcher:     fetcher,
+		jinaFetcher: jina,
+		claude:      claude,
 	}
 }
 
 // Extract fetches the given URL and extracts product name and image URL.
-// It tries HTML meta tags first, falls back to Claude if configured.
-// Returns ErrFetchFailed if the URL cannot be fetched.
-// Returns ErrExtractionFailed if no product name can be found by any method.
+//
+// Step 1: Direct fetch (5s timeout).
+//   - On fetch error: proceed to Step 2 (Jina fallback).
+//   - On success: parse og:image / schema.org image for imageURL.
+//     If Claude is configured, use Claude(visibleText) for name; imageURL prefers meta over Claude.
+//     Else use og:title / schema.org name.
+//     If name == "": return ErrExtractionFailed (no Jina fallback — page loaded, no product).
+//
+// Step 2: Jina AI fallback (only when Step 1 fetch fails).
+//   - If Jina fetch fails: return ErrFetchFailed.
+//   - If Claude configured: Claude(jina.Content) → name + imageURL.
+//   - Else: name = jina.Title, imageURL = first key from jina.Images.
+//   - If name == "": return ErrExtractionFailed.
 func (e *DefaultExtractor) Extract(ctx context.Context, rawURL string) (Result, error) {
-	// Step 1: Fetch HTML
-	htmlBytes, err := e.fetcher.Fetch(ctx, rawURL)
-	if err != nil {
-		return Result{}, err // ErrFetchFailed already wrapped by Fetcher
+	// Step 1: Direct fetch
+	htmlBytes, fetchErr := e.fetcher.Fetch(ctx, rawURL)
+	if fetchErr != nil {
+		// Fetch failed — try Jina fallback
+		return e.extractViaJina(ctx, rawURL)
 	}
 
-	// Step 2: Parse meta tags (og:title, og:image, JSON-LD)
-	result := ParseMeta(htmlBytes, rawURL)
-	if result.Name != "" {
-		return result, nil
-	}
+	// Step 1 succeeded: parse meta tags
+	metaResult := ParseMeta(htmlBytes, rawURL)
 
-	// Step 3: Claude fallback (only if configured)
 	if e.claude != nil {
+		// Use Claude for a clean product name; prefer meta imageURL
 		text := extractVisibleText(htmlBytes)
-		result, err = e.claude.Extract(ctx, text)
+		claudeResult, err := e.claude.Extract(ctx, text)
 		if err != nil {
 			return Result{}, err
 		}
-		if result.Name != "" {
-			return result, nil
+		imageURL := metaResult.ImageURL
+		if imageURL == "" {
+			imageURL = claudeResult.ImageURL
 		}
+		name := claudeResult.Name
+		if name != "" {
+			return Result{Name: name, ImageURL: imageURL}, nil
+		}
+		// Claude returned no name — fall through to ErrExtractionFailed
+		return Result{}, ErrExtractionFailed
 	}
 
-	// Step 4: All methods exhausted
+	// No Claude: use meta tags
+	if metaResult.Name != "" {
+		return metaResult, nil
+	}
 	return Result{}, ErrExtractionFailed
+}
+
+// extractViaJina fetches via Jina AI and returns a Result.
+func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (Result, error) {
+	if e.jinaFetcher == nil {
+		return Result{}, ErrFetchFailed
+	}
+
+	jinaResult, err := e.jinaFetcher.Fetch(ctx, rawURL)
+	if err != nil {
+		return Result{}, err // already wraps ErrFetchFailed
+	}
+
+	if e.claude != nil {
+		claudeResult, err := e.claude.Extract(ctx, jinaResult.Content)
+		if err != nil {
+			return Result{}, err
+		}
+		if claudeResult.Name != "" {
+			return claudeResult, nil
+		}
+		return Result{}, ErrExtractionFailed
+	}
+
+	// No Claude: use Jina title and first image
+	name := jinaResult.Title
+	if name == "" {
+		return Result{}, ErrExtractionFailed
+	}
+	var imageURL string
+	for url := range jinaResult.Images {
+		imageURL = url
+		break
+	}
+	return Result{Name: name, ImageURL: imageURL}, nil
 }
 
 // extractVisibleText extracts human-readable text from HTML bytes by stripping tags.
