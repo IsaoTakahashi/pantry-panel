@@ -99,6 +99,13 @@ func (e *ClaudeExtractor) Extract(ctx context.Context, content string, meta Resu
 	}
 
 	responseText = strings.TrimSpace(responseText)
+	// Strip markdown code fences if Claude wraps the JSON (e.g. ```json\n...\n```)
+	if strings.HasPrefix(responseText, "```") {
+		responseText = strings.TrimPrefix(responseText, "```json")
+		responseText = strings.TrimPrefix(responseText, "```")
+		responseText = strings.TrimSuffix(responseText, "```")
+		responseText = strings.TrimSpace(responseText)
+	}
 	var extracted struct {
 		Name     string `json:"name"`
 		ImageURL string `json:"imageUrl"`
