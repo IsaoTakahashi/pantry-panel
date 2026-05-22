@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"log"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
 	"golang.org/x/net/html"
 )
+
+var markdownImageRe = regexp.MustCompile(`!\[([^\]]*)\]\((https?://[^)]+)\)`)
 
 var ErrFetchFailed = errors.New("urlextract: fetch failed")
 var ErrExtractionFailed = errors.New("urlextract: extraction failed")
@@ -97,13 +100,15 @@ func (e *DefaultExtractor) Extract(ctx context.Context, rawURL string) (Result, 
 			return e.extractViaJina(ctx, rawURL)
 		}
 		// Supplement with Jina if name is too long or image is missing
-		if utf8.RuneCountInString(name) >= 25 || imageURL == "" {
-			log.Printf("urlextract: step1 result incomplete (nameRunes=%d hasImage=%v) → supplementing with Jina", utf8.RuneCountInString(name), imageURL != "")
+		needShorterName := utf8.RuneCountInString(name) >= 25
+		needImage := imageURL == ""
+		if needShorterName || needImage {
+			log.Printf("urlextract: step1 supplementing with Jina (needShorterName=%v needImage=%v nameRunes=%d)", needShorterName, needImage, utf8.RuneCountInString(name))
 			if jinaRes, jinaErr := e.extractViaJina(ctx, rawURL); jinaErr == nil {
-				if utf8.RuneCountInString(name) >= 25 && jinaRes.Name != "" {
+				if needShorterName && jinaRes.Name != "" {
 					name = jinaRes.Name
 				}
-				if imageURL == "" && jinaRes.ImageURL != "" {
+				if needImage && jinaRes.ImageURL != "" {
 					imageURL = jinaRes.ImageURL
 				}
 			}
@@ -150,10 +155,7 @@ func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (R
 		if utf8.RuneCountInString(name) >= 25 || imageURL == "" {
 			log.Printf("urlextract: jina result incomplete (nameRunes=%d hasImage=%v) → supplementing from raw Jina", utf8.RuneCountInString(name), imageURL != "")
 			if imageURL == "" {
-				for url := range jinaResult.Images {
-					imageURL = url
-					break
-				}
+				imageURL = imageURLFromJina(jinaResult.Images, jinaResult.Content, name)
 			}
 			// Use raw Jina title if it is shorter than what Claude returned
 			if utf8.RuneCountInString(name) >= 25 && jinaResult.Title != "" &&
@@ -170,12 +172,46 @@ func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (R
 		log.Printf("urlextract: jina no claude, empty title → ErrExtractionFailed")
 		return Result{}, ErrExtractionFailed
 	}
-	var imageURL string
-	for url := range jinaResult.Images {
-		imageURL = url
-		break
+	return Result{Name: name, ImageURL: imageURLFromJina(jinaResult.Images, jinaResult.Content, name)}, nil
+}
+
+// firstValidImageURL returns the first key in images that is an http/https URL.
+// Jina uses non-URL placeholders like "Image N,M: alt" for images it cannot retrieve.
+func firstValidImageURL(images map[string]string) string {
+	for url := range images {
+		if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+			return url
+		}
 	}
-	return Result{Name: name, ImageURL: imageURL}, nil
+	return ""
+}
+
+// imageURLFromJina returns the best image URL from Jina data.
+// Tries the images map first; falls back to markdown image links in content,
+// preferring those whose alt text contains nameHint.
+func imageURLFromJina(images map[string]string, content, nameHint string) string {
+	if url := firstValidImageURL(images); url != "" {
+		return url
+	}
+	return firstImageURLFromMarkdown(content, nameHint)
+}
+
+// firstImageURLFromMarkdown extracts an image URL from Jina markdown content.
+// Prefers images whose alt text contains nameHint; falls back to the first URL found.
+func firstImageURLFromMarkdown(content, nameHint string) string {
+	matches := markdownImageRe.FindAllStringSubmatch(content, -1)
+	nameHintLower := strings.ToLower(nameHint)
+	var firstURL string
+	for _, m := range matches {
+		alt, url := m[1], m[2]
+		if firstURL == "" {
+			firstURL = url
+		}
+		if nameHint != "" && strings.Contains(strings.ToLower(alt), nameHintLower) {
+			return url
+		}
+	}
+	return firstURL
 }
 
 // extractVisibleText extracts human-readable text from HTML bytes by stripping tags.
