@@ -232,11 +232,11 @@ export default function StockItemsClient() {
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
                 />
-                <div className="flex items-center gap-2 md:self-start">
+                <div className="flex w-full items-center gap-2 md:w-auto md:self-start">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(true)}
-                    className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium"
+                    className="flex-1 bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium md:flex-none"
                   >
                     商品を追加
                   </button>
@@ -244,7 +244,7 @@ export default function StockItemsClient() {
                     type="button"
                     onClick={() => setUrlModalOpen(true)}
                     aria-label="URLから追加"
-                    className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white p-2 rounded font-medium"
+                    className="shrink-0 bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-3 py-2.5 rounded font-medium"
                   >
                     <MdLink aria-hidden size={20} />
                   </button>
