@@ -80,6 +80,49 @@ async function deleteStockItem(
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
 }
 
+export type ExtractFromUrlErrorKind =
+  | "badRequest"
+  | "extractionFailed"
+  | "fetchFailed"
+  | "unknown";
+
+export class ExtractFromUrlError extends Error {
+  kind: ExtractFromUrlErrorKind;
+  constructor(kind: ExtractFromUrlErrorKind, message?: string) {
+    super(message ?? kind);
+    this.name = "ExtractFromUrlError";
+    this.kind = kind;
+  }
+}
+
+export type ExtractFromUrlResult = {
+  name: string;
+  imageUrl: string | null;
+};
+
+async function extractFromUrl(
+  url: string,
+  accessToken?: string,
+  activeGroupId?: string,
+): Promise<ExtractFromUrlResult> {
+  const response = await fetch(`${API_BASE_URL}/api/extract-from-url`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...apiHeaders(accessToken, activeGroupId),
+    },
+    body: JSON.stringify({ url }),
+  });
+  if (!response.ok) {
+    if (response.status === 400) throw new ExtractFromUrlError("badRequest");
+    if (response.status === 422)
+      throw new ExtractFromUrlError("extractionFailed");
+    if (response.status === 502) throw new ExtractFromUrlError("fetchFailed");
+    throw new ExtractFromUrlError("unknown", `HTTP ${response.status}`);
+  }
+  return response.json();
+}
+
 export type ImageSearchErrorKind =
   | "quota"
   | "upstream"
@@ -118,6 +161,7 @@ async function searchImages(
 export {
   createStockItem,
   deleteStockItem,
+  extractFromUrl,
   fetchHealth,
   fetchStockItems,
   searchImages,

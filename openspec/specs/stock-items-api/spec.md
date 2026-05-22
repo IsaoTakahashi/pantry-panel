@@ -100,3 +100,10 @@ The system SHALL return JSON responses with camelCase keys.
 - **WHEN** any stock item is returned in a response
 - **THEN** keys use camelCase (e.g., wantToBuy, imageUrl, createdAt, updatedAt, sortedAt)
 
+### Requirement: Extract product info from URL endpoint
+The system SHALL provide `POST /api/extract-from-url` as an extension to the stock items API surface.
+
+#### Scenario: Route is registered
+- **WHEN** the backend starts
+- **THEN** `POST /api/extract-from-url` is registered and returns a non-404 response for valid requests
+

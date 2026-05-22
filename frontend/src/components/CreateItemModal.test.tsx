@@ -52,7 +52,7 @@ describe("CreateItemModal", () => {
     await user.selectOptions(screen.getByLabelText("カテゴリ"), "調味料");
     await user.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => {
-      expect(onCreate).toHaveBeenCalledWith("醤油", "調味料", false);
+      expect(onCreate).toHaveBeenCalledWith("醤油", "調味料", false, null);
       expect(onClose).toHaveBeenCalled();
     });
   });
@@ -193,5 +193,105 @@ describe("CreateItemModal", () => {
       "aria-pressed",
       "true",
     );
+  });
+
+  it("initialImageUrl が指定されるとサムネイルが表示される", () => {
+    render(
+      <CreateItemModal
+        {...defaultProps}
+        initialImageUrl="https://example.com/image.jpg"
+      />,
+    );
+    const img = screen.getByRole("img", { name: "商品画像" });
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute("src", "https://example.com/image.jpg");
+  });
+
+  it("initialImageUrl が null のときサムネイルは表示されない", () => {
+    render(<CreateItemModal {...defaultProps} initialImageUrl={null} />);
+    expect(
+      screen.queryByRole("img", { name: "商品画像" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("initialImageUrl が指定されると onCreate に imageUrl が渡される", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CreateItemModal
+        {...defaultProps}
+        initialImageUrl="https://example.com/image.jpg"
+        onCreate={onCreate}
+      />,
+    );
+    await user.type(screen.getByLabelText("名前"), "醤油");
+    await user.click(screen.getByRole("button", { name: "追加" }));
+    await waitFor(() => {
+      expect(onCreate).toHaveBeenCalledWith(
+        "醤油",
+        "★",
+        false,
+        "https://example.com/image.jpg",
+      );
+    });
+  });
+
+  it("initialImageUrl が null のとき onCreate に null が渡される", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <CreateItemModal
+        {...defaultProps}
+        initialImageUrl={null}
+        onCreate={onCreate}
+      />,
+    );
+    await user.type(screen.getByLabelText("名前"), "醤油");
+    await user.click(screen.getByRole("button", { name: "追加" }));
+    await waitFor(() => {
+      expect(onCreate).toHaveBeenCalledWith("醤油", "★", false, null);
+    });
+  });
+
+  it("initialImageUrl が undefined のとき onCreate に null が渡される", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(<CreateItemModal {...defaultProps} onCreate={onCreate} />);
+    await user.type(screen.getByLabelText("名前"), "醤油");
+    await user.click(screen.getByRole("button", { name: "追加" }));
+    await waitFor(() => {
+      expect(onCreate).toHaveBeenCalledWith("醤油", "★", false, null);
+    });
+  });
+
+  it("モーダルを再度開くと initialImageUrl でリセットされる", () => {
+    const { rerender } = render(
+      <CreateItemModal
+        {...defaultProps}
+        initialName="醤油"
+        initialImageUrl="https://example.com/image.jpg"
+      />,
+    );
+    rerender(
+      <CreateItemModal
+        {...defaultProps}
+        isOpen={false}
+        initialName="醤油"
+        initialImageUrl={null}
+      />,
+    );
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    rerender(
+      <CreateItemModal
+        {...defaultProps}
+        isOpen={true}
+        initialName="醤油"
+        initialImageUrl={null}
+        onCreate={onCreate}
+      />,
+    );
+    // imageUrl state is internal; verify it resets by submitting and checking the call
+    screen.getByRole("button", { name: "追加" }).click();
+    expect(onCreate).toHaveBeenCalledWith("醤油", "★", false, null);
   });
 });
