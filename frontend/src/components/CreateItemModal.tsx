@@ -73,6 +73,7 @@ export default function CreateItemModal({
         >
           {imageUrl && (
             <div className="mb-4">
+              {/* biome-ignore lint/performance/noImgElement: arbitrary external URLs */}
               <img
                 src={imageUrl}
                 alt="商品画像"
