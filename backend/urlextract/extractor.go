@@ -3,6 +3,7 @@ package urlextract
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -67,20 +68,24 @@ func (e *DefaultExtractor) Extract(ctx context.Context, rawURL string) (Result, 
 	// Step 1: Direct fetch
 	htmlBytes, fetchErr := e.fetcher.Fetch(ctx, rawURL)
 	if fetchErr != nil {
-		// Fetch failed — try Jina fallback
+		log.Printf("urlextract: step1 fetch failed url=%s err=%v → trying Jina", rawURL, fetchErr)
 		return e.extractViaJina(ctx, rawURL)
 	}
+	log.Printf("urlextract: step1 fetch ok url=%s htmlBytes=%d", rawURL, len(htmlBytes))
 
 	// Step 1 succeeded: parse meta tags
 	metaResult := ParseMeta(htmlBytes, rawURL)
+	log.Printf("urlextract: step1 meta name=%q imageURL=%q", metaResult.Name, metaResult.ImageURL)
 
 	if e.claude != nil {
-		// Use Claude for a clean product name; prefer meta imageURL
 		text := extractVisibleText(htmlBytes)
+		log.Printf("urlextract: step1 visible text len=%d", len(text))
 		claudeResult, err := e.claude.Extract(ctx, text, metaResult)
 		if err != nil {
+			log.Printf("urlextract: step1 claude error err=%v", err)
 			return Result{}, err
 		}
+		log.Printf("urlextract: step1 claude name=%q imageURL=%q", claudeResult.Name, claudeResult.ImageURL)
 		imageURL := metaResult.ImageURL
 		if imageURL == "" {
 			imageURL = claudeResult.ImageURL
@@ -89,7 +94,7 @@ func (e *DefaultExtractor) Extract(ctx context.Context, rawURL string) (Result, 
 		if name != "" {
 			return Result{Name: name, ImageURL: imageURL}, nil
 		}
-		// Claude returned no name — try Jina (e.g. JS-rendered page)
+		log.Printf("urlextract: step1 claude returned no name → trying Jina")
 		return e.extractViaJina(ctx, rawURL)
 	}
 
@@ -97,34 +102,42 @@ func (e *DefaultExtractor) Extract(ctx context.Context, rawURL string) (Result, 
 	if metaResult.Name != "" {
 		return metaResult, nil
 	}
+	log.Printf("urlextract: step1 no claude, empty meta → trying Jina")
 	return e.extractViaJina(ctx, rawURL)
 }
 
 // extractViaJina fetches via Jina AI and returns a Result.
 func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (Result, error) {
 	if e.jinaFetcher == nil {
+		log.Printf("urlextract: jina skipped (no jinaFetcher)")
 		return Result{}, ErrFetchFailed
 	}
 
 	jinaResult, err := e.jinaFetcher.Fetch(ctx, rawURL)
 	if err != nil {
-		return Result{}, err // already wraps ErrFetchFailed
+		log.Printf("urlextract: jina fetch failed url=%s err=%v", rawURL, err)
+		return Result{}, err
 	}
+	log.Printf("urlextract: jina fetch ok title=%q contentLen=%d images=%d", jinaResult.Title, len(jinaResult.Content), len(jinaResult.Images))
 
 	if e.claude != nil {
 		claudeResult, err := e.claude.Extract(ctx, jinaResult.Content, Result{Name: jinaResult.Title})
 		if err != nil {
+			log.Printf("urlextract: jina claude error err=%v", err)
 			return Result{}, err
 		}
+		log.Printf("urlextract: jina claude name=%q imageURL=%q", claudeResult.Name, claudeResult.ImageURL)
 		if claudeResult.Name != "" {
 			return claudeResult, nil
 		}
+		log.Printf("urlextract: jina claude returned no name → ErrExtractionFailed")
 		return Result{}, ErrExtractionFailed
 	}
 
 	// No Claude: use Jina title and first image
 	name := jinaResult.Title
 	if name == "" {
+		log.Printf("urlextract: jina no claude, empty title → ErrExtractionFailed")
 		return Result{}, ErrExtractionFailed
 	}
 	var imageURL string
