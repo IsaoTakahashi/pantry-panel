@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/net/html"
 )
@@ -91,11 +92,23 @@ func (e *DefaultExtractor) Extract(ctx context.Context, rawURL string) (Result, 
 			imageURL = claudeResult.ImageURL
 		}
 		name := claudeResult.Name
-		if name != "" {
-			return Result{Name: name, ImageURL: imageURL}, nil
+		if name == "" {
+			log.Printf("urlextract: step1 claude returned no name → trying Jina")
+			return e.extractViaJina(ctx, rawURL)
 		}
-		log.Printf("urlextract: step1 claude returned no name → trying Jina")
-		return e.extractViaJina(ctx, rawURL)
+		// Supplement with Jina if name is too long or image is missing
+		if utf8.RuneCountInString(name) >= 25 || imageURL == "" {
+			log.Printf("urlextract: step1 result incomplete (nameRunes=%d hasImage=%v) → supplementing with Jina", utf8.RuneCountInString(name), imageURL != "")
+			if jinaRes, jinaErr := e.extractViaJina(ctx, rawURL); jinaErr == nil {
+				if utf8.RuneCountInString(name) >= 25 && jinaRes.Name != "" {
+					name = jinaRes.Name
+				}
+				if imageURL == "" && jinaRes.ImageURL != "" {
+					imageURL = jinaRes.ImageURL
+				}
+			}
+		}
+		return Result{Name: name, ImageURL: imageURL}, nil
 	}
 
 	// No Claude: use meta tags; fall back to Jina if meta also empty
@@ -127,11 +140,28 @@ func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (R
 			return Result{}, err
 		}
 		log.Printf("urlextract: jina claude name=%q imageURL=%q", claudeResult.Name, claudeResult.ImageURL)
-		if claudeResult.Name != "" {
-			return claudeResult, nil
+		if claudeResult.Name == "" {
+			log.Printf("urlextract: jina claude returned no name → ErrExtractionFailed")
+			return Result{}, ErrExtractionFailed
 		}
-		log.Printf("urlextract: jina claude returned no name → ErrExtractionFailed")
-		return Result{}, ErrExtractionFailed
+		name := claudeResult.Name
+		imageURL := claudeResult.ImageURL
+		// Supplement from raw Jina data if result is incomplete
+		if utf8.RuneCountInString(name) >= 25 || imageURL == "" {
+			log.Printf("urlextract: jina result incomplete (nameRunes=%d hasImage=%v) → supplementing from raw Jina", utf8.RuneCountInString(name), imageURL != "")
+			if imageURL == "" {
+				for url := range jinaResult.Images {
+					imageURL = url
+					break
+				}
+			}
+			// Use raw Jina title if it is shorter than what Claude returned
+			if utf8.RuneCountInString(name) >= 25 && jinaResult.Title != "" &&
+				utf8.RuneCountInString(jinaResult.Title) < utf8.RuneCountInString(name) {
+				name = jinaResult.Title
+			}
+		}
+		return Result{Name: name, ImageURL: imageURL}, nil
 	}
 
 	// No Claude: use Jina title and first image

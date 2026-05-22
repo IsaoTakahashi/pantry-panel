@@ -43,7 +43,8 @@ func truncateText(s string, maxRunes int) string {
 
 // ClaudeExtractor uses Claude Haiku to extract product name and image URL from page content.
 type ClaudeExtractor struct {
-	client *anthropic.Client
+	client    *anthropic.Client
+	extractFn func(ctx context.Context, content string, meta Result) (Result, error) // override for testing
 }
 
 // NewClaudeExtractor returns a ClaudeExtractor if ANTHROPIC_API_KEY is set, otherwise nil.
@@ -60,6 +61,9 @@ func NewClaudeExtractor() *ClaudeExtractor {
 // meta provides og:title / og:image as hints; content is the main text (HTML visible text or Markdown).
 // Returns empty Result with nil error if Claude cannot extract anything useful.
 func (e *ClaudeExtractor) Extract(ctx context.Context, content string, meta Result) (Result, error) {
+	if e.extractFn != nil {
+		return e.extractFn(ctx, content, meta)
+	}
 	content = truncateText(content, maxHTMLTextLen)
 
 	userText := fmt.Sprintf(

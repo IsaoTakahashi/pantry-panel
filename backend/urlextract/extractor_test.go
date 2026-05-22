@@ -202,3 +202,69 @@ func TestDefaultExtractor_Step1SucceedsButNoMeta_FallsBackToJina(t *testing.T) {
 	assert.Equal(t, "Jina商品名", got.Name)
 	assert.Equal(t, 1, jinaCallCount, "Jina should be called as fallback")
 }
+
+// newStubExtractor builds a DefaultExtractor that uses a stub ClaudeExtractor returning a fixed Result.
+func newStubExtractor(directTS *httptest.Server, jina *JinaFetcher, claudeResult Result) *DefaultExtractor {
+	fake := &ClaudeExtractor{extractFn: func(_ context.Context, _ string, _ Result) (Result, error) {
+		return claudeResult, nil
+	}}
+	return NewDefaultExtractorWithDeps(
+		&Fetcher{HTTPClient: directTS.Client()},
+		jina,
+		fake,
+	)
+}
+
+// TestDefaultExtractor_Step1ClaudeLongName_SupplementsFromJina verifies that when Step 1
+// Claude returns a name >= 25 runes, the extractor also calls Jina and uses its shorter name.
+func TestDefaultExtractor_Step1ClaudeLongName_SupplementsFromJina(t *testing.T) {
+	jinaCallCount := 0
+	jinaTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		jinaCallCount++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintln(w, `{"code":200,"data":{"title":"短い商品名","content":"","images":{"https://cdn.example.com/p.jpg":"画像"}}}`)
+	}))
+	defer jinaTS.Close()
+
+	directTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = fmt.Fprintln(w, `<html><head><meta property="og:title" content="長い商品名 | サイト名 - ブランド名 - カテゴリ名"></head></html>`)
+	}))
+	defer directTS.Close()
+
+	jina := &JinaFetcher{HTTPClient: jinaTS.Client(), BaseURL: jinaTS.URL + "/"}
+	longName := "これは25文字以上の長い商品タイトルですよ追加テキスト" // 26 runes
+	e := newStubExtractor(directTS, jina, Result{Name: longName, ImageURL: "https://meta.example.com/img.jpg"})
+
+	got, err := e.Extract(context.Background(), directTS.URL)
+	require.NoError(t, err)
+	assert.Equal(t, "短い商品名", got.Name, "should use Jina's shorter name")
+	assert.Equal(t, 1, jinaCallCount, "Jina should be called to supplement")
+}
+
+// TestDefaultExtractor_Step1ClaudeNoImage_SupplementsFromJina verifies that when Step 1
+// Claude returns no imageURL, the extractor also calls Jina to obtain an image.
+func TestDefaultExtractor_Step1ClaudeNoImage_SupplementsFromJina(t *testing.T) {
+	jinaCallCount := 0
+	jinaTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		jinaCallCount++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintln(w, `{"code":200,"data":{"title":"商品名","content":"","images":{"https://cdn.example.com/p.jpg":"画像"}}}`)
+	}))
+	defer jinaTS.Close()
+
+	directTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = fmt.Fprintln(w, `<html><body>product page</body></html>`)
+	}))
+	defer directTS.Close()
+
+	jina := &JinaFetcher{HTTPClient: jinaTS.Client(), BaseURL: jinaTS.URL + "/"}
+	e := newStubExtractor(directTS, jina, Result{Name: "商品名", ImageURL: ""})
+
+	got, err := e.Extract(context.Background(), directTS.URL)
+	require.NoError(t, err)
+	assert.Equal(t, "商品名", got.Name)
+	assert.Equal(t, "https://cdn.example.com/p.jpg", got.ImageURL, "should use Jina's image")
+	assert.Equal(t, 1, jinaCallCount, "Jina should be called to supplement")
+}
