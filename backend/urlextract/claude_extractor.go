@@ -16,6 +16,20 @@ const (
 	claudeModel    = anthropic.ModelClaudeHaiku4_5_20251001
 )
 
+// systemPrompt is the static instruction block sent to Claude.
+// It is marked with cache_control so the token cost is amortized across requests.
+const systemPrompt = `You are a product information extractor. Given page content from a product page and optional reference data extracted from HTML meta tags, extract the product name and image URL.
+
+Respond ONLY with a JSON object in this exact format:
+{"name": "<product name>", "imageUrl": "<image url or empty string>"}
+
+Rules:
+- Prefer clean product names; strip store/site name suffixes (e.g. "Product Name | Store" → "Product Name")
+- If the meta reference provides an image URL and no better image is found in the page content, use the meta image
+- If you cannot determine a product name, set "name" to an empty string
+- If you cannot find an image URL, set "imageUrl" to an empty string
+- Do not include any other text or explanation`
+
 // truncateText safely truncates a string to maxRunes characters, respecting UTF-8 rune boundaries.
 // This prevents panic when truncating multi-byte UTF-8 strings (e.g., Japanese text).
 func truncateText(s string, maxRunes int) string {
@@ -26,7 +40,7 @@ func truncateText(s string, maxRunes int) string {
 	return string(runes[:maxRunes])
 }
 
-// ClaudeExtractor uses Claude Haiku to extract product name and image URL from HTML text.
+// ClaudeExtractor uses Claude Haiku to extract product name and image URL from page content.
 type ClaudeExtractor struct {
 	client *anthropic.Client
 }
@@ -41,37 +55,34 @@ func NewClaudeExtractor() *ClaudeExtractor {
 	return &ClaudeExtractor{client: &client}
 }
 
-// Extract sends htmlText (truncated to maxHTMLTextLen runes) to Claude Haiku and returns
-// the extracted product name and image URL. Returns empty Result with nil error if Claude
-// cannot extract anything useful.
-func (e *ClaudeExtractor) Extract(ctx context.Context, htmlText string) (Result, error) {
-	htmlText = truncateText(htmlText, maxHTMLTextLen)
+// Extract sends content (truncated to maxHTMLTextLen runes) and meta reference to Claude Haiku.
+// meta provides og:title / og:image as hints; content is the main text (HTML visible text or Markdown).
+// Returns empty Result with nil error if Claude cannot extract anything useful.
+func (e *ClaudeExtractor) Extract(ctx context.Context, content string, meta Result) (Result, error) {
+	content = truncateText(content, maxHTMLTextLen)
 
-	prompt := fmt.Sprintf(
-		`You are a product information extractor. Given the following HTML content from a product page, extract the product name and product image URL.
-
-Respond ONLY with a JSON object in this exact format:
-{"name": "<product name>", "imageUrl": "<image url or empty string>"}
-
-If you cannot find a product name, set "name" to an empty string.
-If you cannot find an image URL, set "imageUrl" to an empty string.
-Do not include any other text or explanation.
-
-HTML content:
-%s`, htmlText)
+	userText := fmt.Sprintf(
+		"Reference from meta tags (may be noisy or incomplete):\nname: %q\nimageUrl: %q\n\nPage content:\n%s",
+		meta.Name, meta.ImageURL, content,
+	)
 
 	msg, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     claudeModel,
 		MaxTokens: 256,
+		System: []anthropic.TextBlockParam{
+			{
+				Text:         systemPrompt,
+				CacheControl: anthropic.NewCacheControlEphemeralParam(),
+			},
+		},
 		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
+			anthropic.NewUserMessage(anthropic.NewTextBlock(userText)),
 		},
 	})
 	if err != nil {
 		return Result{}, fmt.Errorf("claude extraction failed: %w", err)
 	}
 
-	// Extract text from the first text content block
 	var responseText string
 	for _, block := range msg.Content {
 		if block.Type == "text" {
@@ -84,14 +95,12 @@ HTML content:
 		return Result{}, nil
 	}
 
-	// Parse JSON response
 	responseText = strings.TrimSpace(responseText)
 	var extracted struct {
 		Name     string `json:"name"`
 		ImageURL string `json:"imageUrl"`
 	}
 	if err := json.Unmarshal([]byte(responseText), &extracted); err != nil {
-		// Claude returned something unexpected — treat as no result
 		return Result{}, nil
 	}
 

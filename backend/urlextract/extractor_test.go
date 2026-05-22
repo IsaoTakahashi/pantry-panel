@@ -39,17 +39,20 @@ func TestDefaultExtractor_MetaTagsPresent(t *testing.T) {
 	assert.Equal(t, "https://example.com/img.jpg", got.ImageURL)
 }
 
-func TestDefaultExtractor_EmptyMetaAndNoClaude_ReturnsErrExtractionFailed(t *testing.T) {
+// TestDefaultExtractor_EmptyMetaAndNoClaude_FallsBackToJina verifies that when the direct
+// fetch succeeds but meta extraction yields nothing and Claude is nil, the extractor falls
+// back to Jina. With nil jinaFetcher, ErrFetchFailed is returned.
+func TestDefaultExtractor_EmptyMetaAndNoClaude_FallsBackToJina(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = fmt.Fprintln(w, `<html><head><title>no og tags here</title></head></html>`)
 	}))
 	defer ts.Close()
 
-	e := newTestExtractor(ts, nil, nil)
+	e := newTestExtractor(ts, nil, nil) // nil jina → ErrFetchFailed from extractViaJina
 	_, err := e.Extract(context.Background(), ts.URL)
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, ErrExtractionFailed))
+	assert.True(t, errors.Is(err, ErrFetchFailed))
 }
 
 // TestDefaultExtractor_FetchFails_ServerError verifies that a non-200 direct fetch
@@ -81,9 +84,10 @@ func TestDefaultExtractor_FetchFails_ServerClosed(t *testing.T) {
 	assert.True(t, errors.Is(err, ErrFetchFailed))
 }
 
-func TestDefaultExtractor_EmptyMetaWithClaudeNil_ReturnsErrExtractionFailed(t *testing.T) {
-	// Explicitly test that when Claude is nil and meta extraction yields nothing,
-	// we get ErrExtractionFailed (not a nil-pointer panic or other error).
+// TestDefaultExtractor_EmptyMetaWithClaudeNil_FallsBackToJina verifies that when Claude is
+// nil and meta extraction yields nothing, the extractor falls back to Jina. With nil
+// jinaFetcher, ErrFetchFailed is returned (not a nil-pointer panic or other error).
+func TestDefaultExtractor_EmptyMetaWithClaudeNil_FallsBackToJina(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = fmt.Fprintln(w, `<html><body>Some page without product info</body></html>`)
@@ -97,7 +101,7 @@ func TestDefaultExtractor_EmptyMetaWithClaudeNil_ReturnsErrExtractionFailed(t *t
 	)
 	_, err := e.Extract(context.Background(), ts.URL)
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, ErrExtractionFailed))
+	assert.True(t, errors.Is(err, ErrFetchFailed))
 }
 
 // TestDefaultExtractor_Step1FetchFails_JinaSucceeds verifies that when the direct fetch
@@ -167,21 +171,17 @@ func TestDefaultExtractor_Step1FetchFails_JinaFails(t *testing.T) {
 	assert.True(t, errors.Is(err, ErrFetchFailed))
 }
 
-// TestDefaultExtractor_Step1SucceedsButNoName_ReturnsErrExtractionFailed verifies that
-// when the direct fetch succeeds but no product name is found, ErrExtractionFailed is
-// returned without falling back to Jina.
-func TestDefaultExtractor_Step1SucceedsButNoName_ReturnsErrExtractionFailed(t *testing.T) {
-	// Jina server that should NOT be called (it returns a name — if called, test would pass
-	// for the wrong reason; we track if it was called)
+// TestDefaultExtractor_Step1SucceedsButNoMeta_FallsBackToJina verifies that when the direct
+// fetch succeeds but meta extraction yields no product name, the extractor falls back to Jina.
+func TestDefaultExtractor_Step1SucceedsButNoMeta_FallsBackToJina(t *testing.T) {
 	jinaCallCount := 0
 	jinaTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		jinaCallCount++
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprintln(w, `{"code":200,"data":{"title":"Should not be used","content":"","images":{}}}`)
+		_, _ = fmt.Fprintln(w, `{"code":200,"data":{"title":"Jina商品名","content":"商品説明","images":{"https://cdn.example.com/p.jpg":"商品画像"}}}`)
 	}))
 	defer jinaTS.Close()
 
-	// Direct fetch server: returns a page with no product info
 	directTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = fmt.Fprintln(w, `<html><body><p>No product here</p></body></html>`)
@@ -197,8 +197,8 @@ func TestDefaultExtractor_Step1SucceedsButNoName_ReturnsErrExtractionFailed(t *t
 		jina,
 		nil,
 	)
-	_, err := e.Extract(context.Background(), directTS.URL)
-	require.Error(t, err)
-	assert.True(t, errors.Is(err, ErrExtractionFailed))
-	assert.Equal(t, 0, jinaCallCount, "Jina should not be called when Step 1 fetch succeeded")
+	got, err := e.Extract(context.Background(), directTS.URL)
+	require.NoError(t, err)
+	assert.Equal(t, "Jina商品名", got.Name)
+	assert.Equal(t, 1, jinaCallCount, "Jina should be called as fallback")
 }

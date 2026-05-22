@@ -77,7 +77,7 @@ func (e *DefaultExtractor) Extract(ctx context.Context, rawURL string) (Result, 
 	if e.claude != nil {
 		// Use Claude for a clean product name; prefer meta imageURL
 		text := extractVisibleText(htmlBytes)
-		claudeResult, err := e.claude.Extract(ctx, text)
+		claudeResult, err := e.claude.Extract(ctx, text, metaResult)
 		if err != nil {
 			return Result{}, err
 		}
@@ -89,15 +89,15 @@ func (e *DefaultExtractor) Extract(ctx context.Context, rawURL string) (Result, 
 		if name != "" {
 			return Result{Name: name, ImageURL: imageURL}, nil
 		}
-		// Claude returned no name — fall through to ErrExtractionFailed
-		return Result{}, ErrExtractionFailed
+		// Claude returned no name — try Jina (e.g. JS-rendered page)
+		return e.extractViaJina(ctx, rawURL)
 	}
 
-	// No Claude: use meta tags
+	// No Claude: use meta tags; fall back to Jina if meta also empty
 	if metaResult.Name != "" {
 		return metaResult, nil
 	}
-	return Result{}, ErrExtractionFailed
+	return e.extractViaJina(ctx, rawURL)
 }
 
 // extractViaJina fetches via Jina AI and returns a Result.
@@ -112,7 +112,7 @@ func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (R
 	}
 
 	if e.claude != nil {
-		claudeResult, err := e.claude.Extract(ctx, jinaResult.Content)
+		claudeResult, err := e.claude.Extract(ctx, jinaResult.Content, Result{Name: jinaResult.Title})
 		if err != nil {
 			return Result{}, err
 		}
