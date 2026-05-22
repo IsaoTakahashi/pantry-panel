@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/IsaoTakahashi/pantry-panel/backend/urlextract"
@@ -35,16 +36,23 @@ func (h *UrlExtractHandler) Extract(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "url is required"})
 	}
 
+	log.Printf("extract-from-url: url=%s", req.URL)
+
 	result, err := h.extractor.Extract(c.Request().Context(), req.URL)
 	if err != nil {
 		if errors.Is(err, urlextract.ErrFetchFailed) {
+			log.Printf("extract-from-url: fetch failed url=%s err=%v", req.URL, err)
 			return c.JSON(http.StatusBadGateway, ErrorResponse{Message: "failed to fetch the target page"})
 		}
 		if errors.Is(err, urlextract.ErrExtractionFailed) {
+			log.Printf("extract-from-url: extraction failed url=%s err=%v", req.URL, err)
 			return c.JSON(http.StatusUnprocessableEntity, ErrorResponse{Message: "could not extract product name from page"})
 		}
+		log.Printf("extract-from-url: internal error url=%s err=%v", req.URL, err)
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Message: "Internal Server Error"})
 	}
+
+	log.Printf("extract-from-url: success url=%s name=%q hasImage=%v", req.URL, result.Name, result.ImageURL != "")
 
 	resp := ExtractFromURLResponse{
 		Name: result.Name,
