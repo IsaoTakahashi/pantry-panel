@@ -15,6 +15,7 @@ const item: StockItem = {
   name: "りんご",
   category: "★",
   imageUrl: null,
+  sourceUrl: null,
   wantToBuy: false,
   createdAt: "",
   updatedAt: "",

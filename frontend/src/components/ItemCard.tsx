@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { MdDelete, MdImage, MdShoppingCart } from "react-icons/md";
+import { MdDelete, MdImage, MdOpenInNew, MdShoppingCart } from "react-icons/md";
 import type { StockItem } from "@/types/stockItem";
 
 type ItemCardProps = {
@@ -51,6 +51,17 @@ export default function ItemCard({
         </span>
         <h3 className="text-lg font-bold text-gray-900">{item.name}</h3>
       </button>
+      {item.sourceUrl && (
+        <a
+          href={item.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="商品ページを開く"
+          className="w-11 h-8 rounded bg-transparent p-0 text-gray-400 hover:text-gray-600 inline-flex items-center justify-center"
+        >
+          <MdOpenInNew aria-hidden size={22} />
+        </a>
+      )}
       <button
         type="button"
         aria-label="want to buy"

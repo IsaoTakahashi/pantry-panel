@@ -88,10 +88,16 @@ export type ExtractFromUrlErrorKind =
 
 export class ExtractFromUrlError extends Error {
   kind: ExtractFromUrlErrorKind;
-  constructor(kind: ExtractFromUrlErrorKind, message?: string) {
+  detail?: string;
+  constructor(
+    kind: ExtractFromUrlErrorKind,
+    message?: string,
+    detail?: string,
+  ) {
     super(message ?? kind);
     this.name = "ExtractFromUrlError";
     this.kind = kind;
+    this.detail = detail;
   }
 }
 
@@ -114,11 +120,20 @@ async function extractFromUrl(
     body: JSON.stringify({ url }),
   });
   if (!response.ok) {
-    if (response.status === 400) throw new ExtractFromUrlError("badRequest");
+    let detail: string | undefined;
+    try {
+      const body = await response.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {
+      /* ignore */
+    }
+    if (response.status === 400)
+      throw new ExtractFromUrlError("badRequest", undefined, detail);
     if (response.status === 422)
-      throw new ExtractFromUrlError("extractionFailed");
-    if (response.status === 502) throw new ExtractFromUrlError("fetchFailed");
-    throw new ExtractFromUrlError("unknown", `HTTP ${response.status}`);
+      throw new ExtractFromUrlError("extractionFailed", undefined, detail);
+    if (response.status === 502)
+      throw new ExtractFromUrlError("fetchFailed", undefined, detail);
+    throw new ExtractFromUrlError("unknown", `HTTP ${response.status}`, detail);
   }
   return response.json();
 }

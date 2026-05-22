@@ -52,7 +52,13 @@ describe("CreateItemModal", () => {
     await user.selectOptions(screen.getByLabelText("カテゴリ"), "調味料");
     await user.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => {
-      expect(onCreate).toHaveBeenCalledWith("醤油", "調味料", false, null);
+      expect(onCreate).toHaveBeenCalledWith(
+        "醤油",
+        "調味料",
+        false,
+        null,
+        null,
+      );
       expect(onClose).toHaveBeenCalled();
     });
   });
@@ -232,6 +238,7 @@ describe("CreateItemModal", () => {
         "★",
         false,
         "https://example.com/image.jpg",
+        null,
       );
     });
   });
@@ -249,7 +256,7 @@ describe("CreateItemModal", () => {
     await user.type(screen.getByLabelText("名前"), "醤油");
     await user.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => {
-      expect(onCreate).toHaveBeenCalledWith("醤油", "★", false, null);
+      expect(onCreate).toHaveBeenCalledWith("醤油", "★", false, null, null);
     });
   });
 
@@ -260,7 +267,7 @@ describe("CreateItemModal", () => {
     await user.type(screen.getByLabelText("名前"), "醤油");
     await user.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => {
-      expect(onCreate).toHaveBeenCalledWith("醤油", "★", false, null);
+      expect(onCreate).toHaveBeenCalledWith("醤油", "★", false, null, null);
     });
   });
 
@@ -292,6 +299,6 @@ describe("CreateItemModal", () => {
     );
     // imageUrl state is internal; verify it resets by submitting and checking the call
     screen.getByRole("button", { name: "追加" }).click();
-    expect(onCreate).toHaveBeenCalledWith("醤油", "★", false, null);
+    expect(onCreate).toHaveBeenCalledWith("醤油", "★", false, null, null);
   });
 });

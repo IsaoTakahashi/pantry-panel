@@ -16,7 +16,7 @@ func NewPgStockItemRepository(pool *pgxpool.Pool) *PgStockItemRepository {
 	return &PgStockItemRepository{pool: pool}
 }
 
-const stockItemColumns = "id, name, category, image_url, want_to_buy, group_id, created_at, updated_at, sorted_at"
+const stockItemColumns = "id, name, category, image_url, source_url, want_to_buy, group_id, created_at, updated_at, sorted_at"
 
 func (r *PgStockItemRepository) List(ctx context.Context, groupID uuid.UUID) ([]StockItem, error) {
 	rows, _ := r.pool.Query(ctx,
@@ -32,10 +32,10 @@ func (r *PgStockItemRepository) Get(ctx context.Context, id uuid.UUID, groupID u
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[StockItem])
 }
 
-func (r *PgStockItemRepository) Create(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool) (*StockItem, error) {
+func (r *PgStockItemRepository) Create(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*StockItem, error) {
 	rows, _ := r.pool.Query(ctx,
-		"INSERT INTO stock_items (name, category, want_to_buy, group_id, sorted_at) VALUES ($1, $2, COALESCE($3, false), $4, NOW()) RETURNING "+stockItemColumns,
-		name, category, wantToBuy, groupID)
+		"INSERT INTO stock_items (name, category, want_to_buy, group_id, sorted_at, source_url) VALUES ($1, $2, COALESCE($3, false), $4, NOW(), $5) RETURNING "+stockItemColumns,
+		name, category, wantToBuy, groupID, sourceURL)
 	return pgx.CollectExactlyOneRow(rows, pgx.RowToAddrOfStructByName[StockItem])
 }
 

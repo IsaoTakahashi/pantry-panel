@@ -3,6 +3,7 @@ type StockItem = {
   name: string;
   category: string;
   imageUrl: string | null;
+  sourceUrl: string | null;
   wantToBuy: boolean;
   createdAt: string;
   updatedAt: string;
@@ -13,6 +14,7 @@ type CreateStockItemRequest = {
   name: string;
   category: string;
   wantToBuy?: boolean;
+  sourceUrl?: string;
 };
 
 type UpdateStockItemRequest = {
@@ -20,6 +22,7 @@ type UpdateStockItemRequest = {
   category?: string;
   wantToBuy?: boolean;
   imageUrl?: string | null;
+  sourceUrl?: string | null;
 };
 
 type ImageSearchResult = {

@@ -42,11 +42,11 @@ func (h *UrlExtractHandler) Extract(c *echo.Context) error {
 	if err != nil {
 		if errors.Is(err, urlextract.ErrFetchFailed) {
 			log.Printf("extract-from-url: fetch failed url=%s err=%v", req.URL, err)
-			return c.JSON(http.StatusBadGateway, ErrorResponse{Message: "failed to fetch the target page"})
+			return c.JSON(http.StatusBadGateway, ErrorResponse{Message: "failed to fetch the target page", Detail: err.Error()})
 		}
 		if errors.Is(err, urlextract.ErrExtractionFailed) {
 			log.Printf("extract-from-url: extraction failed url=%s err=%v", req.URL, err)
-			return c.JSON(http.StatusUnprocessableEntity, ErrorResponse{Message: "could not extract product name from page"})
+			return c.JSON(http.StatusUnprocessableEntity, ErrorResponse{Message: "could not extract product name from page", Detail: err.Error()})
 		}
 		log.Printf("extract-from-url: internal error url=%s err=%v", req.URL, err)
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Message: "Internal Server Error"})

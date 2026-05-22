@@ -16,6 +16,81 @@
 **実装工数**: L（1〜2週）  
 スクレイピングの信頼性（JS レンダリング対応）・AI API 連携・画像の保存先の検討が工数の大半を占める。
 
+### URL 登録機能の改善
+
+URL から商品登録する機能（`/api/extract-from-url`）に対する 4 つの改善。
+
+---
+
+#### 改善1: エラー詳細の表示
+
+**背景:** 取得・抽出失敗時、フロントエンドは HTTP ステータスコードだけでエラー種別を判定し、レスポンスの body を読まない。バックエンドも汎用的なメッセージしか返さないため、失敗原因がユーザーにもデバッグ時にも伝わらない。
+
+**変更内容:**
+
+- バックエンド: `ErrorResponse` に `detail` フィールドを追加し、失敗箇所の技術的な情報（step1 の HTTP ステータス、Jina のエラー内容、Claude が空を返した理由など）を入れる
+  ```json
+  { "message": "failed to fetch the target page", "detail": "step1: dial tcp: connection refused; jina: HTTP 429 Too Many Requests" }
+  ```
+- フロントエンド: エラー時にレスポンス body を読み取り `detail` を保持する
+- UI: 日本語のユーザー向けメッセージはそのまま表示し、「詳細を表示」ボタンで `detail`（英語の技術情報）を折り畳み表示する
+
+**実装工数**: S（1日以内）
+
+---
+
+#### 改善2: 長い商品名の候補選択 UI
+
+**背景:** 現在、抽出した name が 25 文字以上の場合に Jina 経由で名前を短くしようとするが、精度が低い。代わりに Claude に短縮候補を複数生成させ、ユーザーが選ぶ UI にする。
+
+**変更内容:**
+
+- バックエンド: `extractor.go` から「name >= 25 文字 → Jina で補完」のロジックを削除する。代わりに name >= 25 文字のとき 2nd Claude コールで短縮候補 3 つを生成し、レスポンスに `nameCandidates: string[]` を追加する（短い場合は省略）
+  ```json
+  { "name": "ポッカサッポロ キレートレモン 155ml缶×24本入", "imageUrl": "...", "nameCandidates": ["キレートレモン 155ml×24", "ポッカ ビタチャージW 24缶", "キレートレモン ウコン+鉄"] }
+  ```
+- 2nd Claude コールのプロンプト: 元の name から 15 文字以内の候補 3 つを JSON 配列で返す
+- フロントエンド (`UrlRegistrationModal`): `nameCandidates` が返ってきたとき `"nameSelection"` ステートに移行し、3 候補＋元の名前から 1 つを選ばせるUIを表示する。選択後は既存の `CreateItemModal` に渡す
+- `UrlRegistrationModal` の step 条件（「name >= 25 文字のとき step2 に移行」）も合わせて削除する
+
+**実装工数**: M（2〜4日）
+
+---
+
+#### 改善3: source_url の保存と ItemCard リンクアイコン
+
+**背景:** URL 登録した商品について、元の URL がどこかわからなくなる。また同じ商品を再度参照したいときに不便。
+
+**変更内容:**
+
+- DB: `stock_items` に `source_url TEXT` カラムを追加（migration）
+- バックエンド: `StockItem` 構造体に `SourceURL *string`、`Create` / `Update` で `sourceUrl` を受け取れるようにする
+- フロントエンド: `StockItem` 型に `sourceUrl: string | null`、`CreateStockItemRequest` / `UpdateStockItemRequest` に `sourceUrl?: string` を追加
+- `UrlRegistrationModal`: `onExtracted` コールバックに `sourceUrl` を渡すよう変更
+- `ItemCard`: `sourceUrl` がある場合のみ `MdOpenInNew` アイコンを表示。クリックで別タブに遷移（`target="_blank" rel="noopener noreferrer"`）。アイコンはアクションボタン列（カート・削除と同列）に配置し、`sourceUrl` がないカードでは非表示
+
+**実装工数**: M（2〜4日）
+
+---
+
+#### 改善4: 抽出処理の途中経過表示
+
+**背景:** `/api/extract-from-url` は最大 4 ステップ・15〜20 秒かかる可能性があるが、現在は「解析中...」スピナーのみで進捗が不明。
+
+**変更内容:**
+
+- バックエンド: 新エンドポイント `POST /api/extract-from-url/stream` を追加し、SSE（Server-Sent Events）で各ステップ開始時にイベントを配信する。既存の `POST /api/extract-from-url` は後方互換のため維持する
+  - `event: progress` / `data: {"step":"fetching","message":"ページを取得中..."}`
+  - `event: progress` / `data: {"step":"fetching_jina","message":"別の方法でページを取得中..."}` （Jina fallback 時のみ）
+  - `event: progress` / `data: {"step":"extracting","message":"商品情報を解析中..."}`
+  - `event: progress` / `data: {"step":"generating_candidates","message":"名前の候補を生成中..."}` （name >= 25 文字時のみ）
+  - `event: done` / `data: {"name":"...","imageUrl":"...","nameCandidates":[...]}` （完了）
+  - `event: error` / `data: {"kind":"fetchFailed","message":"...","detail":"..."}` （エラー）
+- フロントエンド: `fetch` + ReadableStream で SSE を受信（EventSource は POST 非対応のため）。進捗ステップをリスト表示し、完了済み・進行中・未着手を視覚的に区別する
+
+**実装工数**: M（3〜5日）  
+**考慮事項**: Lambda Function URL はストリーミングレスポンスに対応済み。Echo での SSE 実装は `c.Response().Writer` への直接書き込みで実現できる。
+
 ### レシピからの材料一括登録
 
 料理のレシピ Web ページの URL を入力すると、材料一覧を AI で抽出し、調味料を除いた食材を商品として一括登録する。

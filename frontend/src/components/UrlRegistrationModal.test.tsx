@@ -77,6 +77,7 @@ describe("UrlRegistrationModal", () => {
       expect(onExtracted).toHaveBeenCalledWith(
         "テスト商品",
         "https://example.com/img.jpg",
+        "https://example.com",
       );
     });
   });
@@ -154,7 +155,7 @@ describe("UrlRegistrationModal", () => {
     const manualButton = screen.getByRole("button", { name: "手動で入力する" });
     expect(manualButton).toBeInTheDocument();
     fireEvent.click(manualButton);
-    expect(onExtracted).toHaveBeenCalledWith("", null);
+    expect(onExtracted).toHaveBeenCalledWith("", null, "https://example.com");
   });
 
   it("badRequest エラーで「有効な URL を入力してください」が表示される（再試行ボタンなし）", async () => {
@@ -217,7 +218,11 @@ describe("UrlRegistrationModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "再試行" }));
 
     await waitFor(() => {
-      expect(onExtracted).toHaveBeenCalledWith("再試行成功商品", null);
+      expect(onExtracted).toHaveBeenCalledWith(
+        "再試行成功商品",
+        null,
+        "https://example.com",
+      );
     });
     expect(extractFromUrl).toHaveBeenCalledTimes(2);
   });
@@ -234,6 +239,32 @@ describe("UrlRegistrationModal", () => {
   it("URL が空のとき抽出ボタンが disabled", () => {
     render(<UrlRegistrationModal {...defaultProps} />);
     expect(screen.getByRole("button", { name: "抽出" })).toBeDisabled();
+  });
+
+  it("fetchFailed エラーで detail がある場合「詳細を表示」ボタンが表示される", async () => {
+    const user = userEvent.setup();
+    const errWithDetail = new ExtractFromUrlError("fetchFailed");
+    errWithDetail.detail = "step1: connection refused; jina: HTTP 429";
+    vi.mocked(extractFromUrl).mockRejectedValue(errWithDetail);
+
+    render(<UrlRegistrationModal {...defaultProps} />);
+    await user.type(
+      screen.getByLabelText("商品ページの URL"),
+      "https://example.com",
+    );
+    await user.click(screen.getByRole("button", { name: "抽出" }));
+
+    await screen.findByText("ページを取得できませんでした");
+    const detailBtn = screen.getByRole("button", { name: "詳細を表示" });
+    expect(detailBtn).toBeInTheDocument();
+
+    await user.click(detailBtn);
+    expect(
+      screen.getByText("step1: connection refused; jina: HTTP 429"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "詳細を隠す" }),
+    ).toBeInTheDocument();
   });
 
   it("モーダルを閉じて再度開くと入力と状態がリセットされる", async () => {
