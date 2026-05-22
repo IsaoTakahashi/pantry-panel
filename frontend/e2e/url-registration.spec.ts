@@ -1,6 +1,15 @@
 import { expect, test } from "@playwright/test";
 
+const hasSupabase = !!(
+  process.env.PLAYWRIGHT_SUPABASE_URL &&
+  process.env.PLAYWRIGHT_SUPABASE_ANON_KEY
+);
+
 test.describe("URL からの商品登録", () => {
+  test.beforeEach(() => {
+    test.skip(!hasSupabase, "PLAYWRIGHT_SUPABASE_URL / _ANON_KEY not set");
+  });
+
   test("URLから追加ボタンをクリックするとモーダルが開く", async ({ page }) => {
     await page.goto("/stock-items");
     await page.getByRole("button", { name: "URLから追加" }).click();
