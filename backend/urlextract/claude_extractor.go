@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"unicode/utf8"
@@ -91,6 +92,8 @@ func (e *ClaudeExtractor) Extract(ctx context.Context, content string, meta Resu
 		}
 	}
 
+	log.Printf("claude: raw response=%q", responseText)
+
 	if responseText == "" {
 		return Result{}, nil
 	}
@@ -101,6 +104,7 @@ func (e *ClaudeExtractor) Extract(ctx context.Context, content string, meta Resu
 		ImageURL string `json:"imageUrl"`
 	}
 	if err := json.Unmarshal([]byte(responseText), &extracted); err != nil {
+		log.Printf("claude: json unmarshal error err=%v response=%q", err, responseText)
 		return Result{}, nil
 	}
 
