@@ -52,6 +52,7 @@ func TestMain(m *testing.M) {
 		"../db/migrations/004_add_sorted_at_to_stock_items.sql",
 		"../db/migrations/005_add_groups.sql",
 		"../db/migrations/006_add_group_id_to_stock_items.sql",
+		"../db/migrations/009_add_source_url_to_stock_items.sql",
 	} {
 		sqlBytes, err := os.ReadFile(migration)
 		if err != nil {
