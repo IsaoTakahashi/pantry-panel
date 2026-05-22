@@ -71,6 +71,15 @@ export default function CreateItemModal({
               });
           }}
         >
+          {imageUrl && (
+            <div className="mb-4">
+              <img
+                src={imageUrl}
+                alt="商品画像"
+                className="w-full h-36 object-contain rounded border border-gray-200 bg-gray-50"
+              />
+            </div>
+          )}
           <div className="mb-4">
             <label
               htmlFor="name"

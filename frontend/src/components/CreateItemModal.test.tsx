@@ -195,6 +195,25 @@ describe("CreateItemModal", () => {
     );
   });
 
+  it("initialImageUrl が指定されるとサムネイルが表示される", () => {
+    render(
+      <CreateItemModal
+        {...defaultProps}
+        initialImageUrl="https://example.com/image.jpg"
+      />,
+    );
+    const img = screen.getByRole("img", { name: "商品画像" });
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute("src", "https://example.com/image.jpg");
+  });
+
+  it("initialImageUrl が null のときサムネイルは表示されない", () => {
+    render(<CreateItemModal {...defaultProps} initialImageUrl={null} />);
+    expect(
+      screen.queryByRole("img", { name: "商品画像" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("initialImageUrl が指定されると onCreate に imageUrl が渡される", async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn().mockResolvedValue(undefined);
