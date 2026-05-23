@@ -103,13 +103,45 @@ on:
     # Vercel が preview deploy 成功を報告したとき発火
     # Production deploy（environment = "Production"）は除外
 
+permissions:
+  actions: read  # gh run list で他 workflow の状態確認に必要
+
 jobs:
   e2e-preview:
     if: >
       github.event.deployment_status.state == 'success' &&
       github.event.deployment.environment != 'Production'
     steps:
+      # 1. preview-backend.yml の完了を待つ（backend 変更がある PR のみ）
+      #    同じ SHA に対して preview-backend.yml が走っているか確認する。
+      #    - in_progress / queued → gh run watch で完了まで待機
+      #    - success 済み         → そのまま通過
+      #    - failure / cancelled  → このジョブも失敗
+      #    - 存在しない           → backend 変更なし、health check のみ
+      - name: Wait for preview-backend if running
+        run: |
+          sleep 15  # backend workflow が起動する猶予を与える
+          ACTIVE=$(gh run list \
+            --workflow=preview-backend.yml \
+            --commit "${{ github.sha }}" \
+            --json databaseId,status \
+            --jq '.[] | select(.status=="in_progress" or .status=="queued" or .status=="waiting") | .databaseId' \
+            | head -1)
+          if [ -n "$ACTIVE" ]; then
+            gh run watch "$ACTIVE" --exit-status
+          else
+            FAILED=$(gh run list \
+              --workflow=preview-backend.yml \
+              --commit "${{ github.sha }}" \
+              --json conclusion \
+              --jq '.[] | select(.conclusion=="failure" or .conclusion=="cancelled") | .conclusion' \
+              | head -1)
+            [ -n "$FAILED" ] && echo "preview-backend $FAILED" && exit 1
+          fi
+
+      # 2. backend health check（deploy 有無に関わらず常に実施）
       - backend health check（PREVIEW_LAMBDA_FUNCTION_URL/health）
+
       - npm ci && npx playwright install chromium
       - npx playwright test --project=preview
     env:
