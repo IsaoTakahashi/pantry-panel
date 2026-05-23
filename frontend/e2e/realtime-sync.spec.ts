@@ -51,6 +51,8 @@ test.describe
 
       await expect(pageA.getByText(itemName)).toBeVisible();
       await expect(pageB.getByText(itemName)).toBeVisible();
+      // サブスクリプション確立後の初回 onChange() フェッチ完了を待つ
+      await pageB.waitForLoadState("networkidle");
 
       const toggleButton = (page: Page) =>
         page
@@ -96,6 +98,8 @@ test.describe
 
       await expect(pageA.getByText(itemName)).toBeVisible();
       await expect(pageB.getByText(itemName)).toBeVisible();
+      // サブスクリプション確立後の初回 onChange() フェッチ完了を待つ
+      await pageB.waitForLoadState("networkidle");
 
       pageA.once("dialog", (dialog) => dialog.accept());
       await pageA
