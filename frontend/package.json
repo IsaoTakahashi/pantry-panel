@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "test:learning": "vitest run --config vitest.learning.config.ts",
     "test:e2e": "playwright test --project=mock",
-    "test:e2e:preview": "playwright test --project=preview"
+    "test:e2e:preview": "playwright test --project=preview",
+    "setup:e2e": "node --experimental-strip-types e2e/scripts/create-test-group.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
