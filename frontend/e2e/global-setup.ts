@@ -37,13 +37,14 @@ async function globalSetup() {
   // Supabase JS v2 のローカルストレージキー: sb-{project-ref}-auth-token
   const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
   const sessionKey = `sb-${projectRef}-auth-token`;
-  const baseURL = process.env.PREVIEW_URL || "http://localhost:3000";
+  const origin = new URL(process.env.PREVIEW_URL || "http://localhost:3000")
+    .origin;
 
   const storageState = {
     cookies: [],
     origins: [
       {
-        origin: baseURL,
+        origin,
         localStorage: [
           { name: sessionKey, value: JSON.stringify(data.session) },
           { name: "pantry-panel:active-group-id", value: testGroupId },
