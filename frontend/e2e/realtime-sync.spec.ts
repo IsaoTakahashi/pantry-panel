@@ -4,6 +4,15 @@ import { expect, type Page, test } from "@playwright/test";
 
 const AUTH_FILE = path.join(__dirname, "../.auth/user.json");
 
+async function waitForRealtimeSubscription(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () =>
+      (window as unknown as Record<string, unknown>)
+        .__supabaseRealtimeSubscribed === true,
+    { timeout: 30000 },
+  );
+}
+
 test.describe
   .serial("Realtime sync", () => {
     const itemName = "Realtime Test Item";
@@ -18,7 +27,10 @@ test.describe
 
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
-      await pageB.waitForLoadState("networkidle");
+      await Promise.all([
+        waitForRealtimeSubscription(pageA),
+        waitForRealtimeSubscription(pageB),
+      ]);
 
       // Context A で新規作成
       await pageA.getByRole("button", { name: "商品を追加" }).click();
@@ -47,12 +59,13 @@ test.describe
 
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
-      await pageB.waitForLoadState("networkidle");
+      await Promise.all([
+        waitForRealtimeSubscription(pageA),
+        waitForRealtimeSubscription(pageB),
+      ]);
 
       await expect(pageA.getByText(itemName)).toBeVisible();
       await expect(pageB.getByText(itemName)).toBeVisible();
-      // サブスクリプション確立後の初回 onChange() フェッチ完了を待つ
-      await pageB.waitForLoadState("networkidle");
 
       const toggleButton = (page: Page) =>
         page
@@ -94,12 +107,13 @@ test.describe
 
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
-      await pageB.waitForLoadState("networkidle");
+      await Promise.all([
+        waitForRealtimeSubscription(pageA),
+        waitForRealtimeSubscription(pageB),
+      ]);
 
       await expect(pageA.getByText(itemName)).toBeVisible();
       await expect(pageB.getByText(itemName)).toBeVisible();
-      // サブスクリプション確立後の初回 onChange() フェッチ完了を待つ
-      await pageB.waitForLoadState("networkidle");
 
       pageA.once("dialog", (dialog) => dialog.accept());
       await pageA
