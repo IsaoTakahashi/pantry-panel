@@ -2,13 +2,26 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  webServer: {
-    command: "npm run dev",
-    port: 3000,
-    reuseExistingServer: true,
-  },
+  globalSetup: "./e2e/global-setup.ts",
+  globalTeardown: "./e2e/global-teardown.ts",
+  webServer: process.env.PREVIEW_URL
+    ? undefined
+    : {
+        command: "npm run dev",
+        port: 3000,
+        reuseExistingServer: true,
+      },
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: process.env.PREVIEW_URL || "http://localhost:3000",
   },
-  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+  projects: [
+    {
+      name: "preview",
+      use: { storageState: ".auth/user.json" },
+    },
+    {
+      name: "mock",
+      use: { storageState: ".auth/user.json" },
+    },
+  ],
 });
