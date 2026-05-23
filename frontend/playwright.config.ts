@@ -11,17 +11,20 @@ export default defineConfig({
         port: 3000,
         reuseExistingServer: true,
       },
-  use: {
-    baseURL: process.env.PREVIEW_URL || "http://localhost:3000",
-  },
   projects: [
     {
       name: "preview",
-      use: { storageState: ".auth/user.json" },
+      use: {
+        storageState: ".auth/user.json",
+        baseURL: process.env.PREVIEW_URL,
+      },
     },
     {
       name: "mock",
-      use: { storageState: ".auth/user.json" },
+      use: {
+        storageState: ".auth/user.json",
+        baseURL: "http://localhost:3000",
+      },
     },
   ],
 });
