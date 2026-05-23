@@ -1,0 +1,77 @@
+name: E2E Preview
+
+on:
+  deployment_status:
+
+permissions:
+  actions: read
+
+jobs:
+  e2e-preview:
+    if: >
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment != 'Production'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Wait for preview-backend if running
+        run: |
+          sleep 15
+          ACTIVE=$(gh run list \
+            --workflow=preview-backend.yml \
+            --commit "${{ github.sha }}" \
+            --json databaseId,status \
+            --jq '.[] | select(.status=="in_progress" or .status=="queued" or .status=="waiting") | .databaseId' \
+            | head -1)
+          if [ -n "$ACTIVE" ]; then
+            echo "Waiting for preview-backend run $ACTIVE..."
+            gh run watch "$ACTIVE" --exit-status
+          else
+            FAILED=$(gh run list \
+              --workflow=preview-backend.yml \
+              --commit "${{ github.sha }}" \
+              --json conclusion \
+              --jq '.[] | select(.conclusion=="failure" or .conclusion=="cancelled") | .conclusion' \
+              | head -1)
+            if [ -n "$FAILED" ]; then
+              echo "preview-backend workflow $FAILED" && exit 1
+            fi
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Check backend health
+        run: |
+          curl -fsS \
+            --retry 10 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            "${{ vars.PREVIEW_LAMBDA_FUNCTION_URL }}/health"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+        working-directory: frontend
+
+      - name: Run E2E tests (preview)
+        run: npx playwright test --project=preview
+        working-directory: frontend
+        env:
+          PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
+          PREVIEW_BACKEND_URL: ${{ vars.PREVIEW_LAMBDA_FUNCTION_URL }}
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          E2E_TEST_GROUP_ID: ${{ secrets.E2E_TEST_GROUP_ID }}
