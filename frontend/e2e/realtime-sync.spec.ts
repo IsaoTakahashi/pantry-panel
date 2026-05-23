@@ -1,20 +1,18 @@
+import path from "node:path";
+
 import { expect, type Page, test } from "@playwright/test";
 
-const supabaseUrl = process.env.PLAYWRIGHT_SUPABASE_URL;
-const supabaseAnonKey = process.env.PLAYWRIGHT_SUPABASE_ANON_KEY;
-const hasSupabase = !!(supabaseUrl && supabaseAnonKey);
+const AUTH_FILE = path.join(__dirname, "../.auth/user.json");
 
 test.describe
   .serial("Realtime sync", () => {
-    test.skip(!hasSupabase, "PLAYWRIGHT_SUPABASE_URL / _ANON_KEY not set");
-
     const itemName = "Realtime Test Item";
 
     test("Context A で INSERT → Context B にカードが出現する", async ({
       browser,
     }) => {
-      const ctxA = await browser.newContext();
-      const ctxB = await browser.newContext();
+      const ctxA = await browser.newContext({ storageState: AUTH_FILE });
+      const ctxB = await browser.newContext({ storageState: AUTH_FILE });
       const pageA = await ctxA.newPage();
       const pageB = await ctxB.newPage();
 
@@ -42,8 +40,8 @@ test.describe
     test("Context A で wantToBuy トグル → Context B で aria-pressed が変化する", async ({
       browser,
     }) => {
-      const ctxA = await browser.newContext();
-      const ctxB = await browser.newContext();
+      const ctxA = await browser.newContext({ storageState: AUTH_FILE });
+      const ctxB = await browser.newContext({ storageState: AUTH_FILE });
       const pageA = await ctxA.newPage();
       const pageB = await ctxB.newPage();
 
@@ -87,8 +85,8 @@ test.describe
     test("Context A で DELETE → Context B からカードが消える", async ({
       browser,
     }) => {
-      const ctxA = await browser.newContext();
-      const ctxB = await browser.newContext();
+      const ctxA = await browser.newContext({ storageState: AUTH_FILE });
+      const ctxB = await browser.newContext({ storageState: AUTH_FILE });
       const pageA = await ctxA.newPage();
       const pageB = await ctxB.newPage();
 
