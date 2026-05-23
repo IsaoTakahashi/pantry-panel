@@ -25,6 +25,9 @@ export default defineConfig({
       use: {
         storageState: ".auth/user.json",
         baseURL: process.env.PREVIEW_URL,
+        extraHTTPHeaders: process.env.VERCEL_BYPASS_TOKEN
+          ? { "x-vercel-protection-bypass": process.env.VERCEL_BYPASS_TOKEN }
+          : undefined,
       },
     },
     {
