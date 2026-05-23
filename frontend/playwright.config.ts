@@ -1,4 +1,12 @@
+import fs from "node:fs";
+import path from "node:path";
+
 import { defineConfig } from "@playwright/test";
+
+const envFile = path.join(__dirname, ".env.e2e");
+if (fs.existsSync(envFile)) {
+  process.loadEnvFile(envFile);
+}
 
 export default defineConfig({
   testDir: "./e2e",
