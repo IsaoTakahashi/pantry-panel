@@ -47,7 +47,10 @@ test.describe
 
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
-      await pageB.waitForLoadState("networkidle");
+      await Promise.all([
+        pageA.waitForLoadState("networkidle"),
+        pageB.waitForLoadState("networkidle"),
+      ]);
 
       await expect(pageA.getByText(itemName)).toBeVisible();
       await expect(pageB.getByText(itemName)).toBeVisible();
@@ -94,7 +97,10 @@ test.describe
 
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
-      await pageB.waitForLoadState("networkidle");
+      await Promise.all([
+        pageA.waitForLoadState("networkidle"),
+        pageB.waitForLoadState("networkidle"),
+      ]);
 
       await expect(pageA.getByText(itemName)).toBeVisible();
       await expect(pageB.getByText(itemName)).toBeVisible();
