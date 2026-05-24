@@ -48,5 +48,5 @@
 
 ## 6. CI Verification
 
-- [ ] 6.1 Commit and push; confirm GitHub Actions CI passes (`gh pr checks --watch`)
+- [x] 6.1 Commit and push; confirm GitHub Actions CI passes (`gh pr checks --watch`)
 - [ ] 6.2 Run `opsx:archive` on the feature branch before merging PR
