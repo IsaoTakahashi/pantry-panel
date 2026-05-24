@@ -8,34 +8,9 @@
 
 ## AI による商品登録
 
-### Web ページからの商品登録
-
-商品の紹介 Web ページの URL を入力すると、ページ内容から商品名・商品画像を AI で抽出し、商品として登録する。
-その際、URLを商品データのいちフィールドとして保存する。
-
-**実装工数**: L（1〜2週）  
-スクレイピングの信頼性（JS レンダリング対応）・AI API 連携・画像の保存先の検討が工数の大半を占める。
-
 ### URL 登録機能の改善
 
-URL から商品登録する機能（`/api/extract-from-url`）に対する 4 つの改善。
-
----
-
-#### 改善1: エラー詳細の表示
-
-**背景:** 取得・抽出失敗時、フロントエンドは HTTP ステータスコードだけでエラー種別を判定し、レスポンスの body を読まない。バックエンドも汎用的なメッセージしか返さないため、失敗原因がユーザーにもデバッグ時にも伝わらない。
-
-**変更内容:**
-
-- バックエンド: `ErrorResponse` に `detail` フィールドを追加し、失敗箇所の技術的な情報（step1 の HTTP ステータス、Jina のエラー内容、Claude が空を返した理由など）を入れる
-  ```json
-  { "message": "failed to fetch the target page", "detail": "step1: dial tcp: connection refused; jina: HTTP 429 Too Many Requests" }
-  ```
-- フロントエンド: エラー時にレスポンス body を読み取り `detail` を保持する
-- UI: 日本語のユーザー向けメッセージはそのまま表示し、「詳細を表示」ボタンで `detail`（英語の技術情報）を折り畳み表示する
-
-**実装工数**: S（1日以内）
+URL から商品登録する機能（`/api/extract-from-url`）に対する改善。
 
 ---
 
@@ -52,22 +27,6 @@ URL から商品登録する機能（`/api/extract-from-url`）に対する 4 �
 - 2nd Claude コールのプロンプト: 元の name から 15 文字以内の候補 3 つを JSON 配列で返す
 - フロントエンド (`UrlRegistrationModal`): `nameCandidates` が返ってきたとき `"nameSelection"` ステートに移行し、3 候補＋元の名前から 1 つを選ばせるUIを表示する。選択後は既存の `CreateItemModal` に渡す
 - `UrlRegistrationModal` の step 条件（「name >= 25 文字のとき step2 に移行」）も合わせて削除する
-
-**実装工数**: M（2〜4日）
-
----
-
-#### 改善3: source_url の保存と ItemCard リンクアイコン
-
-**背景:** URL 登録した商品について、元の URL がどこかわからなくなる。また同じ商品を再度参照したいときに不便。
-
-**変更内容:**
-
-- DB: `stock_items` に `source_url TEXT` カラムを追加（migration）
-- バックエンド: `StockItem` 構造体に `SourceURL *string`、`Create` / `Update` で `sourceUrl` を受け取れるようにする
-- フロントエンド: `StockItem` 型に `sourceUrl: string | null`、`CreateStockItemRequest` / `UpdateStockItemRequest` に `sourceUrl?: string` を追加
-- `UrlRegistrationModal`: `onExtracted` コールバックに `sourceUrl` を渡すよう変更
-- `ItemCard`: `sourceUrl` がある場合のみ `MdOpenInNew` アイコンを表示。クリックで別タブに遷移（`target="_blank" rel="noopener noreferrer"`）。アイコンはアクションボタン列（カート・削除と同列）に配置し、`sourceUrl` がないカードでは非表示
 
 **実装工数**: M（2〜4日）
 
@@ -113,9 +72,3 @@ URL から商品登録する機能（`/api/extract-from-url`）に対する 4 �
 **実装工数**: M（3〜5日）  
 既存機能と独立した標準 CRUD。
 
-## Google 認証
-
-旧プロダクトは「認証なし・家族共用」を前提としているが、家族外からの不正アクセスを防ぎ、家族グループ単位でデータを分離するために Google アカウントによるログインを導入する。導入時には現行のデータモデル（`stock_items` 等）に所有者・グループ概念を追加する必要がある。
-
-**実装工数**: XL（複数週）  
-Supabase Auth・RLS・バックエンドの JWT 検証・フロントエンドの認証フローがすべての機能に波及するため最も影響範囲が広い。**データ移行方針**: 既存データをエクスポート → DB から全件削除 → 特定アカウントのデータとしてインポート。
