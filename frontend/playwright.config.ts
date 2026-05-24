@@ -22,6 +22,7 @@ export default defineConfig({
   projects: [
     {
       name: "preview",
+      retries: 1,
       use: {
         storageState: ".auth/user.json",
         baseURL: process.env.PREVIEW_URL,
