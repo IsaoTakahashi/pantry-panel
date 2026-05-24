@@ -10,9 +10,20 @@ Frontend は Web App Manifest を提供し、対応ブラウザで「ホーム�
 - **WHEN** ブラウザで `/manifest.webmanifest` を取得する
 - **THEN** JSON が返り、`name`、`short_name`、`start_url`、`display`、`icons` を含む
 
-#### Scenario: アイコンが配信される
-- **WHEN** ブラウザで `/icon.png` を取得する
+### Requirement: アイコンが配信される
+PWA マニフェストは 192×192 と 512×512 の 2 サイズのアイコンを個別ファイルで提供する SHALL。アイコンはブランドカラー（`#00d1b2`）を背景に、白抜きの3段棚ピクトグラムを描いた PNG MUST。
+
+#### Scenario: 192px アイコンが配信される
+- **WHEN** ブラウザで `/icon-192.png` を取得する
+- **THEN** 192×192 PNG が返る（Vercel デプロイ後）
+
+#### Scenario: 512px アイコンが配信される
+- **WHEN** ブラウザで `/icon-512.png` を取得する
 - **THEN** 512×512 PNG が返る（Vercel デプロイ後）
+
+#### Scenario: manifest の icons エントリが 2 つある
+- **WHEN** `/manifest.webmanifest` を取得する
+- **THEN** `icons` 配列に `{ src: "/icon-192.png", sizes: "192x192" }` と `{ src: "/icon-512.png", sizes: "512x512" }` の 2 エントリが含まれる
 
 ### Requirement: Manifest は本番起点として `/stock-items` を指定する
 Web App Manifest の `start_url` は `/stock-items` に MUST 設定する。インストール後のアプリ起動で商品一覧が直接開く。
@@ -32,7 +43,8 @@ Manifest の `theme_color` および `background_color` を Pantry Panel ブラ�
 
 ### Requirement: ページタイトルとファビコン
 - ブラウザタブのタイトルは `"Pantry Panel"` MUST
-- favicon / apple-touch-icon は `frontend/public/icon.png` を参照する MUST
+- favicon は `frontend/src/app/favicon.ico`（ブランドカラー teal 背景の棚ピクトグラム）を使用する MUST
+- apple-touch-icon は `icon-192.png` を参照する MUST
 
 #### Scenario: ページタイトル
 - **WHEN** ブラウザで任意のページを開く
@@ -40,5 +52,5 @@ Manifest の `theme_color` および `background_color` を Pantry Panel ブラ�
 
 #### Scenario: favicon が表示される
 - **WHEN** ブラウザでページを開く
-- **THEN** `<link rel="icon">` または Next.js metadata により `icon.png` が favicon として参照される
+- **THEN** Next.js metadata により `favicon.ico` が favicon として参照される
 
