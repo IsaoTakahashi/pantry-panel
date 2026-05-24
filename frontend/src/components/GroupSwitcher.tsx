@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { MdExpandMore, MdGroup } from "react-icons/md";
 import type { GroupInfo } from "@/types/group";
 
 type Props = {
@@ -75,10 +76,11 @@ export default function GroupSwitcher({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 opacity-80 hover:opacity-100 text-sm text-white"
+        className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-black/20 hover:bg-black/30 transition-colors text-sm text-white cursor-pointer border-0"
       >
+        <MdGroup aria-hidden size={16} />
         {activeGroup?.name ?? "グループなし"}
-        <span className="text-xs">▾</span>
+        <MdExpandMore aria-hidden size={16} className="opacity-70" />
       </button>
 
       {open && (
