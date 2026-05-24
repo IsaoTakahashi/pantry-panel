@@ -143,3 +143,28 @@ aws lambda update-function-configuration \
 **Lambda 環境変数の設定（AI フォールバックを使う場合）:**
 
 `ANTHROPIC_API_KEY` を Lambda 環境変数に追加することで Claude Haiku フォールバックが有効になる。未設定でも og:title / og:image / schema.org による抽出は動作する。
+
+### Phase 5.5: URL 登録機能の改善（エラー詳細 + source_url）
+
+**状態: ✅ 完了（PR #98）**
+
+- Backend: `ErrorResponse` に `detail` フィールドを追加。失敗箇所の技術情報（HTTP ステータス、Jina エラー内容など）を含める
+- Backend: `stock_items` に `source_url TEXT` カラムを追加（migration: `005_add_source_url_to_stock_items.sql`）。Create / Update / List で `sourceUrl` フィールドをサポート
+- Frontend: エラー表示に「詳細を表示」折り畳みセクションを追加
+- Frontend: `ItemCard` に `sourceUrl` がある場合のみ外部リンクアイコン（`MdOpenInNew`、別タブ）を表示
+
+### Phase 6: Google 認証 + グループ管理
+
+**状態: ✅ 完了（PR #80, #86, #106）**
+
+| 順 | 機能 | 状態 | 理由 |
+|----|------|------|------|
+| 11 | K. Google ログイン | ✅ 完了 | Supabase Auth で Google OAuth。家族外からの不正アクセスを防ぐ |
+| 12 | L. グループ管理 | ✅ 完了 | グループ単位でデータを分離。複数グループの作成・切り替え・招待に対応 |
+
+**実装済み内容:**
+- DB: `groups` / `group_members` / `invitations` テーブル追加。`stock_items` に `group_id` カラム追加。RLS ポリシー整備
+- Backend: JWT 検証ミドルウェア（`backend/middleware/auth.go`）— `SUPABASE_JWKS_URL` 未設定時は認証スキップで後方互換を維持
+- Backend: グループ CRUD API（`/api/groups`、`/api/invitations` 等）
+- Frontend: Google ログイン / ログアウト、`AuthContext`、`AuthGuard`、ログイン画面、グループ参加・招待フロー
+- Supabase RLS: anon は SELECT のみ、書込は認証済みユーザーの所属グループに限定
