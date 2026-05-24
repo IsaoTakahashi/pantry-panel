@@ -37,8 +37,19 @@ The system SHALL use the following SSE frame schemas.
 - **AND** `step` SHALL be one of: `fetching`, `fetching_jina`, `extracting`, `generating_candidates`
 
 #### Scenario: Done frame schema is well-formed
-- **WHEN** a done frame is emitted
+- **WHEN** a done frame is emitted and the extracted name is fewer than 25 Unicode characters
 - **THEN** it has the format `event: done\ndata: {"name":"<string>","imageUrl":"<string|null>"}\n\n`
+
+#### Scenario: Done frame includes nameCandidates when name is long
+- **WHEN** a done frame is emitted and the extracted name is 25 or more Unicode characters
+- **AND** Claude successfully generates name candidates
+- **THEN** the done frame data includes `"nameCandidates": ["<c1>","<c2>","<c3>"]` in addition to `name` and `imageUrl`
+- **AND** each candidate SHALL be 15 or fewer Unicode characters
+
+#### Scenario: Done frame omits nameCandidates when candidates call fails
+- **WHEN** a done frame is emitted and the extracted name is 25+ characters
+- **AND** the Claude candidates call fails
+- **THEN** the done frame data contains only `name` and `imageUrl` (no `nameCandidates` field)
 
 #### Scenario: Error frame schema is well-formed
 - **WHEN** an error frame is emitted
