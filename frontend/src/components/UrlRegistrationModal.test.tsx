@@ -127,7 +127,7 @@ describe("UrlRegistrationModal", () => {
   it("fetching_jina ステップが動的に追加される", async () => {
     const user = userEvent.setup();
     // Never resolves — keep streaming state visible after progress
-    let resolveStream: () => void;
+    let resolveStream!: () => void;
     vi.mocked(extractFromUrlStream).mockImplementation(
       (_url, onProgress) =>
         new Promise<void>((resolve) => {
