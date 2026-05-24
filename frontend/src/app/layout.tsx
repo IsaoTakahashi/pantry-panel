@@ -17,8 +17,8 @@ export const metadata: Metadata = {
   title: "Pantry Panel",
   description: "家庭の食品・日用品の在庫管理",
   icons: {
-    icon: "/icon.png",
-    apple: "/icon.png",
+    icon: "/favicon.ico",
+    apple: "/icon-192.png",
   },
   manifest: "/manifest.webmanifest",
 };

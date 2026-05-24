@@ -1,14 +1,4 @@
-# frontend-pwa Specification
-
-## Purpose
-TBD - created by archiving change frontend-pwa-and-modal-polish. Update Purpose after archive.
-## Requirements
-### Requirement: アプリは PWA としてインストール可能
-Frontend は Web App Manifest を提供し、対応ブラウザで「ホーム画面に追加」「アプリをインストール」UI が利用可能となる SHALL。
-
-#### Scenario: マニフェストが配信される
-- **WHEN** ブラウザで `/manifest.webmanifest` を取得する
-- **THEN** JSON が返り、`name`、`short_name`、`start_url`、`display`、`icons` を含む
+## MODIFIED Requirements
 
 ### Requirement: アイコンが配信される
 PWA マニフェストは 192×192 と 512×512 の 2 サイズのアイコンを個別ファイルで提供する SHALL。アイコンはブランドカラー（`#00d1b2`）を背景に、白抜きの3段棚ピクトグラムを描いた PNG MUST。
@@ -25,22 +15,6 @@ PWA マニフェストは 192×192 と 512×512 の 2 サイズのアイコン�
 - **WHEN** `/manifest.webmanifest` を取得する
 - **THEN** `icons` 配列に `{ src: "/icon-192.png", sizes: "192x192" }` と `{ src: "/icon-512.png", sizes: "512x512" }` の 2 エントリが含まれる
 
-### Requirement: Manifest は本番起点として `/stock-items` を指定する
-Web App Manifest の `start_url` は `/stock-items` に MUST 設定する。インストール後のアプリ起動で商品一覧が直接開く。
-
-#### Scenario: start_url の値
-- **WHEN** Manifest を取得する
-- **THEN** `start_url` が `"/stock-items"` である
-
-### Requirement: アプリのテーマカラーは旧仕様の teal に揃える
-Manifest の `theme_color` および `background_color` を Pantry Panel ブランド色に MUST 設定する。
-- `theme_color`: `#00d1b2` (旧仕様 teal)
-- `background_color`: `#ffffff`
-
-#### Scenario: テーマカラー
-- **WHEN** Manifest を取得する
-- **THEN** `theme_color` と `background_color` が上記の値で設定されている
-
 ### Requirement: ページタイトルとファビコン
 - ブラウザタブのタイトルは `"Pantry Panel"` MUST
 - favicon は `frontend/src/app/favicon.ico`（ブランドカラー teal 背景の棚ピクトグラム）を使用する MUST
@@ -53,4 +27,3 @@ Manifest の `theme_color` および `background_color` を Pantry Panel ブラ�
 #### Scenario: favicon が表示される
 - **WHEN** ブラウザでページを開く
 - **THEN** Next.js metadata により `favicon.ico` が favicon として参照される
-

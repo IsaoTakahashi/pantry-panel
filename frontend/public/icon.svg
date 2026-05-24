@@ -1,0 +1,19 @@
+<svg width="512" height="512" viewBox="0 0 82 82" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- background -->
+  <rect width="82" height="82" fill="#00d1b2"/>
+  <!-- frame -->
+  <rect x="9" y="9" width="64" height="64" rx="6" stroke="white" stroke-width="5.5" fill="none"/>
+  <!-- shelf 1 -->
+  <line x1="9" y1="33" x2="73" y2="33" stroke="white" stroke-width="4.5"/>
+  <!-- shelf 2 -->
+  <line x1="9" y1="55" x2="73" y2="55" stroke="white" stroke-width="4.5"/>
+  <!-- top: 2 tall jars -->
+  <rect x="17" y="13" width="14" height="16" rx="4" fill="white"/>
+  <rect x="37" y="13" width="14" height="16" rx="4" fill="white"/>
+  <!-- middle: wide oval + narrow can -->
+  <rect x="20" y="37" width="22" height="14" rx="6" fill="white"/>
+  <rect x="47" y="37" width="12" height="14" rx="4" fill="white"/>
+  <!-- bottom: wide box + small box -->
+  <rect x="21" y="59" width="20" height="9" rx="3" fill="white"/>
+  <rect x="46" y="60" width="12" height="7" rx="3" fill="white"/>
+</svg>
