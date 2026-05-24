@@ -11,6 +11,9 @@ if (fs.existsSync(envFile)) {
 export default defineConfig({
   reporter: [["list"], ["html"]],
   testDir: "./e2e",
+  // preview runs against a shared real Supabase; sequential execution prevents
+  // Realtime events from one test closing dialogs opened by another test
+  workers: process.env.PREVIEW_URL ? 1 : undefined,
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
   webServer: process.env.PREVIEW_URL
