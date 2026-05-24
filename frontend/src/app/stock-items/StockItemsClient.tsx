@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MdLink } from "react-icons/md";
+import { MdLink, MdLogout } from "react-icons/md";
 import AuthGuard from "@/components/AuthGuard";
 import CreateItemModal from "@/components/CreateItemModal";
 import EditItemModal from "@/components/EditItemModal";
@@ -207,17 +207,19 @@ export default function StockItemsClient() {
               {group?.role === "owner" && (
                 <a
                   href="/invite"
-                  className="opacity-80 hover:opacity-100 underline"
+                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-black/20 hover:bg-black/30 transition-colors text-sm text-white no-underline"
                 >
+                  <MdLink aria-hidden size={16} />
                   招待
                 </a>
               )}
               <button
                 type="button"
                 onClick={() => signOut()}
-                className="opacity-80 hover:opacity-100"
+                title="サインアウト"
+                className="flex items-center justify-center w-8 h-8 rounded-lg bg-black/20 hover:bg-black/30 transition-colors text-white border-0 cursor-pointer"
               >
-                サインアウト
+                <MdLogout aria-hidden size={18} />
               </button>
             </div>
           </div>
