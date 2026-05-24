@@ -23,8 +23,9 @@ var ErrExtractionFailed = errors.New("urlextract: extraction failed")
 type ProgressFunc func(step, message string)
 
 type Result struct {
-	Name     string
-	ImageURL string // empty if not found
+	Name           string
+	ImageURL       string   // empty if not found
+	NameCandidates []string // populated when name >= 25 runes and Claude is available
 }
 
 type Extractor interface {
@@ -36,9 +37,9 @@ type Extractor interface {
 //  2. Jina AI reader fallback (only when Step 1 fetch fails)
 //  3. Claude AI for clean product name extraction (when ANTHROPIC_API_KEY is configured)
 type DefaultExtractor struct {
-	fetcher      *Fetcher
-	jinaFetcher  *JinaFetcher
-	claude       *ClaudeExtractor // may be nil if ANTHROPIC_API_KEY is not set
+	fetcher     *Fetcher
+	jinaFetcher *JinaFetcher
+	claude      *ClaudeExtractor // may be nil if ANTHROPIC_API_KEY is not set
 }
 
 // NewDefaultExtractor creates a DefaultExtractor with all configured sub-extractors.
@@ -122,21 +123,21 @@ func (e *DefaultExtractor) extractWithProgress(ctx context.Context, rawURL strin
 			onProgress("fetching_jina", "別の方法でページを取得中...")
 			return e.extractViaJinaWithProgress(ctx, rawURL, onProgress)
 		}
-		// Supplement with Jina if name is too long or image is missing
-		needShorterName := utf8.RuneCountInString(name) >= 25
 		needImage := imageURL == ""
-		if needShorterName || needImage {
-			log.Printf("urlextract: step1 supplementing with Jina (needShorterName=%v needImage=%v nameRunes=%d)", needShorterName, needImage, utf8.RuneCountInString(name))
-			if needShorterName {
-				onProgress("generating_candidates", "名前の候補を生成中...")
+		if utf8.RuneCountInString(name) >= 25 {
+			onProgress("generating_candidates", "名前の候補を生成中...")
+			candidates, _ := e.claude.GenerateCandidates(ctx, name)
+			result := Result{Name: name, ImageURL: imageURL, NameCandidates: candidates}
+			if needImage {
+				if jinaRes, jinaErr := e.extractViaJina(ctx, rawURL); jinaErr == nil && jinaRes.ImageURL != "" {
+					result.ImageURL = jinaRes.ImageURL
+				}
 			}
-			if jinaRes, jinaErr := e.extractViaJina(ctx, rawURL); jinaErr == nil {
-				if needShorterName && jinaRes.Name != "" {
-					name = jinaRes.Name
-				}
-				if needImage && jinaRes.ImageURL != "" {
-					imageURL = jinaRes.ImageURL
-				}
+			return result, nil
+		}
+		if needImage {
+			if jinaRes, jinaErr := e.extractViaJina(ctx, rawURL); jinaErr == nil && jinaRes.ImageURL != "" {
+				imageURL = jinaRes.ImageURL
 			}
 		}
 		return Result{Name: name, ImageURL: imageURL}, nil
@@ -179,15 +180,9 @@ func (e *DefaultExtractor) extractViaJinaWithProgress(ctx context.Context, rawUR
 		}
 		name := claudeResult.Name
 		imageURL := claudeResult.ImageURL
-		if utf8.RuneCountInString(name) >= 25 || imageURL == "" {
-			log.Printf("urlextract: jina result incomplete (nameRunes=%d hasImage=%v) → supplementing from raw Jina", utf8.RuneCountInString(name), imageURL != "")
-			if imageURL == "" {
-				imageURL = imageURLFromJina(jinaResult.Images, jinaResult.Content, name)
-			}
-			if utf8.RuneCountInString(name) >= 25 && jinaResult.Title != "" &&
-				utf8.RuneCountInString(jinaResult.Title) < utf8.RuneCountInString(name) {
-				name = jinaResult.Title
-			}
+		if imageURL == "" {
+			log.Printf("urlextract: jina result missing image → supplementing from raw Jina")
+			imageURL = imageURLFromJina(jinaResult.Images, jinaResult.Content, name)
 		}
 		return Result{Name: name, ImageURL: imageURL}, nil
 	}
@@ -227,17 +222,9 @@ func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (R
 		}
 		name := claudeResult.Name
 		imageURL := claudeResult.ImageURL
-		// Supplement from raw Jina data if result is incomplete
-		if utf8.RuneCountInString(name) >= 25 || imageURL == "" {
-			log.Printf("urlextract: jina result incomplete (nameRunes=%d hasImage=%v) → supplementing from raw Jina", utf8.RuneCountInString(name), imageURL != "")
-			if imageURL == "" {
-				imageURL = imageURLFromJina(jinaResult.Images, jinaResult.Content, name)
-			}
-			// Use raw Jina title if it is shorter than what Claude returned
-			if utf8.RuneCountInString(name) >= 25 && jinaResult.Title != "" &&
-				utf8.RuneCountInString(jinaResult.Title) < utf8.RuneCountInString(name) {
-				name = jinaResult.Title
-			}
+		if imageURL == "" {
+			log.Printf("urlextract: jina result missing image → supplementing from raw Jina")
+			imageURL = imageURLFromJina(jinaResult.Images, jinaResult.Content, name)
 		}
 		return Result{Name: name, ImageURL: imageURL}, nil
 	}

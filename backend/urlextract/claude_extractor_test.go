@@ -1,7 +1,9 @@
 package urlextract
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"unicode/utf8"
 
@@ -86,4 +88,31 @@ func TestClaudeResponseParsing_MalformedJSON(t *testing.T) {
 	err := json.Unmarshal([]byte(responseText), &extracted)
 	// Unmarshal should fail; ClaudeExtractor treats this as no result (returns empty Result)
 	assert.Error(t, err)
+}
+
+// TestGenerateCandidates_HappyPath verifies that GenerateCandidates returns the candidates
+// produced by generateFn when it succeeds.
+func TestGenerateCandidates_HappyPath(t *testing.T) {
+	want := []string{"候補1", "候補2", "候補3"}
+	e := &ClaudeExtractor{
+		generateFn: func(_ context.Context, _ string) ([]string, error) {
+			return want, nil
+		},
+	}
+	got, err := e.GenerateCandidates(context.Background(), "これは25文字以上の長い商品タイトルです")
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+// TestGenerateCandidates_ErrorReturnsEmptySlice verifies that when generateFn returns an error,
+// GenerateCandidates swallows it and returns an empty (non-nil) slice with nil error.
+func TestGenerateCandidates_ErrorReturnsEmptySlice(t *testing.T) {
+	e := &ClaudeExtractor{
+		generateFn: func(_ context.Context, _ string) ([]string, error) {
+			return nil, errors.New("claude API down")
+		},
+	}
+	got, err := e.GenerateCandidates(context.Background(), "長い商品名テスト")
+	require.NoError(t, err)
+	assert.Equal(t, []string{}, got)
 }
