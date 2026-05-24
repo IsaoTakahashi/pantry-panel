@@ -84,6 +84,13 @@ test.describe("画像設定", () => {
     await article.getByRole("button", { name: "画像を設定" }).click();
 
     const modal = page.getByRole("dialog", { name: "画像を選択" });
+
+    if (!isMockMode) {
+      // テスト商品名では検索結果0件になるため意味のあるクエリで再検索
+      await modal.locator('input[type="text"]').fill("りんご");
+      await modal.getByRole("button", { name: "検索" }).click();
+    }
+
     const firstImageButton = modal
       .locator("button")
       .filter({ has: page.locator("img") })
@@ -103,6 +110,13 @@ test.describe("画像設定", () => {
     const article = page.getByRole("article", { name: itemName });
     await article.getByRole("button", { name: "画像を設定" }).click();
     const modal = page.getByRole("dialog", { name: "画像を選択" });
+
+    if (!isMockMode) {
+      // テスト商品名では検索結果0件になるため意味のあるクエリで再検索
+      await modal.locator('input[type="text"]').fill("りんご");
+      await modal.getByRole("button", { name: "検索" }).click();
+    }
+
     const firstImageButton = modal
       .locator("button")
       .filter({ has: page.locator("img") })
