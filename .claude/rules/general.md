@@ -52,24 +52,22 @@ Unit を厚く、Integration 中程度、E2E を薄く保つ（テストピラ�
 |---------|--------|-----------|
 | 設計・探索 | `superpowers:brainstorming` | 要件が曖昧・UIの視覚比較が必要なとき |
 | 変更登録・タスク化 | `opsx:propose` | 設計が固まったら openspec の change として登録。proposal.md に**ユーザーシナリオとテスト設計**を含める（`.claude/rules/testing.md` のフォーマット参照） |
-| 実装 | `opsx:apply` | tasks.md に従って実装 |
+| 実装 | `opsx:apply` + `superpowers:subagent-driven-development` | tasks.md を元に subagent を派遣して実装。各 subagent は `superpowers:test-driven-development` で TDD（Red-Green-Refactor）を実施 |
 | 完了処理 | `opsx:archive` | **PR マージ前**に実施。specs 同期・アーカイブのコミットも同じ feature ブランチに含める。加えて: (1) proposal.md のユーザーシナリオを関連 spec.md へ昇格、(2) レビューで確定した判断基準を `testing.md` の更新ログに追記 |
 
 設計が明確な場合は brainstorming を省略して `opsx:propose` から始めてよい。
 
 ## 開発フロー
 
-各機能は以下の TDD ベースのフローで進める。実装は Claude Code が主体となり、適宜 Sub Agent を活用する。ユーザーはレビューと意思決定を担当する。
+各機能は以下の TDD ベースのフローで進める。実装は `superpowers:subagent-driven-development` で subagent に委譲し、各 subagent は `superpowers:test-driven-development` に従う。ユーザーはレビューと意思決定を担当する。
 
 | Step | 作業 | 担当 |
 |------|------|------|
 | 1 | 機能の洗い出し（コンポーネント、API、DB） | ユーザー → Claude |
 | 1.5 | インターフェース設計（型、スキーマ定義） | Claude が草案 → ユーザーがレビュー |
 | 2 | ユーザーシナリオ定義 + テスト設計 | Claude が草案 → ユーザーがレビュー |
-| 3 | テスト実装 | Claude Code が実装（Sub Agent 活用） → ユーザーがレビュー |
-| 4 | プロダクションコード実装 | Claude Code が実装（Sub Agent 活用） → ユーザーがレビュー |
-| 4.5 | 動作確認（サーバー起動、手動テスト） | Claude Code が実施 → ユーザーが最終確認 |
-| 5 | リファクタリング | Claude Code が主体（Sub Agent 活用）→ ユーザーがレビュー |
+| 3 | 実装（TDD: Red-Green-Refactor） | `superpowers:subagent-driven-development` で各タスクを subagent に委譲。subagent は `superpowers:test-driven-development` に従いテスト → 実装 → リファクタリングを一体で回す → ユーザーがレビュー |
+| 4 | 動作確認（サーバー起動、手動テスト） | Claude Code が実施 → ユーザーが最終確認 |
 
 **Step 2 の詳細:**
 
