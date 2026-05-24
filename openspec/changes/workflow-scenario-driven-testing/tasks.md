@@ -20,4 +20,4 @@
 
 ## 4. 動作確認・仕上げ
 
-- [ ] 4.1 PR を ready for review にして、Issue を `Closes #N` でリンクする
+- [x] 4.1 PR を ready for review にして、Issue を `Closes #N` でリンクする
