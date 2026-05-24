@@ -19,7 +19,7 @@ type UrlRegistrationModalProps = {
   activeGroupId?: string;
 };
 
-type ModalState = "idle" | "streaming" | "error";
+type ModalState = "idle" | "streaming" | "error" | "nameSelection";
 
 type StepStatus = "done" | "active" | "pending";
 
@@ -123,6 +123,12 @@ export default function UrlRegistrationModal({
   const [error, setError] = useState<unknown>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [steps, setSteps] = useState<ExtractionStep[]>(BASE_STEPS);
+  const [selectionData, setSelectionData] = useState<{
+    name: string;
+    imageUrl: string | null;
+    candidates: string[];
+    sourceUrl: string;
+  } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -131,6 +137,7 @@ export default function UrlRegistrationModal({
       setError(null);
       setShowDetail(false);
       setSteps(BASE_STEPS);
+      setSelectionData(null);
     }
   }, [isOpen]);
 
@@ -146,7 +153,17 @@ export default function UrlRegistrationModal({
         setSteps((prev) => applyProgress(prev, ev.step, ev.message));
       },
       (ev) => {
-        onExtracted(ev.name, ev.imageUrl, urlToSubmit);
+        if (ev.nameCandidates && ev.nameCandidates.length > 0) {
+          setSelectionData({
+            name: ev.name,
+            imageUrl: ev.imageUrl,
+            candidates: ev.nameCandidates,
+            sourceUrl: urlToSubmit,
+          });
+          setState("nameSelection");
+        } else {
+          onExtracted(ev.name, ev.imageUrl, urlToSubmit);
+        }
       },
       (err) => {
         setError(err);
@@ -230,6 +247,45 @@ export default function UrlRegistrationModal({
             </ol>
           )}
 
+          {state === "nameSelection" && selectionData && (
+            <div className="mb-4">
+              <p className="text-sm font-medium text-gray-700 mb-3">
+                商品名を選択してください
+              </p>
+              <div className="flex flex-col gap-2">
+                {selectionData.candidates.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() =>
+                      onExtracted(
+                        c,
+                        selectionData.imageUrl,
+                        selectionData.sourceUrl,
+                      )
+                    }
+                    className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium text-sm text-left"
+                  >
+                    {c}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    onExtracted(
+                      selectionData.name,
+                      selectionData.imageUrl,
+                      selectionData.sourceUrl,
+                    )
+                  }
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded font-medium text-sm text-left"
+                >
+                  {selectionData.name}（元の名前）
+                </button>
+              </div>
+            </div>
+          )}
+
           {state === "error" && errInfo && (
             <div className="mb-4">
               <p className="text-red-600 text-sm">{errInfo.message}</p>
@@ -279,7 +335,9 @@ export default function UrlRegistrationModal({
             </button>
             <button
               type="submit"
-              disabled={!url || state === "streaming"}
+              disabled={
+                !url || state === "streaming" || state === "nameSelection"
+              }
               className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               抽出

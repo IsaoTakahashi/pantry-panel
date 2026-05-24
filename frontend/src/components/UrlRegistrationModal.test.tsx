@@ -152,7 +152,7 @@ describe("UrlRegistrationModal", () => {
         screen.getByText("別の方法でページを取得中..."),
       ).toBeInTheDocument();
     });
-    resolveStream!();
+    resolveStream?.();
   });
 
   it("抽出成功で onExtracted(name, imageUrl, sourceUrl) が呼ばれる", async () => {
@@ -359,6 +359,136 @@ describe("UrlRegistrationModal", () => {
     expect(
       screen.getByRole("button", { name: "詳細を隠す" }),
     ).toBeInTheDocument();
+  });
+
+  it("candidates があるとき nameSelection 状態で候補ボタンが表示される", async () => {
+    const user = userEvent.setup();
+    vi.mocked(extractFromUrlStream).mockImplementation(
+      async (_url, _onProgress, onDone) => {
+        onDone({
+          name: "とても長い商品名のサンプルテキストです",
+          imageUrl: "https://example.com/img.jpg",
+          nameCandidates: ["商品A", "商品B", "商品C"],
+        });
+      },
+    );
+    const onExtracted = vi.fn();
+
+    render(
+      <UrlRegistrationModal {...defaultProps} onExtracted={onExtracted} />,
+    );
+    await user.type(
+      screen.getByLabelText("商品ページの URL"),
+      "https://example.com",
+    );
+    await user.click(screen.getByRole("button", { name: "抽出" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("商品名を選択してください")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "商品A" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "商品B" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "商品C" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "とても長い商品名のサンプルテキストです（元の名前）",
+      }),
+    ).toBeInTheDocument();
+    expect(onExtracted).not.toHaveBeenCalled();
+  });
+
+  it("候補ボタンをクリックすると onExtracted が候補名で呼ばれる", async () => {
+    const user = userEvent.setup();
+    vi.mocked(extractFromUrlStream).mockImplementation(
+      async (_url, _onProgress, onDone) => {
+        onDone({
+          name: "とても長い商品名のサンプルテキストです",
+          imageUrl: "https://example.com/img.jpg",
+          nameCandidates: ["商品A", "商品B"],
+        });
+      },
+    );
+    const onExtracted = vi.fn();
+
+    render(
+      <UrlRegistrationModal {...defaultProps} onExtracted={onExtracted} />,
+    );
+    await user.type(
+      screen.getByLabelText("商品ページの URL"),
+      "https://example.com",
+    );
+    await user.click(screen.getByRole("button", { name: "抽出" }));
+
+    await screen.findByText("商品名を選択してください");
+    await user.click(screen.getByRole("button", { name: "商品A" }));
+
+    expect(onExtracted).toHaveBeenCalledWith(
+      "商品A",
+      "https://example.com/img.jpg",
+      "https://example.com",
+    );
+  });
+
+  it("元の名前ボタンをクリックすると onExtracted が元の名前で呼ばれる", async () => {
+    const user = userEvent.setup();
+    vi.mocked(extractFromUrlStream).mockImplementation(
+      async (_url, _onProgress, onDone) => {
+        onDone({
+          name: "とても長い商品名のサンプルテキストです",
+          imageUrl: null,
+          nameCandidates: ["商品A"],
+        });
+      },
+    );
+    const onExtracted = vi.fn();
+
+    render(
+      <UrlRegistrationModal {...defaultProps} onExtracted={onExtracted} />,
+    );
+    await user.type(
+      screen.getByLabelText("商品ページの URL"),
+      "https://example.com",
+    );
+    await user.click(screen.getByRole("button", { name: "抽出" }));
+
+    await screen.findByText("商品名を選択してください");
+    await user.click(
+      screen.getByRole("button", {
+        name: "とても長い商品名のサンプルテキストです（元の名前）",
+      }),
+    );
+
+    expect(onExtracted).toHaveBeenCalledWith(
+      "とても長い商品名のサンプルテキストです",
+      null,
+      "https://example.com",
+    );
+  });
+
+  it("nameSelection 状態でキャンセルボタンをクリックすると onClose が呼ばれる", async () => {
+    const user = userEvent.setup();
+    vi.mocked(extractFromUrlStream).mockImplementation(
+      async (_url, _onProgress, onDone) => {
+        onDone({
+          name: "とても長い商品名のサンプルテキストです",
+          imageUrl: null,
+          nameCandidates: ["候補X"],
+        });
+      },
+    );
+    const onClose = vi.fn();
+
+    render(<UrlRegistrationModal {...defaultProps} onClose={onClose} />);
+    await user.type(
+      screen.getByLabelText("商品ページの URL"),
+      "https://example.com",
+    );
+    await user.click(screen.getByRole("button", { name: "抽出" }));
+
+    await screen.findByText("商品名を選択してください");
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+
+    expect(onClose).toHaveBeenCalled();
   });
 
   it("モーダルを閉じて再度開くと入力と状態がリセットされる", async () => {
