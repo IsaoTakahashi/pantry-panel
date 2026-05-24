@@ -34,6 +34,7 @@ export default defineConfig({
     },
     {
       name: "mock",
+      retries: 1,
       use: {
         storageState: ".auth/user.json",
         baseURL: "http://localhost:3000",
