@@ -1,13 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ExtractFromUrlError, extractFromUrl } from "@/lib/api";
+import { ExtractFromUrlError, extractFromUrlStream } from "@/lib/api";
 import UrlRegistrationModal from "./UrlRegistrationModal";
 
-// vi.spyOn cannot intercept ESM named exports in the component; use vi.mock instead
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
-  return { ...actual, extractFromUrl: vi.fn() };
+  return { ...actual, extractFromUrlStream: vi.fn() };
 });
 
 const defaultProps = {
@@ -17,10 +16,51 @@ const defaultProps = {
 };
 
 afterEach(() => {
-  vi.mocked(extractFromUrl).mockReset();
+  vi.mocked(extractFromUrlStream).mockReset();
   vi.mocked(defaultProps.onClose).mockReset();
   vi.mocked(defaultProps.onExtracted).mockReset();
 });
+
+// Helper: mock SSE done
+function mockDone(name: string, imageUrl: string | null) {
+  vi.mocked(extractFromUrlStream).mockImplementation(
+    async (_url, _onProgress, onDone) => {
+      onDone({ name, imageUrl });
+    },
+  );
+}
+
+// Helper: mock SSE error
+function mockError(err: ExtractFromUrlError) {
+  vi.mocked(extractFromUrlStream).mockImplementation(
+    async (_url, _onProgress, _onDone, onError) => {
+      onError(err);
+    },
+  );
+}
+
+// Helper: mock progress steps then done
+function mockProgressThenDone(
+  steps: Array<{ step: string; message: string }>,
+  name: string,
+  imageUrl: string | null,
+) {
+  vi.mocked(extractFromUrlStream).mockImplementation(
+    async (_url, onProgress, onDone) => {
+      for (const s of steps) {
+        onProgress({
+          step: s.step as
+            | "fetching"
+            | "fetching_jina"
+            | "extracting"
+            | "generating_candidates",
+          message: s.message,
+        });
+      }
+      onDone({ name, imageUrl });
+    },
+  );
+}
 
 describe("UrlRegistrationModal", () => {
   it("isOpen=true のとき URL 入力フォームが表示される", () => {
@@ -35,10 +75,9 @@ describe("UrlRegistrationModal", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("URL を入力して送信すると extractFromUrl が呼ばれローディング状態になる", async () => {
+  it("URL を入力して送信するとストリーミング中にステップリストが表示される", async () => {
     const user = userEvent.setup();
-    // Never resolves during this test — keep loading state visible
-    vi.mocked(extractFromUrl).mockReturnValue(new Promise(() => {}));
+    vi.mocked(extractFromUrlStream).mockReturnValue(new Promise(() => {}));
 
     render(<UrlRegistrationModal {...defaultProps} />);
     await user.type(
@@ -47,21 +86,78 @@ describe("UrlRegistrationModal", () => {
     );
     await user.click(screen.getByRole("button", { name: "抽出" }));
 
-    expect(extractFromUrl).toHaveBeenCalledWith(
+    expect(extractFromUrlStream).toHaveBeenCalledWith(
       "https://example.com",
+      expect.any(Function),
+      expect.any(Function),
+      expect.any(Function),
       undefined,
       undefined,
     );
-    expect(screen.getByText("解析中...")).toBeInTheDocument();
+    expect(screen.getByText("ページを取得中...")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "抽出" })).toBeDisabled();
   });
 
-  it("抽出成功で onExtracted(name, imageUrl) が呼ばれる", async () => {
+  it("ステップが done になると ✓ が表示され active ステップはスピナーが表示される", async () => {
     const user = userEvent.setup();
-    vi.mocked(extractFromUrl).mockResolvedValue({
-      name: "テスト商品",
-      imageUrl: "https://example.com/img.jpg",
+    mockProgressThenDone(
+      [
+        { step: "fetching", message: "ページを取得中..." },
+        { step: "extracting", message: "商品情報を解析中..." },
+      ],
+      "テスト商品",
+      null,
+    );
+    const onExtracted = vi.fn();
+
+    render(
+      <UrlRegistrationModal {...defaultProps} onExtracted={onExtracted} />,
+    );
+    await user.type(
+      screen.getByLabelText("商品ページの URL"),
+      "https://example.com",
+    );
+    await user.click(screen.getByRole("button", { name: "抽出" }));
+
+    await waitFor(() => {
+      expect(onExtracted).toHaveBeenCalled();
     });
+  });
+
+  it("fetching_jina ステップが動的に追加される", async () => {
+    const user = userEvent.setup();
+    // Never resolves — keep streaming state visible after progress
+    let resolveStream: () => void;
+    vi.mocked(extractFromUrlStream).mockImplementation(
+      (_url, onProgress) =>
+        new Promise<void>((resolve) => {
+          resolveStream = resolve;
+          onProgress({ step: "fetching", message: "ページを取得中..." });
+          onProgress({
+            step: "fetching_jina",
+            message: "別の方法でページを取得中...",
+          });
+        }),
+    );
+
+    render(<UrlRegistrationModal {...defaultProps} />);
+    await user.type(
+      screen.getByLabelText("商品ページの URL"),
+      "https://example.com",
+    );
+    await user.click(screen.getByRole("button", { name: "抽出" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("別の方法でページを取得中..."),
+      ).toBeInTheDocument();
+    });
+    resolveStream!();
+  });
+
+  it("抽出成功で onExtracted(name, imageUrl, sourceUrl) が呼ばれる", async () => {
+    const user = userEvent.setup();
+    mockDone("テスト商品", "https://example.com/img.jpg");
     const onExtracted = vi.fn();
 
     render(
@@ -82,12 +178,9 @@ describe("UrlRegistrationModal", () => {
     });
   });
 
-  it("accessToken と activeGroupId が extractFromUrl に渡される", async () => {
+  it("accessToken と activeGroupId が extractFromUrlStream に渡される", async () => {
     const user = userEvent.setup();
-    vi.mocked(extractFromUrl).mockResolvedValue({
-      name: "商品",
-      imageUrl: null,
-    });
+    mockDone("商品", null);
 
     render(
       <UrlRegistrationModal
@@ -103,8 +196,11 @@ describe("UrlRegistrationModal", () => {
     await user.click(screen.getByRole("button", { name: "抽出" }));
 
     await waitFor(() => {
-      expect(extractFromUrl).toHaveBeenCalledWith(
+      expect(extractFromUrlStream).toHaveBeenCalledWith(
         "https://example.com",
+        expect.any(Function),
+        expect.any(Function),
+        expect.any(Function),
         "token-abc",
         "group-xyz",
       );
@@ -113,9 +209,7 @@ describe("UrlRegistrationModal", () => {
 
   it("fetchFailed エラーで「ページを取得できませんでした」が表示される", async () => {
     const user = userEvent.setup();
-    vi.mocked(extractFromUrl).mockRejectedValue(
-      new ExtractFromUrlError("fetchFailed"),
-    );
+    mockError(new ExtractFromUrlError("fetchFailed"));
 
     render(<UrlRegistrationModal {...defaultProps} />);
     await user.type(
@@ -130,11 +224,9 @@ describe("UrlRegistrationModal", () => {
     expect(screen.getByRole("button", { name: "再試行" })).toBeInTheDocument();
   });
 
-  it("extractionFailed エラーで「商品情報を取得できませんでした」と「手動で入力する」ボタンが表示され、クリックで onExtracted('', null) が呼ばれる", async () => {
+  it("extractionFailed エラーで「商品情報を取得できませんでした」と「手動で入力する」ボタンが表示される", async () => {
     const user = userEvent.setup();
-    vi.mocked(extractFromUrl).mockRejectedValue(
-      new ExtractFromUrlError("extractionFailed"),
-    );
+    mockError(new ExtractFromUrlError("extractionFailed"));
     const onExtracted = vi.fn();
 
     render(
@@ -160,9 +252,7 @@ describe("UrlRegistrationModal", () => {
 
   it("badRequest エラーで「有効な URL を入力してください」が表示される（再試行ボタンなし）", async () => {
     const user = userEvent.setup();
-    vi.mocked(extractFromUrl).mockRejectedValue(
-      new ExtractFromUrlError("badRequest"),
-    );
+    mockError(new ExtractFromUrlError("badRequest"));
 
     render(<UrlRegistrationModal {...defaultProps} />);
     await user.type(
@@ -181,7 +271,11 @@ describe("UrlRegistrationModal", () => {
 
   it("unknown エラーで「エラーが発生しました」と「再試行」ボタンが表示される", async () => {
     const user = userEvent.setup();
-    vi.mocked(extractFromUrl).mockRejectedValue(new Error("unexpected"));
+    vi.mocked(extractFromUrlStream).mockImplementation(
+      async (_url, _onProgress, _onDone, onError) => {
+        onError(new ExtractFromUrlError("unknown", "unexpected"));
+      },
+    );
 
     render(<UrlRegistrationModal {...defaultProps} />);
     await user.type(
@@ -194,15 +288,15 @@ describe("UrlRegistrationModal", () => {
     expect(screen.getByRole("button", { name: "再試行" })).toBeInTheDocument();
   });
 
-  it("再試行ボタンをクリックすると extractFromUrl が再呼び出しされる", async () => {
+  it("再試行ボタンをクリックすると extractFromUrlStream が再呼び出しされる", async () => {
     const user = userEvent.setup();
-    vi.mocked(extractFromUrl).mockRejectedValueOnce(
-      new ExtractFromUrlError("fetchFailed"),
-    );
-    vi.mocked(extractFromUrl).mockResolvedValueOnce({
-      name: "再試行成功商品",
-      imageUrl: null,
-    });
+    vi.mocked(extractFromUrlStream)
+      .mockImplementationOnce(async (_url, _onProgress, _onDone, onError) => {
+        onError(new ExtractFromUrlError("fetchFailed"));
+      })
+      .mockImplementationOnce(async (_url, _onProgress, onDone) => {
+        onDone({ name: "再試行成功商品", imageUrl: null });
+      });
     const onExtracted = vi.fn();
 
     render(
@@ -224,7 +318,7 @@ describe("UrlRegistrationModal", () => {
         "https://example.com",
       );
     });
-    expect(extractFromUrl).toHaveBeenCalledTimes(2);
+    expect(extractFromUrlStream).toHaveBeenCalledTimes(2);
   });
 
   it("キャンセルボタンで onClose が呼ばれる", async () => {
@@ -245,7 +339,7 @@ describe("UrlRegistrationModal", () => {
     const user = userEvent.setup();
     const errWithDetail = new ExtractFromUrlError("fetchFailed");
     errWithDetail.detail = "step1: connection refused; jina: HTTP 429";
-    vi.mocked(extractFromUrl).mockRejectedValue(errWithDetail);
+    mockError(errWithDetail);
 
     render(<UrlRegistrationModal {...defaultProps} />);
     await user.type(
@@ -269,9 +363,7 @@ describe("UrlRegistrationModal", () => {
 
   it("モーダルを閉じて再度開くと入力と状態がリセットされる", async () => {
     const user = userEvent.setup();
-    vi.mocked(extractFromUrl).mockRejectedValue(
-      new ExtractFromUrlError("fetchFailed"),
-    );
+    mockError(new ExtractFromUrlError("fetchFailed"));
 
     const { rerender } = render(<UrlRegistrationModal {...defaultProps} />);
     await user.type(

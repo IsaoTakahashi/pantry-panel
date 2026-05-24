@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExtractFromUrlError, extractFromUrl } from "@/lib/api";
+import {
+  ExtractFromUrlError,
+  type ExtractionProgressEvent,
+  extractFromUrlStream,
+} from "@/lib/api";
 
 type UrlRegistrationModalProps = {
   isOpen: boolean;
@@ -15,7 +19,52 @@ type UrlRegistrationModalProps = {
   activeGroupId?: string;
 };
 
-type ModalState = "idle" | "loading" | "error";
+type ModalState = "idle" | "streaming" | "error";
+
+type StepStatus = "done" | "active" | "pending";
+
+type ExtractionStep = {
+  id: ExtractionProgressEvent["step"];
+  label: string;
+  status: StepStatus;
+};
+
+const BASE_STEPS: ExtractionStep[] = [
+  { id: "fetching", label: "ページを取得中...", status: "pending" },
+  { id: "extracting", label: "商品情報を解析中...", status: "pending" },
+];
+
+function applyProgress(
+  steps: ExtractionStep[],
+  step: ExtractionProgressEvent["step"],
+  message: string,
+): ExtractionStep[] {
+  // Mark all previous active steps as done, set matched step to active.
+  // If the step is not yet in the list (fetching_jina, generating_candidates), insert it.
+  const known = steps.find((s) => s.id === step);
+  let updated = steps.map((s) =>
+    s.status === "active" ? { ...s, status: "done" as StepStatus } : s,
+  );
+  if (known) {
+    updated = updated.map((s) =>
+      s.id === step ? { ...s, status: "active" as StepStatus } : s,
+    );
+  } else {
+    // Insert dynamic steps after the currently done ones
+    const insertIdx = updated.findLastIndex((s) => s.status === "done") + 1;
+    const newStep: ExtractionStep = {
+      id: step,
+      label: message,
+      status: "active",
+    };
+    updated = [
+      ...updated.slice(0, insertIdx),
+      newStep,
+      ...updated.slice(insertIdx),
+    ];
+  }
+  return updated;
+}
 
 function errorMessage(err: unknown): {
   message: string;
@@ -73,6 +122,7 @@ export default function UrlRegistrationModal({
   const [state, setState] = useState<ModalState>("idle");
   const [error, setError] = useState<unknown>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [steps, setSteps] = useState<ExtractionStep[]>(BASE_STEPS);
 
   useEffect(() => {
     if (isOpen) {
@@ -80,24 +130,31 @@ export default function UrlRegistrationModal({
       setState("idle");
       setError(null);
       setShowDetail(false);
+      setSteps(BASE_STEPS);
     }
   }, [isOpen]);
 
   async function submit(urlToSubmit: string) {
     if (!urlToSubmit) return;
-    setState("loading");
+    setState("streaming");
     setError(null);
-    try {
-      const result = await extractFromUrl(
-        urlToSubmit,
-        accessToken,
-        activeGroupId,
-      );
-      onExtracted(result.name, result.imageUrl, urlToSubmit);
-    } catch (err) {
-      setError(err);
-      setState("error");
-    }
+    setSteps(BASE_STEPS);
+
+    await extractFromUrlStream(
+      urlToSubmit,
+      (ev) => {
+        setSteps((prev) => applyProgress(prev, ev.step, ev.message));
+      },
+      (ev) => {
+        onExtracted(ev.name, ev.imageUrl, urlToSubmit);
+      },
+      (err) => {
+        setError(err);
+        setState("error");
+      },
+      accessToken,
+      activeGroupId,
+    );
   }
 
   if (!isOpen) return null;
@@ -135,18 +192,42 @@ export default function UrlRegistrationModal({
               placeholder="https://example.com/product"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              disabled={state === "loading"}
+              disabled={state === "streaming"}
             />
           </div>
 
-          {state === "loading" && (
-            <div className="flex items-center gap-2 mb-4 text-gray-600 text-sm">
-              <span
-                aria-hidden="true"
-                className="inline-block w-4 h-4 border-2 border-[#00d1b2] border-t-transparent rounded-full animate-spin"
-              />
-              解析中...
-            </div>
+          {state === "streaming" && (
+            <ol className="mb-4 space-y-2">
+              {steps.map((step) => (
+                <li key={step.id} className="flex items-center gap-2 text-sm">
+                  {step.status === "done" && (
+                    <span className="text-green-600 font-bold w-4 text-center">
+                      ✓
+                    </span>
+                  )}
+                  {step.status === "active" && (
+                    <span
+                      aria-hidden="true"
+                      className="inline-block w-4 h-4 border-2 border-[#00d1b2] border-t-transparent rounded-full animate-spin flex-shrink-0"
+                    />
+                  )}
+                  {step.status === "pending" && (
+                    <span className="w-4 text-center text-gray-300">·</span>
+                  )}
+                  <span
+                    className={
+                      step.status === "done"
+                        ? "text-gray-500 line-through"
+                        : step.status === "active"
+                          ? "text-gray-800"
+                          : "text-gray-400"
+                    }
+                  >
+                    {step.label}
+                  </span>
+                </li>
+              ))}
+            </ol>
           )}
 
           {state === "error" && errInfo && (
@@ -198,7 +279,7 @@ export default function UrlRegistrationModal({
             </button>
             <button
               type="submit"
-              disabled={!url || state === "loading"}
+              disabled={!url || state === "streaming"}
               className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               抽出

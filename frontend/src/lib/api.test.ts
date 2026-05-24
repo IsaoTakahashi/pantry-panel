@@ -4,6 +4,7 @@ import {
   deleteStockItem,
   ExtractFromUrlError,
   extractFromUrl,
+  extractFromUrlStream,
   fetchHealth,
   fetchStockItems,
   ImageSearchError,
@@ -392,5 +393,105 @@ describe("updateStockItem (imageUrl)", () => {
       (fetchSpy.mock.calls[0][1] as RequestInit).body as string,
     );
     expect(body).toEqual({ imageUrl: null });
+  });
+});
+
+// Helper to build a ReadableStream from an SSE string.
+function makeSSEStream(text: string): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(text));
+      controller.close();
+    },
+  });
+}
+
+describe("extractFromUrlStream", () => {
+  it("progress → done イベントが順番にコールバックされる", async () => {
+    const sse = [
+      'event: progress\ndata: {"step":"fetching","message":"ページを取得中..."}\n\n',
+      'event: progress\ndata: {"step":"extracting","message":"商品情報を解析中..."}\n\n',
+      'event: done\ndata: {"name":"テスト商品","imageUrl":"https://example.com/img.jpg"}\n\n',
+    ].join("");
+
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(makeSSEStream(sse), { status: 200 }),
+    );
+
+    const progressCalls: string[] = [];
+    let doneEvent: { name: string; imageUrl: string | null } | null = null;
+    let errorEvent: ExtractFromUrlError | null = null;
+
+    await extractFromUrlStream(
+      "https://example.com/product",
+      (ev) => progressCalls.push(ev.step),
+      (ev) => {
+        doneEvent = ev;
+      },
+      (err) => {
+        errorEvent = err;
+      },
+    );
+
+    expect(progressCalls).toEqual(["fetching", "extracting"]);
+    expect(doneEvent).toEqual({
+      name: "テスト商品",
+      imageUrl: "https://example.com/img.jpg",
+    });
+    expect(errorEvent).toBeNull();
+  });
+
+  it("error イベントで ExtractFromUrlError がコールバックされる", async () => {
+    const sse =
+      'event: progress\ndata: {"step":"fetching","message":"ページを取得中..."}\n\n' +
+      'event: error\ndata: {"kind":"fetchFailed","message":"failed to fetch","detail":"timeout"}\n\n';
+
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(makeSSEStream(sse), { status: 200 }),
+    );
+
+    let errorEvent: ExtractFromUrlError | null = null;
+    let doneEvent: unknown = null;
+
+    await extractFromUrlStream(
+      "https://example.com/product",
+      () => {},
+      (ev) => {
+        doneEvent = ev;
+      },
+      (err) => {
+        errorEvent = err;
+      },
+    );
+
+    expect(doneEvent).toBeNull();
+    const err1 = errorEvent as unknown as ExtractFromUrlError;
+    expect(err1).toBeInstanceOf(ExtractFromUrlError);
+    expect(err1.kind).toBe("fetchFailed");
+    expect(err1.detail).toBe("timeout");
+  });
+
+  it("HTTP 400 で badRequest エラーがコールバックされる", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ message: "url is required" }), {
+        status: 400,
+      }),
+    );
+
+    let errorEvent: ExtractFromUrlError | null = null;
+
+    await extractFromUrlStream(
+      "",
+      () => {},
+      () => {},
+      (err) => {
+        errorEvent = err;
+      },
+    );
+
+    const err2 = errorEvent as unknown as ExtractFromUrlError;
+    expect(err2).toBeInstanceOf(ExtractFromUrlError);
+    expect(err2.kind).toBe("badRequest");
   });
 });

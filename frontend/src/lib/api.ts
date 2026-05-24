@@ -138,6 +138,114 @@ async function extractFromUrl(
   return response.json();
 }
 
+export type ExtractionProgressEvent = {
+  step: "fetching" | "fetching_jina" | "extracting" | "generating_candidates";
+  message: string;
+};
+
+export type ExtractionDoneEvent = {
+  name: string;
+  imageUrl: string | null;
+};
+
+export type ExtractionErrorEvent = {
+  kind: ExtractFromUrlErrorKind;
+  message: string;
+  detail: string;
+};
+
+async function extractFromUrlStream(
+  url: string,
+  onProgress: (event: ExtractionProgressEvent) => void,
+  onDone: (event: ExtractionDoneEvent) => void,
+  onError: (error: ExtractFromUrlError) => void,
+  accessToken?: string,
+  activeGroupId?: string,
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/extract-from-url/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...apiHeaders(accessToken, activeGroupId),
+      },
+      body: JSON.stringify({ url }),
+    });
+  } catch {
+    onError(new ExtractFromUrlError("unknown", "Network error"));
+    return;
+  }
+
+  if (!response.ok) {
+    let detail: string | undefined;
+    try {
+      const body = await response.json();
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {
+      /* ignore */
+    }
+    if (response.status === 400) {
+      onError(new ExtractFromUrlError("badRequest", undefined, detail));
+    } else {
+      onError(
+        new ExtractFromUrlError("unknown", `HTTP ${response.status}`, detail),
+      );
+    }
+    return;
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    onError(new ExtractFromUrlError("unknown", "No response body"));
+    return;
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const parseAndDispatch = (chunk: string) => {
+    buffer += chunk;
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+    for (const part of parts) {
+      let eventType = "";
+      let data = "";
+      for (const line of part.split("\n")) {
+        if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+        else if (line.startsWith("data: ")) data = line.slice(6).trim();
+      }
+      if (!eventType || !data) continue;
+      try {
+        const parsed = JSON.parse(data);
+        if (eventType === "progress") {
+          onProgress(parsed as ExtractionProgressEvent);
+        } else if (eventType === "done") {
+          onDone(parsed as ExtractionDoneEvent);
+        } else if (eventType === "error") {
+          const ev = parsed as ExtractionErrorEvent;
+          onError(new ExtractFromUrlError(ev.kind, ev.message, ev.detail));
+        }
+      } catch {
+        /* ignore malformed SSE data */
+      }
+    }
+  };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      parseAndDispatch(decoder.decode(value, { stream: true }));
+    }
+    parseAndDispatch(decoder.decode());
+  } catch {
+    onError(new ExtractFromUrlError("unknown", "Stream interrupted"));
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export type ImageSearchErrorKind =
   | "quota"
   | "upstream"
@@ -177,6 +285,7 @@ export {
   createStockItem,
   deleteStockItem,
   extractFromUrl,
+  extractFromUrlStream,
   fetchHealth,
   fetchStockItems,
   searchImages,

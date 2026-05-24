@@ -268,3 +268,79 @@ func TestDefaultExtractor_Step1ClaudeNoImage_SupplementsFromJina(t *testing.T) {
 	assert.Equal(t, "https://cdn.example.com/p.jpg", got.ImageURL, "should use Jina's image")
 	assert.Equal(t, 1, jinaCallCount, "Jina should be called to supplement")
 }
+
+// collectSteps records progress steps emitted by ExtractWithProgress.
+func collectSteps(t *testing.T, e *DefaultExtractor, url string) []string {
+	t.Helper()
+	var steps []string
+	_, err := e.ExtractWithProgress(context.Background(), url, func(step, _ string) {
+		steps = append(steps, step)
+	})
+	_ = err
+	return steps
+}
+
+// TestExtractWithProgress_NormalPath verifies that fetching and extracting steps are reported
+// when the direct fetch succeeds and og:title is found (no Claude).
+func TestExtractWithProgress_NormalPath(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = fmt.Fprintln(w, `<html><head>
+			<meta property="og:title" content="テスト商品">
+			<meta property="og:image" content="https://example.com/img.jpg">
+		</head></html>`)
+	}))
+	defer ts.Close()
+
+	e := newTestExtractor(ts, nil, nil)
+	steps := collectSteps(t, e, ts.URL)
+
+	assert.Contains(t, steps, "fetching")
+}
+
+// TestExtractWithProgress_FetchingJina verifies that fetching_jina is reported when step1 fails.
+func TestExtractWithProgress_FetchingJina(t *testing.T) {
+	directTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "blocked", http.StatusInternalServerError)
+	}))
+	defer directTS.Close()
+
+	jinaTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintln(w, `{"code":200,"data":{"title":"Jina商品","content":"","images":{}}}`)
+	}))
+	defer jinaTS.Close()
+
+	jina := &JinaFetcher{HTTPClient: jinaTS.Client(), BaseURL: jinaTS.URL + "/"}
+	e := NewDefaultExtractorWithDeps(&Fetcher{HTTPClient: directTS.Client()}, jina, nil)
+	steps := collectSteps(t, e, directTS.URL)
+
+	assert.Equal(t, []string{"fetching", "fetching_jina"}, steps)
+}
+
+// TestExtractWithProgress_GeneratingCandidates verifies that generating_candidates is reported
+// when the name from Claude is >= 25 runes.
+func TestExtractWithProgress_GeneratingCandidates(t *testing.T) {
+	directTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = fmt.Fprintln(w, `<html><body>product page</body></html>`)
+	}))
+	defer directTS.Close()
+
+	jinaTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintln(w, `{"code":200,"data":{"title":"短い名前","content":"","images":{"https://img.example.com/p.jpg":"画像"}}}`)
+	}))
+	defer jinaTS.Close()
+
+	longName := "これは25文字以上の長い商品タイトルですよ追加テキスト" // >= 25 runes
+	fake := &ClaudeExtractor{extractFn: func(_ context.Context, _ string, _ Result) (Result, error) {
+		return Result{Name: longName}, nil
+	}}
+	jina := &JinaFetcher{HTTPClient: jinaTS.Client(), BaseURL: jinaTS.URL + "/"}
+	e := NewDefaultExtractorWithDeps(&Fetcher{HTTPClient: directTS.Client()}, jina, fake)
+	steps := collectSteps(t, e, directTS.URL)
+
+	assert.Contains(t, steps, "generating_candidates")
+	assert.Contains(t, steps, "extracting")
+}

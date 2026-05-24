@@ -49,7 +49,9 @@ func main() {
 		log.Println("warning: GOOGLE_CSE_API_KEY / GOOGLE_CSE_ID not set; image search disabled")
 	}
 	imageSearchHandler := handler.NewImageSearchHandler(imageClient)
-	urlExtractHandler := handler.NewUrlExtractHandler(urlextract.NewDefaultExtractor())
+	defaultExtractor := urlextract.NewDefaultExtractor()
+	urlExtractHandler := handler.NewUrlExtractHandler(defaultExtractor)
+	urlExtractStreamHandler := handler.NewUrlExtractStreamHandler(defaultExtractor)
 
 	noopMW := func(next echo.HandlerFunc) echo.HandlerFunc { return next }
 	jwtGroupMW := echo.MiddlewareFunc(noopMW)
@@ -108,6 +110,7 @@ func main() {
 	e.GET("/api/stock-items", stockItemHandler.List, jwtGroupMW)
 	e.GET("/api/image-search", imageSearchHandler.Search, jwtGroupMW)
 	e.POST("/api/extract-from-url", urlExtractHandler.Extract, jwtGroupMW)
+	e.POST("/api/extract-from-url/stream", urlExtractStreamHandler.ExtractStream, jwtGroupMW)
 	e.POST("/api/stock-items", stockItemHandler.Create, jwtGroupMW)
 	e.PATCH("/api/stock-items/:id", stockItemHandler.Update, jwtGroupMW)
 	e.DELETE("/api/stock-items/:id", stockItemHandler.Delete, jwtGroupMW)
