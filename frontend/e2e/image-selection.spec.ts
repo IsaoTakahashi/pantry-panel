@@ -1,13 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { mockImageSearch, STUB_IMAGES } from "./fixtures/mock-routes";
 
-const hasGoogleCSE = !!process.env.PLAYWRIGHT_GOOGLE_CSE_ENABLED;
-const hasSupabase = !!(
-  process.env.PLAYWRIGHT_SUPABASE_URL &&
-  process.env.PLAYWRIGHT_SUPABASE_ANON_KEY
-);
+const isMockMode = !process.env.PREVIEW_URL;
 
 test.describe("画像設定", () => {
-  test.skip(!hasSupabase, "PLAYWRIGHT_SUPABASE_URL / _ANON_KEY not set");
   let itemName: string;
 
   test.beforeEach(async ({ page }) => {
@@ -22,7 +18,6 @@ test.describe("画像設定", () => {
   });
 
   test.afterEach(async ({ page }) => {
-    // 開いているモーダルを閉じてから削除
     await page.keyboard.press("Escape");
     const article = page.getByRole("article", { name: itemName });
     if (await article.isVisible()) {
@@ -34,6 +29,9 @@ test.describe("画像設定", () => {
   test("画像ボタンをクリックするとモーダルが開き、キャンセルで閉じる", async ({
     page,
   }) => {
+    if (isMockMode) {
+      await mockImageSearch(page, { items: STUB_IMAGES });
+    }
     await page
       .getByRole("article", { name: itemName })
       .getByRole("button", { name: "画像を設定" })
@@ -41,12 +39,14 @@ test.describe("画像設定", () => {
 
     const modal = page.getByRole("dialog", { name: "画像を選択" });
     await expect(modal).toBeVisible();
-
     await modal.getByRole("button", { name: /キャンセル/ }).click();
     await expect(modal).not.toBeVisible();
   });
 
   test("Escape キーでモーダルが閉じる", async ({ page }) => {
+    if (isMockMode) {
+      await mockImageSearch(page, { items: STUB_IMAGES });
+    }
     await page
       .getByRole("article", { name: itemName })
       .getByRole("button", { name: "画像を設定" })
@@ -54,15 +54,14 @@ test.describe("画像設定", () => {
 
     const modal = page.getByRole("dialog", { name: "画像を選択" });
     await expect(modal).toBeVisible();
-
     await page.keyboard.press("Escape");
     await expect(modal).not.toBeVisible();
   });
 
-  test("Google CSE 未設定時: 検索エラーと再試行ボタンが表示される", async ({
-    page,
-  }) => {
-    test.skip(hasGoogleCSE, "Google CSE が設定されている環境ではスキップ");
+  test("画像検索エラー時に再試行ボタンが表示される", async ({ page }) => {
+    // preview mode では CSE が設定済みのためスキップ
+    test.skip(!isMockMode, "mock mode only");
+    await mockImageSearch(page, { status: 503, items: [] });
 
     await page
       .getByRole("article", { name: itemName })
@@ -77,15 +76,21 @@ test.describe("画像設定", () => {
   });
 
   test("画像を選択するとカードに画像が表示される", async ({ page }) => {
-    test.skip(
-      !hasGoogleCSE,
-      "PLAYWRIGHT_GOOGLE_CSE_ENABLED が未設定のためスキップ",
-    );
+    if (isMockMode) {
+      await mockImageSearch(page, { items: STUB_IMAGES });
+    }
 
     const article = page.getByRole("article", { name: itemName });
     await article.getByRole("button", { name: "画像を設定" }).click();
 
     const modal = page.getByRole("dialog", { name: "画像を選択" });
+
+    if (!isMockMode) {
+      // テスト商品名では検索結果0件になるため意味のあるクエリで再検索
+      await modal.locator('input[type="text"]').fill("りんご");
+      await modal.getByRole("button", { name: "検索" }).click();
+    }
+
     const firstImageButton = modal
       .locator("button")
       .filter({ has: page.locator("img") })
@@ -98,16 +103,20 @@ test.describe("画像設定", () => {
   });
 
   test("画像を解除するとプレースホルダーに戻る", async ({ page }) => {
-    test.skip(
-      !hasGoogleCSE,
-      "PLAYWRIGHT_GOOGLE_CSE_ENABLED が未設定のためスキップ",
-    );
+    if (isMockMode) {
+      await mockImageSearch(page, { items: STUB_IMAGES });
+    }
 
     const article = page.getByRole("article", { name: itemName });
-
-    // 画像を設定
     await article.getByRole("button", { name: "画像を設定" }).click();
     const modal = page.getByRole("dialog", { name: "画像を選択" });
+
+    if (!isMockMode) {
+      // テスト商品名では検索結果0件になるため意味のあるクエリで再検索
+      await modal.locator('input[type="text"]').fill("りんご");
+      await modal.getByRole("button", { name: "検索" }).click();
+    }
+
     const firstImageButton = modal
       .locator("button")
       .filter({ has: page.locator("img") })
@@ -117,7 +126,9 @@ test.describe("画像設定", () => {
     await expect(modal).not.toBeVisible();
     await expect(article.locator("img")).toBeVisible();
 
-    // 画像を解除
+    if (isMockMode) {
+      await mockImageSearch(page, { items: STUB_IMAGES });
+    }
     await article.getByRole("button", { name: "画像を変更" }).click();
     const modal2 = page.getByRole("dialog", { name: "画像を選択" });
     await expect(

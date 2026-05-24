@@ -7,20 +7,6 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: pantry
-          POSTGRES_PASSWORD: pantry
-          POSTGRES_DB: pantry_panel
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U pantry -d pantry_panel"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - uses: actions/checkout@v6
@@ -44,17 +30,14 @@ jobs:
         run: npx playwright install chromium
         working-directory: frontend
 
-      - name: Apply DB migrations
-        run: |
-          for f in backend/db/migrations/*.sql; do
-            psql "postgres://pantry:pantry@localhost:5432/pantry_panel?sslmode=disable" -f "$f"
-          done
-
       - name: Start backend
         run: go run . &
         working-directory: backend
         env:
-          DATABASE_URL: postgres://pantry:pantry@localhost:5432/pantry_panel?sslmode=disable
+          DATABASE_URL: ${{ secrets.E2E_SUPABASE_DATABASE_URL }}
+          SUPABASE_JWKS_URL: "${{ secrets.E2E_SUPABASE_URL }}/auth/v1/.well-known/jwks.json"
+          SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          PORT: "8080"
 
       - name: Wait for backend
         run: |
@@ -68,9 +51,15 @@ jobs:
           echo "Backend failed to start"
           exit 1
 
-      - name: Run E2E tests
-        # Realtime E2E (realtime-sync.spec.ts) requires backend writing to Supabase.
-        # CI uses local postgres, so Realtime tests are always skipped here.
-        # Run them locally with PLAYWRIGHT_SUPABASE_URL/ANON_KEY set.
-        run: npx playwright test
+      - name: Run E2E tests (mock)
+        run: npx playwright test --project=mock
         working-directory: frontend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          E2E_TEST_GROUP_ID: ${{ secrets.E2E_TEST_GROUP_ID }}

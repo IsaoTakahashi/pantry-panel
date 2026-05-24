@@ -1,12 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const hasSupabase = !!(
-  process.env.PLAYWRIGHT_SUPABASE_URL &&
-  process.env.PLAYWRIGHT_SUPABASE_ANON_KEY
-);
-
 test("商品を登録して削除できる", async ({ page }) => {
-  test.skip(!hasSupabase, "PLAYWRIGHT_SUPABASE_URL / _ANON_KEY not set");
   const itemName = `醤油-${Date.now()}`;
 
   await page.goto("/stock-items");
