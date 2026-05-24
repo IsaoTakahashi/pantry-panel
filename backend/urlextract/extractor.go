@@ -95,6 +95,10 @@ func (e *DefaultExtractor) extractWithProgress(ctx context.Context, rawURL strin
 		if jinaErr != nil {
 			return Result{}, fmt.Errorf("step1: %v; %w", fetchErr, jinaErr)
 		}
+		if e.claude != nil && utf8.RuneCountInString(res.Name) >= 25 {
+			onProgress("generating_candidates", "名前の候補を生成中...")
+			res.NameCandidates, _ = e.claude.GenerateCandidates(ctx, res.Name)
+		}
 		return res, nil
 	}
 	log.Printf("urlextract: step1 fetch ok url=%s htmlBytes=%d", rawURL, len(htmlBytes))
@@ -121,7 +125,15 @@ func (e *DefaultExtractor) extractWithProgress(ctx context.Context, rawURL strin
 		if name == "" {
 			log.Printf("urlextract: step1 claude returned no name → trying Jina")
 			onProgress("fetching_jina", "別の方法でページを取得中...")
-			return e.extractViaJinaWithProgress(ctx, rawURL, onProgress)
+			res, jinaErr := e.extractViaJinaWithProgress(ctx, rawURL, onProgress)
+			if jinaErr != nil {
+				return Result{}, jinaErr
+			}
+			if utf8.RuneCountInString(res.Name) >= 25 {
+				onProgress("generating_candidates", "名前の候補を生成中...")
+				res.NameCandidates, _ = e.claude.GenerateCandidates(ctx, res.Name)
+			}
+			return res, nil
 		}
 		needImage := imageURL == ""
 		if utf8.RuneCountInString(name) >= 25 {
