@@ -6,10 +6,6 @@ const AUTH_FILE = path.join(__dirname, "../.auth/user.json");
 
 test.describe
   .serial("Realtime sync", () => {
-    test.skip(
-      !process.env.PREVIEW_URL,
-      "preview only - realtime requires deployed Supabase environment",
-    );
     const itemName = "Realtime Test Item";
 
     test("Context A で INSERT → Context B にカードが出現する", async ({
