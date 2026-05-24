@@ -107,3 +107,20 @@ The system SHALL display a collapsible "詳細を表示" section in `UrlRegistra
 - **WHEN** an extraction error is shown
 - **AND** the response body has no `detail` field (or it is empty)
 - **THEN** no "詳細を表示" button is rendered
+
+### Requirement: Return name candidates for long product names
+The system SHALL generate up to 3 shortened name candidates via a second Claude call when the extracted name is 25 or more Unicode characters, and include them in the API response as `nameCandidates: string[]`.
+
+#### Scenario: Candidates generated for long name via POST /api/extract-from-url
+- **WHEN** `POST /api/extract-from-url` succeeds and the extracted name has 25+ Unicode characters
+- **THEN** the response body includes `"nameCandidates": ["候補1", "候補2", "候補3"]` alongside `"name"` and `"imageUrl"`
+- **AND** each candidate SHALL be 15 or fewer Unicode characters
+
+#### Scenario: No candidates for short name
+- **WHEN** `POST /api/extract-from-url` succeeds and the extracted name is fewer than 25 Unicode characters
+- **THEN** the response body does NOT include a `nameCandidates` field
+
+#### Scenario: Candidates omitted when Claude call fails
+- **WHEN** the Claude candidates call fails (network error, API error, or invalid JSON response)
+- **THEN** the API returns 200 with `name` and `imageUrl` as normal
+- **AND** `nameCandidates` is omitted from the response (graceful degradation)

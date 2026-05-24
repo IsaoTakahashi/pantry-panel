@@ -22,8 +22,9 @@ type ExtractFromURLRequest struct {
 }
 
 type ExtractFromURLResponse struct {
-	Name     string  `json:"name"`
-	ImageURL *string `json:"imageUrl"` // null when empty
+	Name           string   `json:"name"`
+	ImageURL       *string  `json:"imageUrl"`           // null when empty
+	NameCandidates []string `json:"nameCandidates,omitempty"`
 }
 
 func (h *UrlExtractHandler) Extract(c *echo.Context) error {
@@ -55,7 +56,8 @@ func (h *UrlExtractHandler) Extract(c *echo.Context) error {
 	log.Printf("extract-from-url: success url=%s name=%q hasImage=%v", req.URL, result.Name, result.ImageURL != "")
 
 	resp := ExtractFromURLResponse{
-		Name: result.Name,
+		Name:           result.Name,
+		NameCandidates: result.NameCandidates,
 	}
 	if result.ImageURL != "" {
 		resp.ImageURL = &result.ImageURL

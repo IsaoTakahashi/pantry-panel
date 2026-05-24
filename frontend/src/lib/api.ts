@@ -146,6 +146,7 @@ export type ExtractionProgressEvent = {
 export type ExtractionDoneEvent = {
   name: string;
   imageUrl: string | null;
+  nameCandidates?: string[];
 };
 
 export type ExtractionErrorEvent = {

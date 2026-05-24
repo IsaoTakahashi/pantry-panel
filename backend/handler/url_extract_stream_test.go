@@ -130,6 +130,57 @@ func TestExtractStream_ErrorPath_ErrorEventNoDone(t *testing.T) {
 	assert.Contains(t, errEvent["data"], `"kind":"fetchFailed"`)
 }
 
+func TestExtractStream_WithCandidates_DoneIncludesCandidates(t *testing.T) {
+	mock := &mockProgressExtractor{
+		result: urlextract.Result{
+			Name:           "長い商品名テストサンプル二十五文字以上",
+			ImageURL:       "",
+			NameCandidates: []string{"候補1", "候補2", "候補3"},
+		},
+	}
+	h := &UrlExtractStreamHandler{extractor: mock}
+	e := setupStreamRouter(h)
+
+	rec := postExtractStream(e, `{"url":"https://example.com/product"}`)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	events := parseSSEEvents(rec.Body.String())
+
+	var doneEvent map[string]string
+	for _, ev := range events {
+		if ev["event"] == "done" {
+			doneEvent = ev
+			break
+		}
+	}
+	require.NotNil(t, doneEvent, "done event must be present")
+	assert.Contains(t, doneEvent["data"], `"nameCandidates"`)
+	assert.Contains(t, doneEvent["data"], "候補1")
+}
+
+func TestExtractStream_WithoutCandidates_DoneOmitsCandidates(t *testing.T) {
+	mock := &mockProgressExtractor{
+		result: urlextract.Result{Name: "牛乳", ImageURL: ""},
+	}
+	h := &UrlExtractStreamHandler{extractor: mock}
+	e := setupStreamRouter(h)
+
+	rec := postExtractStream(e, `{"url":"https://example.com/product"}`)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	events := parseSSEEvents(rec.Body.String())
+
+	var doneEvent map[string]string
+	for _, ev := range events {
+		if ev["event"] == "done" {
+			doneEvent = ev
+			break
+		}
+	}
+	require.NotNil(t, doneEvent, "done event must be present")
+	assert.NotContains(t, doneEvent["data"], `"nameCandidates"`)
+}
+
 func TestExtractStream_EmptyURL_Returns400(t *testing.T) {
 	h := &UrlExtractStreamHandler{extractor: &mockProgressExtractor{}}
 	e := setupStreamRouter(h)

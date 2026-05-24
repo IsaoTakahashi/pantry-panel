@@ -69,6 +69,39 @@ func TestUrlExtract_200_noImage(t *testing.T) {
 	assert.Nil(t, resp.ImageURL)
 }
 
+func TestUrlExtract_200_withCandidates(t *testing.T) {
+	h := NewUrlExtractHandler(&mockExtractor{
+		result: urlextract.Result{
+			Name:           "長い商品名テストサンプル二十五文字以上",
+			ImageURL:       "https://example.com/img.jpg",
+			NameCandidates: []string{"候補A", "候補B"},
+		},
+	})
+	e := setupUrlExtractRouter(h)
+
+	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp ExtractFromURLResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+	assert.Equal(t, []string{"候補A", "候補B"}, resp.NameCandidates)
+}
+
+func TestUrlExtract_200_noCandidates(t *testing.T) {
+	h := NewUrlExtractHandler(&mockExtractor{
+		result: urlextract.Result{Name: "牛乳", ImageURL: ""},
+	})
+	e := setupUrlExtractRouter(h)
+
+	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var raw map[string]any
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&raw))
+	_, present := raw["nameCandidates"]
+	assert.False(t, present, "nameCandidates key must be absent from JSON when there are no candidates")
+}
+
 func TestUrlExtract_400_emptyBody(t *testing.T) {
 	h := NewUrlExtractHandler(&mockExtractor{})
 	e := setupUrlExtractRouter(h)

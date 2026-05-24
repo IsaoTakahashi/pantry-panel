@@ -215,9 +215,10 @@ func newStubExtractor(directTS *httptest.Server, jina *JinaFetcher, claudeResult
 	)
 }
 
-// TestDefaultExtractor_Step1ClaudeLongName_SupplementsFromJina verifies that when Step 1
-// Claude returns a name >= 25 runes, the extractor also calls Jina and uses its shorter name.
-func TestDefaultExtractor_Step1ClaudeLongName_SupplementsFromJina(t *testing.T) {
+// TestDefaultExtractor_Step1ClaudeLongName_GeneratesCandidates verifies that when Step 1
+// Claude returns a name >= 25 runes, GenerateCandidates is called and NameCandidates is set.
+// Jina should NOT be called when an image is already present.
+func TestDefaultExtractor_Step1ClaudeLongName_GeneratesCandidates(t *testing.T) {
 	jinaCallCount := 0
 	jinaTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		jinaCallCount++
@@ -232,14 +233,25 @@ func TestDefaultExtractor_Step1ClaudeLongName_SupplementsFromJina(t *testing.T) 
 	}))
 	defer directTS.Close()
 
-	jina := &JinaFetcher{HTTPClient: jinaTS.Client(), BaseURL: jinaTS.URL + "/"}
 	longName := "これは25文字以上の長い商品タイトルですよ追加テキスト" // 26 runes
-	e := newStubExtractor(directTS, jina, Result{Name: longName, ImageURL: "https://meta.example.com/img.jpg"})
+	wantCandidates := []string{"候補1", "候補2", "候補3"}
+	fake := &ClaudeExtractor{
+		extractFn: func(_ context.Context, _ string, _ Result) (Result, error) {
+			return Result{Name: longName, ImageURL: "https://meta.example.com/img.jpg"}, nil
+		},
+		generateFn: func(_ context.Context, _ string) ([]string, error) {
+			return wantCandidates, nil
+		},
+	}
+	jina := &JinaFetcher{HTTPClient: jinaTS.Client(), BaseURL: jinaTS.URL + "/"}
+	e := NewDefaultExtractorWithDeps(&Fetcher{HTTPClient: directTS.Client()}, jina, fake)
 
 	got, err := e.Extract(context.Background(), directTS.URL)
 	require.NoError(t, err)
-	assert.Equal(t, "短い商品名", got.Name, "should use Jina's shorter name")
-	assert.Equal(t, 1, jinaCallCount, "Jina should be called to supplement")
+	assert.Equal(t, longName, got.Name, "original long name is preserved")
+	assert.Equal(t, wantCandidates, got.NameCandidates, "candidates from GenerateCandidates should be set")
+	assert.Equal(t, "https://meta.example.com/img.jpg", got.ImageURL)
+	assert.Equal(t, 0, jinaCallCount, "Jina should NOT be called when image is already present")
 }
 
 // TestDefaultExtractor_Step1ClaudeNoImage_SupplementsFromJina verifies that when Step 1
@@ -278,6 +290,40 @@ func collectSteps(t *testing.T, e *DefaultExtractor, url string) []string {
 	})
 	_ = err
 	return steps
+}
+
+// TestDefaultExtractor_JinaFallback_LongName_GeneratesCandidates verifies that when the direct
+// fetch fails and the Jina-path Claude extraction returns a name >= 25 runes, GenerateCandidates
+// is called and NameCandidates is set on the result.
+func TestDefaultExtractor_JinaFallback_LongName_GeneratesCandidates(t *testing.T) {
+	directTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "blocked", http.StatusInternalServerError)
+	}))
+	defer directTS.Close()
+
+	jinaTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintln(w, `{"code":200,"data":{"title":"Jina商品名","content":"jina page text","images":{}}}`)
+	}))
+	defer jinaTS.Close()
+
+	longName := "これは25文字以上の長い商品タイトルですよJina経由"
+	wantCandidates := []string{"Jina候補1", "Jina候補2"}
+	fake := &ClaudeExtractor{
+		extractFn: func(_ context.Context, _ string, _ Result) (Result, error) {
+			return Result{Name: longName}, nil
+		},
+		generateFn: func(_ context.Context, _ string) ([]string, error) {
+			return wantCandidates, nil
+		},
+	}
+	jina := &JinaFetcher{HTTPClient: jinaTS.Client(), BaseURL: jinaTS.URL + "/"}
+	e := NewDefaultExtractorWithDeps(&Fetcher{HTTPClient: directTS.Client()}, jina, fake)
+
+	got, err := e.Extract(context.Background(), directTS.URL)
+	require.NoError(t, err)
+	assert.Equal(t, longName, got.Name)
+	assert.Equal(t, wantCandidates, got.NameCandidates, "Jina fallback should generate candidates for long names")
 }
 
 // TestExtractWithProgress_NormalPath verifies that fetching and extracting steps are reported
@@ -334,9 +380,14 @@ func TestExtractWithProgress_GeneratingCandidates(t *testing.T) {
 	defer jinaTS.Close()
 
 	longName := "これは25文字以上の長い商品タイトルですよ追加テキスト" // >= 25 runes
-	fake := &ClaudeExtractor{extractFn: func(_ context.Context, _ string, _ Result) (Result, error) {
-		return Result{Name: longName}, nil
-	}}
+	fake := &ClaudeExtractor{
+		extractFn: func(_ context.Context, _ string, _ Result) (Result, error) {
+			return Result{Name: longName}, nil
+		},
+		generateFn: func(_ context.Context, _ string) ([]string, error) {
+			return []string{"候補1"}, nil
+		},
+	}
 	jina := &JinaFetcher{HTTPClient: jinaTS.Client(), BaseURL: jinaTS.URL + "/"}
 	e := NewDefaultExtractorWithDeps(&Fetcher{HTTPClient: directTS.Client()}, jina, fake)
 	steps := collectSteps(t, e, directTS.URL)
