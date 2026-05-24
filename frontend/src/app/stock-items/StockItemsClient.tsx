@@ -217,6 +217,7 @@ export default function StockItemsClient() {
                 type="button"
                 onClick={() => signOut()}
                 title="サインアウト"
+                aria-label="サインアウト"
                 className="flex items-center justify-center w-8 h-8 rounded-lg bg-black/20 hover:bg-black/30 transition-colors text-white border-0 cursor-pointer"
               >
                 <MdLogout aria-hidden size={18} />
