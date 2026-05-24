@@ -23,4 +23,4 @@
 
 - [x] 5.1 `npm run dev` でローカル起動し、ブラウザタブの favicon が新デザインになっていることを確認
 - [x] 5.2 DevTools → Application → Manifest でアイコンが 2 サイズ表示されることを確認
-- [ ] 5.3 変更をプッシュし、PR 上の CI（Biome / tsc / Vitest）が通ることを確認
+- [x] 5.3 変更をプッシュし、PR 上の CI（Biome / tsc / Vitest）が通ることを確認
