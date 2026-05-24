@@ -7,6 +7,8 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
 
     steps:
       - uses: actions/checkout@v6
@@ -63,6 +65,15 @@ jobs:
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
           E2E_TEST_GROUP_ID: ${{ secrets.E2E_TEST_GROUP_ID }}
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: E2E Tests (mock)
+          path: frontend/results.xml
+          reporter: java-junit
+          fail-on-error: false
 
       - name: Upload Playwright report
         if: always()
