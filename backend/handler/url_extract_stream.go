@@ -30,8 +30,9 @@ type sseProgressData struct {
 }
 
 type sseDoneData struct {
-	Name     string  `json:"name"`
-	ImageURL *string `json:"imageUrl"`
+	Name           string   `json:"name"`
+	ImageURL       *string  `json:"imageUrl"`
+	NameCandidates []string `json:"nameCandidates,omitempty"`
 }
 
 type sseErrorData struct {
@@ -57,8 +58,8 @@ func writeProgressEvent(w http.ResponseWriter, step, message string) error {
 	return writeSSEEvent(w, "progress", sseProgressData{Step: step, Message: message})
 }
 
-func writeDoneEvent(w http.ResponseWriter, name string, imageURL *string) error {
-	return writeSSEEvent(w, "done", sseDoneData{Name: name, ImageURL: imageURL})
+func writeDoneEvent(w http.ResponseWriter, name string, imageURL *string, candidates []string) error {
+	return writeSSEEvent(w, "done", sseDoneData{Name: name, ImageURL: imageURL, NameCandidates: candidates})
 }
 
 func writeErrorEvent(w http.ResponseWriter, kind, message, detail string) error {
@@ -107,6 +108,6 @@ func (h *UrlExtractStreamHandler) ExtractStream(c *echo.Context) error {
 	if result.ImageURL != "" {
 		imageURL = &result.ImageURL
 	}
-	_ = writeDoneEvent(w, result.Name, imageURL)
+	_ = writeDoneEvent(w, result.Name, imageURL, result.NameCandidates)
 	return nil
 }
