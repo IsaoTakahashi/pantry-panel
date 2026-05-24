@@ -9,7 +9,7 @@ if (fs.existsSync(envFile)) {
 }
 
 export default defineConfig({
-  reporter: [["list"], ["html"]],
+  reporter: [["list"], ["html"], ["junit", { outputFile: "results.xml" }]],
   testDir: "./e2e",
   // preview runs against a shared real Supabase; sequential execution prevents
   // Realtime events from one test closing dialogs opened by another test

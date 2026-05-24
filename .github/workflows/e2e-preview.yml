@@ -77,6 +77,30 @@ jobs:
           E2E_TEST_GROUP_ID: ${{ secrets.E2E_TEST_GROUP_ID }}
           VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
 
+      - name: Write test summary
+        if: always()
+        working-directory: frontend
+        run: |
+          [ -f results.xml ] || exit 0
+          tests=$(grep -om1 'tests="[0-9]*"' results.xml | grep -o '[0-9]*')
+          failures=$(grep -om1 'failures="[0-9]*"' results.xml | grep -o '[0-9]*')
+          errors=$(grep -om1 'errors="[0-9]*"' results.xml | grep -o '[0-9]*')
+          skipped=$(grep -om1 'skipped="[0-9]*"' results.xml | grep -o '[0-9]*')
+          tests=${tests:-0}; failures=${failures:-0}; errors=${errors:-0}; skipped=${skipped:-0}
+          failed=$((failures + errors))
+          passed=$((tests - failed - skipped))
+          if [ "$failed" -gt 0 ]; then icon="❌"; else icon="✅"; fi
+          {
+            echo "## ${icon} E2E Tests (preview)"
+            echo ""
+            echo "| | Count |"
+            echo "|---|---|"
+            echo "| ✅ Passed | ${passed} |"
+            echo "| ❌ Failed | ${failed} |"
+            echo "| ⏭️ Skipped | ${skipped} |"
+            echo "| **Total** | **${tests}** |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
