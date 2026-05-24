@@ -16,6 +16,12 @@ wishlist.md に記載していた機能のうち、実装が完了したもの�
 
 実装: PR #98 / Issue #109（openspec: `2026-05-23-url-extract-error-detail-and-source-url`）
 
+### URL 登録機能の改善4: 抽出処理の途中経過表示
+
+`/api/extract-from-url/stream` エンドポイント（SSE）を追加し、各ステップ（fetching / extracting 等）の開始時にイベントを配信。フロントエンドは `fetch` + ReadableStream で受信し、進捗ステップをリスト表示（完了済み・進行中・未着手を視覚的に区別）する。
+
+実装: PR #114 / Issue #111（openspec: `2026-05-24-extraction-progress-sse`）
+
 ### URL 登録機能の改善3: source_url の保存と ItemCard リンクアイコン
 
 `stock_items` テーブルに `source_url TEXT` カラムを追加。URL 登録した商品に対して `ItemCard` に外部リンクアイコン（別タブで開く）を表示する。

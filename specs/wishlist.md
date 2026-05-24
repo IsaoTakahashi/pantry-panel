@@ -32,24 +32,6 @@ URL から商品登録する機能（`/api/extract-from-url`）に対する改�
 
 ---
 
-#### 改善4: 抽出処理の途中経過表示
-
-**背景:** `/api/extract-from-url` は最大 4 ステップ・15〜20 秒かかる可能性があるが、現在は「解析中...」スピナーのみで進捗が不明。
-
-**変更内容:**
-
-- バックエンド: 新エンドポイント `POST /api/extract-from-url/stream` を追加し、SSE（Server-Sent Events）で各ステップ開始時にイベントを配信する。既存の `POST /api/extract-from-url` は後方互換のため維持する
-  - `event: progress` / `data: {"step":"fetching","message":"ページを取得中..."}`
-  - `event: progress` / `data: {"step":"fetching_jina","message":"別の方法でページを取得中..."}` （Jina fallback 時のみ）
-  - `event: progress` / `data: {"step":"extracting","message":"商品情報を解析中..."}`
-  - `event: progress` / `data: {"step":"generating_candidates","message":"名前の候補を生成中..."}` （name >= 25 文字時のみ）
-  - `event: done` / `data: {"name":"...","imageUrl":"...","nameCandidates":[...]}` （完了）
-  - `event: error` / `data: {"kind":"fetchFailed","message":"...","detail":"..."}` （エラー）
-- フロントエンド: `fetch` + ReadableStream で SSE を受信（EventSource は POST 非対応のため）。進捗ステップをリスト表示し、完了済み・進行中・未着手を視覚的に区別する
-
-**実装工数**: M（3〜5日）  
-**考慮事項**: Lambda Function URL はストリーミングレスポンスに対応済み。Echo での SSE 実装は `c.Response().Writer` への直接書き込みで実現できる。
-
 ### レシピからの材料一括登録
 
 料理のレシピ Web ページの URL を入力すると、材料一覧を AI で抽出し、調味料を除いた食材を商品として一括登録する。
