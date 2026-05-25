@@ -210,7 +210,6 @@ export default function StockItemsClient() {
                   className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-black/20 hover:bg-black/30 transition-colors text-sm text-white no-underline"
                 >
                   <MdLink aria-hidden size={16} />
-                  招待
                 </a>
               )}
               <button
