@@ -12,6 +12,8 @@ vi.mock("framer-motion");
 vi.mock("@/components/AuthGuard", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
+const { mockSignOut } = vi.hoisted(() => ({ mockSignOut: vi.fn() }));
+
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     // biome-ignore lint/suspicious/noExplicitAny: minimal mock; full Session type not needed in tests
@@ -21,7 +23,7 @@ vi.mock("@/contexts/AuthContext", () => ({
     groups: [],
     loading: false,
     signInWithGoogle: vi.fn(),
-    signOut: vi.fn(),
+    signOut: mockSignOut,
     refreshGroup: vi.fn(),
     switchGroup: vi.fn(),
   }),
@@ -56,6 +58,7 @@ describe("StockItemsPage", () => {
   afterEach(() => {
     vi.restoreAllMocks(); // spyOn の復元
     vi.clearAllMocks(); // vi.mock 自動モックの呼び出し履歴クリア
+    mockSignOut.mockClear();
   });
 
   it("ローディング中にloadingが表示される", async () => {
@@ -393,5 +396,149 @@ describe("StockItemsPage", () => {
     await waitFor(() => {
       expect(fetchStockItems).toHaveBeenCalledTimes(callsBefore + 1);
     });
+  });
+
+  it("検索テキスト入力済み状態で「商品を追加」を押すと CreateItemModal の名前フィールドに初期値がセットされる", async () => {
+    // Scenario: B-4
+    const { fetchStockItems } = await import("@/lib/api");
+    vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByRole("searchbox"), "醤油");
+    await user.click(screen.getByRole("button", { name: "商品を追加" }));
+
+    expect(screen.getByLabelText("名前")).toHaveValue("醤油");
+  });
+
+  it("カテゴリフィルタ選択済み状態で「商品を追加」を押すと CreateItemModal のカテゴリフィールドに初期値がセットされる", async () => {
+    // Scenario: B-5
+    const { fetchStockItems } = await import("@/lib/api");
+    vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.selectOptions(screen.getByLabelText("カテゴリ"), "調味料");
+    await user.click(screen.getByRole("button", { name: "商品を追加" }));
+
+    const categorySelect = screen.getAllByLabelText("カテゴリ");
+    // CreateItemModal の カテゴリ select はモーダル内にある
+    const modalCategorySelect = categorySelect.find(
+      (el) => el.closest('[role="dialog"]') !== null,
+    );
+    expect(modalCategorySelect).toHaveValue("調味料");
+  });
+
+  it("買い物リストフィルタ ON 状態で「商品を追加」を押すと「買いたい」ボタンが aria-pressed=true になる", async () => {
+    // Scenario: B-6
+    const { fetchStockItems } = await import("@/lib/api");
+    vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "買いたいものだけ" }));
+    // 醤油 (wantToBuy:false) が消えることを確認してフィルタが ON になったことを確認
+    expect(screen.queryByText("醤油")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "商品を追加" }));
+
+    expect(screen.getByRole("button", { name: "買いたい" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("商品名を編集して保存したとき updateStockItem の引数に sortedAt が含まれない", async () => {
+    // Scenario: D-3
+    const { fetchStockItems, updateStockItem } = await import("@/lib/api");
+    const updatedItems = [{ ...mockItems[0], name: "濃口醤油" }, mockItems[1]];
+    vi.mocked(fetchStockItems)
+      .mockResolvedValueOnce(mockItems)
+      .mockResolvedValueOnce(updatedItems);
+    vi.mocked(updateStockItem).mockResolvedValue(updatedItems[0]);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /醤油/ }));
+    await user.clear(screen.getByLabelText("名前"));
+    await user.type(screen.getByLabelText("名前"), "濃口醤油");
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(updateStockItem).toHaveBeenCalledWith(
+        "1",
+        expect.not.objectContaining({ sortedAt: expect.anything() }),
+        "test-token",
+        undefined,
+      );
+    });
+  });
+
+  it("wantToBuy=true の商品を OFF にしたとき updateStockItem の引数に sortedAt が含まれない", async () => {
+    // Scenario: E-2
+    const { fetchStockItems, updateStockItem } = await import("@/lib/api");
+    const toggledItems = [mockItems[0], { ...mockItems[1], wantToBuy: false }];
+    vi.mocked(fetchStockItems)
+      .mockResolvedValueOnce(mockItems)
+      .mockResolvedValueOnce(toggledItems);
+    vi.mocked(updateStockItem).mockResolvedValue(toggledItems[1]);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("味噌")).toBeInTheDocument();
+    });
+
+    const misoArticle = screen.getByRole("article", { name: "味噌" });
+    await user.click(
+      within(misoArticle).getByRole("button", { name: "want to buy" }),
+    );
+
+    await waitFor(() => {
+      expect(updateStockItem).toHaveBeenCalledWith(
+        "2",
+        expect.not.objectContaining({ sortedAt: expect.anything() }),
+        "test-token",
+        undefined,
+      );
+    });
+  });
+
+  it("ヘッダーのサインアウトボタンをクリックすると signOut が呼ばれる", async () => {
+    // Scenario: K-4
+    const { fetchStockItems } = await import("@/lib/api");
+    vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "サインアウト" }));
+
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 });
