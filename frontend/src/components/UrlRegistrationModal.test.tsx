@@ -491,6 +491,39 @@ describe("UrlRegistrationModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  // Scenario: J-3-3
+  it("progress イベントの後に onDone が発火されると <ol> が表示された状態から onExtracted が呼ばれる", async () => {
+    const user = userEvent.setup();
+    mockProgressThenDone(
+      [
+        { step: "fetching", message: "ページを取得中..." },
+        { step: "extracting", message: "商品情報を解析中..." },
+      ],
+      "ストリーミング完了商品",
+      "https://example.com/img.png",
+    );
+    const onExtracted = vi.fn();
+
+    render(
+      <UrlRegistrationModal {...defaultProps} onExtracted={onExtracted} />,
+    );
+    await user.type(
+      screen.getByLabelText("商品ページの URL"),
+      "https://example.com",
+    );
+    await user.click(screen.getByRole("button", { name: "抽出" }));
+
+    // streaming 中（ol が表示されている）ことを確認してから onExtracted が呼ばれる
+    await waitFor(() => {
+      expect(screen.getByRole("list")).toBeInTheDocument();
+      expect(onExtracted).toHaveBeenCalledWith(
+        "ストリーミング完了商品",
+        "https://example.com/img.png",
+        "https://example.com",
+      );
+    });
+  });
+
   it("モーダルを閉じて再度開くと入力と状態がリセットされる", async () => {
     const user = userEvent.setup();
     mockError(new ExtractFromUrlError("fetchFailed"));

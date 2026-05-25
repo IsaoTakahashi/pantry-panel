@@ -211,6 +211,26 @@ describe("ImageSelectionModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  // Scenario: I-6
+  it("Google CSE 未設定（503）で ImageSearchError('unavailable') がスローされたとき「画像検索に失敗しました」が表示される", async () => {
+    vi.mocked(searchImages).mockRejectedValue(
+      new ImageSearchError("unavailable"),
+    );
+
+    render(
+      <ImageSelectionModal
+        item={item}
+        isOpen
+        onClose={() => {}}
+        onSelect={() => {}}
+      />,
+    );
+
+    expect(
+      await screen.findByText("画像検索に失敗しました"),
+    ).toBeInTheDocument();
+  });
+
   it("検索ボックスを変更して検索ボタンを押すと再検索される", async () => {
     vi.mocked(searchImages).mockResolvedValue([]);
 
