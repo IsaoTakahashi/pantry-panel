@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -68,6 +70,8 @@ func (c *GoogleClient) Search(ctx context.Context, query string, num int) ([]Res
 		return nil, ErrQuotaExceeded
 	}
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("imagesearch: upstream error status=%d body=%s", resp.StatusCode, body)
 		return nil, fmt.Errorf("%w: status %d", ErrUpstreamFailure, resp.StatusCode)
 	}
 

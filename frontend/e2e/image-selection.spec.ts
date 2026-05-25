@@ -29,6 +29,7 @@ test.describe("画像設定", () => {
   test("画像ボタンをクリックするとモーダルが開き、キャンセルで閉じる", async ({
     page,
   }) => {
+    test.skip(!isMockMode, "Google CSE API not available for test project");
     if (isMockMode) {
       await mockImageSearch(page, { items: STUB_IMAGES });
     }
@@ -44,6 +45,7 @@ test.describe("画像設定", () => {
   });
 
   test("Escape キーでモーダルが閉じる", async ({ page }) => {
+    test.skip(!isMockMode, "Google CSE API not available for test project");
     if (isMockMode) {
       await mockImageSearch(page, { items: STUB_IMAGES });
     }
@@ -76,6 +78,7 @@ test.describe("画像設定", () => {
   });
 
   test("画像を選択するとカードに画像が表示される", async ({ page }) => {
+    test.skip(!isMockMode, "Google CSE API not available for test project");
     if (isMockMode) {
       await mockImageSearch(page, { items: STUB_IMAGES });
     }
@@ -103,6 +106,7 @@ test.describe("画像設定", () => {
   });
 
   test("画像を解除するとプレースホルダーに戻る", async ({ page }) => {
+    test.skip(!isMockMode, "Google CSE API not available for test project");
     if (isMockMode) {
       await mockImageSearch(page, { items: STUB_IMAGES });
     }
