@@ -137,7 +137,7 @@ test.describe("フィルタリング", () => {
     await createItem(page, item2.name, item2.category);
 
     // Apply category filter for "飲み物"
-    await page.getByLabel("カテゴリ").selectOption("飲み物");
+    await page.getByLabel("カテゴリ", { exact: true }).selectOption("飲み物");
 
     // Only item1 (飲み物) should be visible
     await expect(page.getByRole("article", { name: item1.name })).toBeVisible();
@@ -146,7 +146,7 @@ test.describe("フィルタリング", () => {
     ).not.toBeVisible();
 
     // Cleanup: reset category filter then delete
-    await page.getByLabel("カテゴリ").selectOption("");
+    await page.getByLabel("カテゴリ", { exact: true }).selectOption("");
     await deleteItem(page, item1.name);
     await deleteItem(page, item2.name);
   });
@@ -167,7 +167,7 @@ test.describe("フィルタリング", () => {
 
     // Apply search filter for "牛乳" AND category filter for "飲み物"
     await page.getByLabel("検索").fill("牛乳");
-    await page.getByLabel("カテゴリ").selectOption("飲み物");
+    await page.getByLabel("カテゴリ", { exact: true }).selectOption("飲み物");
 
     // Only item1 matches both conditions
     await expect(page.getByRole("article", { name: item1.name })).toBeVisible();
@@ -180,7 +180,7 @@ test.describe("フィルタリング", () => {
 
     // Cleanup: reset filters then delete
     await page.getByRole("button", { name: "クリア" }).click();
-    await page.getByLabel("カテゴリ").selectOption("");
+    await page.getByLabel("カテゴリ", { exact: true }).selectOption("");
     await deleteItem(page, item1.name);
     await deleteItem(page, item2.name);
     await deleteItem(page, item3.name);
