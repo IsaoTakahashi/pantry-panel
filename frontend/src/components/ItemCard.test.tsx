@@ -214,4 +214,51 @@ describe("ItemCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "画像を設定" }));
     expect(onImageEdit).toHaveBeenCalledWith(baseItem);
   });
+
+  // Scenario: E-3
+  it("wantToBuy=true のとき、カートアイコンボタンに text-blue-500 クラスが付く", () => {
+    const item = { ...baseItem, wantToBuy: true };
+    render(
+      <ItemCard
+        item={item}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: "want to buy" });
+    expect(toggle).toHaveClass("text-blue-500");
+  });
+
+  // Scenario: J-1-4
+  it("sourceUrl が非 null のとき、外部リンクアイコンが表示される", () => {
+    const item = { ...baseItem, sourceUrl: "https://example.com/product" };
+    render(
+      <ItemCard
+        item={item}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
+      />,
+    );
+    const link = screen.getByRole("link", { name: "商品ページを開く" });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "https://example.com/product");
+  });
+
+  // Scenario: J-1-4
+  it("sourceUrl が null のとき、外部リンクアイコンが表示されない", () => {
+    render(
+      <ItemCard
+        item={baseItem}
+        onEdit={vi.fn()}
+        onToggleWantToBuy={vi.fn()}
+        onDelete={vi.fn()}
+        onImageEdit={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("link", { name: "商品ページを開く" })).toBeNull();
+  });
 });
