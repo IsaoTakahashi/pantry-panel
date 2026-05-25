@@ -364,3 +364,38 @@ func TestDelete_NotFound(t *testing.T) {
 	err := repo.Delete(context.Background(), uuid.New(), groupID)
 	assert.Error(t, err, "should return error when deleting non-existent item")
 }
+
+func TestList_OtherGroupItemsNotVisible(t *testing.T) {
+	// Scenario: L-6
+	pool, groupAID := setupTestDB(t)
+	repo := NewPgStockItemRepository(pool)
+
+	_, err := repo.Create(context.Background(), groupAID, "醤油", "調味料", nil, nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	var groupBID uuid.UUID
+	err = pool.QueryRow(ctx, "INSERT INTO groups (name) VALUES ('グループB') RETURNING id").Scan(&groupBID)
+	require.NoError(t, err)
+
+	items, err := repo.List(ctx, groupBID)
+	require.NoError(t, err)
+	assert.Len(t, items, 0, "group B should not see group A's items")
+}
+
+func TestUpdate_OtherGroupItemNotUpdatable(t *testing.T) {
+	// Scenario: L-6
+	pool, groupAID := setupTestDB(t)
+	repo := NewPgStockItemRepository(pool)
+
+	item, err := repo.Create(context.Background(), groupAID, "醤油", "調味料", nil, nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	var groupBID uuid.UUID
+	err = pool.QueryRow(ctx, "INSERT INTO groups (name) VALUES ('グループB') RETURNING id").Scan(&groupBID)
+	require.NoError(t, err)
+
+	_, err = repo.Update(ctx, item.ID, groupBID, UpdateParams{Name: strPtr("こいくち醤油")})
+	assert.Error(t, err, "group B should not be able to update group A's item")
+}
