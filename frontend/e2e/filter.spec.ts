@@ -39,6 +39,10 @@ async function setWantToBuy(
   const current = pressed === "true";
   if (current !== desired) {
     await btn.click();
+    await expect(btn).toHaveAttribute(
+      "aria-pressed",
+      desired ? "true" : "false",
+    );
   }
 }
 
