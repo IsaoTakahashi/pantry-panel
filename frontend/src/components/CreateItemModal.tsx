@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MdShoppingCart } from "react-icons/md";
 import { CATEGORIES } from "@/constants/categories";
+import BaseModal from "./BaseModal";
 
 type CreateItemModalProps = {
   isOpen: boolean;
@@ -60,117 +61,108 @@ export default function CreateItemModal({
     initialSourceUrl,
   ]);
 
-  if (!isOpen) return null;
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-    >
-      <div className="bg-white p-6 rounded-lg shadow-xl w-96">
-        <h2 className="text-lg font-semibold mb-6 text-gray-900">商品を追加</h2>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onCreate(name, category, wantToBuy, imageUrl, sourceUrl)
-              .then(onClose)
-              .catch((err) => {
-                const error =
-                  err instanceof Error ? err : new Error(String(err));
-                if (error.message.includes("409")) {
-                  setError("その商品は登録済みです");
-                } else {
-                  setError(error.message || "エラーが発生しました");
-                }
-              });
-          }}
-        >
-          {imageUrl && (
-            <div className="mb-4">
-              {/* biome-ignore lint/performance/noImgElement: arbitrary external URLs */}
-              <img
-                src={imageUrl}
-                alt="商品画像"
-                className="w-full h-36 object-contain rounded border border-gray-200 bg-gray-50"
-              />
-            </div>
-          )}
+    <BaseModal isOpen={isOpen} onClose={onClose} title="商品を追加">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onCreate(name, category, wantToBuy, imageUrl, sourceUrl)
+            .then(onClose)
+            .catch((err) => {
+              const error = err instanceof Error ? err : new Error(String(err));
+              if (error.message.includes("409")) {
+                setError("その商品は登録済みです");
+              } else {
+                setError(error.message || "エラーが発生しました");
+              }
+            });
+        }}
+      >
+        {imageUrl && (
           <div className="mb-4">
-            <label
-              htmlFor="name"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              名前
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:border-transparent"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+            {/* biome-ignore lint/performance/noImgElement: arbitrary external URLs */}
+            <img
+              src={imageUrl}
+              alt="商品画像"
+              className="w-full h-36 object-contain rounded-xl border-2 border-slate-100 bg-slate-50"
             />
           </div>
-          <div className="mb-4">
-            <label
-              htmlFor="category"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              カテゴリ
-            </label>
-            <select
-              id="category"
-              name="category"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#00d1b2] focus:border-transparent"
-              required
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              {CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="mb-6">
-            <span className="block text-sm font-medium text-gray-700 mb-1">
-              買いたい
-            </span>
-            <button
-              type="button"
-              aria-label="買いたい"
-              aria-pressed={wantToBuy}
-              onClick={() => setWantToBuy((v) => !v)}
-              className={
-                wantToBuy
-                  ? "inline-flex items-center justify-center rounded bg-[#00d1b2] hover:bg-[#00c4a7] px-3 py-2 text-white"
-                  : "inline-flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 px-3 py-2 text-gray-500"
-              }
-            >
-              <MdShoppingCart aria-hidden size={20} />
-            </button>
-          </div>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded font-medium"
-            >
-              キャンセル
-            </button>
-            <button
-              disabled={!name || !category}
-              type="submit"
-              className="bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              追加
-            </button>
-          </div>
-          {error && <p className="text-red-600 mt-3 text-sm">{error}</p>}
-        </form>
-      </div>
-    </div>
+        )}
+        <div className="mb-4">
+          <label
+            htmlFor="name"
+            className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5"
+          >
+            名前
+          </label>
+          <input
+            id="name"
+            name="name"
+            type="text"
+            className="w-full border-2 border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-[#00d1b2] focus:outline-none transition-colors"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="mb-4">
+          <label
+            htmlFor="category"
+            className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5"
+          >
+            カテゴリ
+          </label>
+          <select
+            id="category"
+            name="category"
+            className="w-full border-2 border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 focus:border-[#00d1b2] focus:outline-none transition-colors bg-white"
+            required
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            {CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="mb-6">
+          <span className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">
+            買いたい
+          </span>
+          <button
+            type="button"
+            aria-label="買いたい"
+            aria-pressed={wantToBuy}
+            onClick={() => setWantToBuy((v) => !v)}
+            className={
+              wantToBuy
+                ? "inline-flex items-center justify-center rounded-xl bg-[#00d1b2] hover:bg-[#00c4a7] px-3 py-2 text-white transition-colors"
+                : "inline-flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 px-3 py-2 text-slate-400 transition-colors"
+            }
+          >
+            <MdShoppingCart aria-hidden size={20} />
+          </button>
+        </div>
+        <div className="flex gap-3 sm:gap-2 sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 sm:flex-none bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl py-2.5 text-sm transition-colors"
+          >
+            キャンセル
+          </button>
+          <button
+            disabled={!name || !category}
+            type="submit"
+            className="flex-[2] sm:flex-none bg-[#00d1b2] hover:bg-[#00c4a7] text-white font-bold rounded-xl py-2.5 text-sm transition-colors disabled:bg-slate-200 disabled:cursor-not-allowed px-6"
+          >
+            追加
+          </button>
+        </div>
+        {error && <p className="text-red-600 mt-3 text-sm">{error}</p>}
+      </form>
+    </BaseModal>
   );
 }
