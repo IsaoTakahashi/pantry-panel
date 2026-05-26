@@ -12,6 +12,9 @@ async function createItem(
   await dialog.getByLabel("カテゴリ", { exact: true }).selectOption(category);
   await dialog.getByRole("button", { name: "追加", exact: true }).click();
   await expect(page.getByRole("article", { name })).toBeVisible();
+  // Wait for the modal exit animation to finish so its DOM elements don't
+  // interfere with subsequent locator queries.
+  await expect(page.getByRole("dialog")).not.toBeAttached();
 }
 
 // Helper: delete a single stock item via the UI
@@ -36,6 +39,10 @@ async function setWantToBuy(
   const current = pressed === "true";
   if (current !== desired) {
     await btn.click();
+    await expect(btn).toHaveAttribute(
+      "aria-pressed",
+      desired ? "true" : "false",
+    );
   }
 }
 

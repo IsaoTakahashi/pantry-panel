@@ -44,6 +44,8 @@ test("商品の名前を編集できる", async ({ page }) => {
 
   // 登録した商品が表示されていることを確認
   await expect(page.getByText(itemName)).toBeVisible();
+  // Wait for modal exit animation to finish before opening EditItemModal
+  await expect(page.getByRole("dialog")).not.toBeAttached();
 
   // 編集ボタン（カテゴリ+名前テキストを含むボタン）をクリック
   await page
@@ -88,6 +90,8 @@ test("商品のカテゴリを編集できる", async ({ page }) => {
 
   // 登録した商品が表示されていることを確認
   await expect(page.getByText(itemName)).toBeVisible();
+  // Wait for modal exit animation to finish before opening EditItemModal
+  await expect(page.getByRole("dialog")).not.toBeAttached();
 
   // 編集ボタンをクリック
   await page
