@@ -23,19 +23,34 @@ TBD - created by archiving change phase1-ui-polish. Update Purpose after archive
 
 #### Scenario: モーダルタイトルの視認性
 - **WHEN** モーダルが開かれる
-- **THEN** タイトル "商品を追加" は本文より大きく (`text-lg` 以上)、`font-semibold` 以上の太さで表示される
+- **THEN** タイトルは `text-lg font-extrabold` 以上の太さで `tracking-tight` を持ち、`text-slate-900` で表示される
 
 #### Scenario: ラベルとコントラスト
 - **WHEN** 入力欄のラベルが描画される
-- **THEN** ラベル文字色は `text-gray-700` 相当 (背景白に対して WCAG AA 以上のコントラスト) を持つ
+- **THEN** ラベルは `text-xs font-bold text-slate-400 uppercase tracking-widest` スタイルで表示される（背景白に対して WCAG AA 以上のコントラスト）
 
 #### Scenario: 入力欄のフォーカス状態
 - **WHEN** 入力欄がフォーカスされる
-- **THEN** ボーダーまたはリングがアクセント色 (`focus:ring-2 focus:ring-[#00d1b2]` 相当) で強調される
+- **THEN** `border-2` のボーダーがアクセント色（`focus:border-[#00d1b2]`）に変化する
 
-#### Scenario: ボタン配置
-- **WHEN** モーダル下部にキャンセル・追加ボタンが描画される
-- **THEN** ボタンは横並び (`flex`) で右寄せ (`justify-end`) または右端配置となり、`gap-2` 以上の間隔を持つ
+#### Scenario: ボタン配置（モバイル）
+- **WHEN** モバイル（〜639px）でモーダル下部にボタンが描画される
+- **THEN** ボタンは横並び（`flex gap-3`）で、キャンセルが `flex-1`・プライマリアクションが `flex-[2]` の幅比率で配置される
+
+#### Scenario: ボタン配置（デスクトップ）
+- **WHEN** デスクトップ（640px〜）でモーダル下部にボタンが描画される
+- **THEN** ボタンは右寄せ（`flex justify-end gap-2`）で配置される
+
+### Requirement: モーダルボタンの形状
+モーダル内のボタンは `rounded-xl` の大きな角丸を持ち、`py-2.5 text-sm font-bold` のサイズとなる SHALL。
+
+#### Scenario: プライマリボタンの形状
+- **WHEN** モーダルのプライマリアクションボタンが描画される
+- **THEN** `rounded-xl py-2.5 text-sm font-bold bg-[#00d1b2] hover:bg-[#00c4a7] text-white` スタイルで表示される
+
+#### Scenario: キャンセルボタンの形状
+- **WHEN** モーダルのキャンセルボタンが描画される
+- **THEN** `rounded-xl py-2.5 text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-600` スタイルで表示される
 
 ### Requirement: 商品カードの視覚階層
 商品カードは商品名を主役として表示し、カテゴリをバッジ風の二次情報として表現する SHALL。削除ボタンはカード内で識別可能な位置に配置される MUST。
