@@ -8,7 +8,30 @@ import { useStockItemsRealtime } from "@/lib/useStockItemsRealtime";
 
 vi.mock("@/lib/api");
 vi.mock("@/lib/useStockItemsRealtime");
-vi.mock("framer-motion");
+vi.mock("framer-motion", () => ({
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+  motion: {
+    div: ({
+      children,
+      initial: _i,
+      animate: _a,
+      exit: _e,
+      transition: _t,
+      drag: _drag,
+      dragControls: _dc,
+      dragListener: _dl,
+      dragConstraints: _dcon,
+      dragElastic: _de,
+      onDragEnd: _ode,
+      ...rest
+    }: React.HTMLAttributes<HTMLDivElement> & Record<string, unknown>) => (
+      <div {...rest}>{children}</div>
+    ),
+  },
+  useDragControls: () => ({ start: vi.fn() }),
+}));
 vi.mock("@/components/AuthGuard", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
