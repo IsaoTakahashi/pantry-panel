@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 type BaseModalProps = {
   isOpen: boolean;
@@ -14,7 +14,10 @@ type BaseModalProps = {
 function useIsDesktop(): boolean {
   const [isDesktop, setIsDesktop] = useState(false);
 
-  useEffect(() => {
+  // useLayoutEffect runs before paint so the correct layout (mobile vs desktop)
+  // is applied on the first frame, preventing the bottom-sheet y-transform from
+  // starting when the viewport is already ≥ 640 px.
+  useLayoutEffect(() => {
     const mq = window.matchMedia("(min-width: 640px)");
     setIsDesktop(mq.matches);
     const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
@@ -76,6 +79,7 @@ export default function BaseModal({
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 pointer-events-none">
             {isDesktop ? (
               <motion.div
+                key="desktop-dialog"
                 role="dialog"
                 aria-modal="true"
                 className="pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-md"
@@ -91,6 +95,7 @@ export default function BaseModal({
               </motion.div>
             ) : (
               <motion.div
+                key="mobile-sheet"
                 role="dialog"
                 aria-modal="true"
                 className="pointer-events-auto w-full bg-white rounded-t-2xl shadow-xl"
