@@ -109,6 +109,22 @@ describe("BaseModal", () => {
     expect(screen.getByText("デスクトップ")).toBeInTheDocument();
   });
 
+  it("isOpen が true → false になるとダイアログが DOM から消える", () => {
+    mockMatchMedia(false);
+    const { rerender } = render(
+      <BaseModal isOpen={true} onClose={vi.fn()} title="テスト">
+        <p>中身</p>
+      </BaseModal>,
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    rerender(
+      <BaseModal isOpen={false} onClose={vi.fn()} title="テスト">
+        <p>中身</p>
+      </BaseModal>,
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("isOpen=false のとき Esc を押しても onClose が呼ばれない", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

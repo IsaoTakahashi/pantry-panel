@@ -118,3 +118,17 @@ proposal.md の「ユーザーシナリオとテスト設計」セクション�
 ```
 
 <!-- ログはここから下に追記する -->
+
+### 2026-05-26: モーダルexit animationとE2Eテストの干渉
+
+- **対象シナリオ:** filter.spec.ts F-4/F-5、stock-items.spec.ts D-1/D-2、url-registration.spec.ts フルフロー
+- **変更前:** `createItem()` ヘルパーが article 表示確認後すぐ次の操作へ移る
+- **変更後:** `await expect(page.getByRole("dialog")).not.toBeAttached()` を追加して exit animation 完了を待つ
+- **理由:** `AnimatePresence` の exit animation（200-300ms）中は dialog の DOM 要素が残存し、Playwright strict mode のロケータが複数要素を解決してエラーになる
+- **一般化した基準:**
+  1. モーダルを閉じた直後に `page.getBy系` でページ要素を操作する E2E テストは `await expect(page.getByRole("dialog")).not.toBeAttached()` を挟む
+  2. 2つのモーダルが一時的に共存するシナリオ（例: URL登録モーダル→作成モーダルの遷移）では `getByRole("dialog")` ではなく内部要素（`getByLabel("名前")` 等）で待機する
+  3. `AnimatePresence` を追加・変更したコンポーネントがある場合、関連 E2E テストのモーダル close 後の操作に上記 wait が必要かを確認する
+- **tasks.md チェックリスト追加基準:** モーダルやアニメーションを含む変更の tasks.md には以下のタスクを加える
+  - `- [ ] 既存E2Eテストのモーダル操作後のlocatorに not.toBeAttached() 待機が必要かを確認する`
+  - `- [ ] ローカルで E2E テストを実行してpassすることを確認する（dev server 起動後に npx playwright test）`
