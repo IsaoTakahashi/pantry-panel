@@ -79,8 +79,11 @@ test.describe("URL からの商品登録", () => {
     const urlModal = page.getByRole("dialog");
     await urlModal.getByRole("textbox").fill("https://example.com/product");
     await urlModal.getByRole("button", { name: "抽出" }).click();
-    // URL modal closes and CreateItemModal opens with pre-filled name
-    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByLabel("名前")).toHaveValue("テスト商品");
+    // URL modal closes and CreateItemModal opens with pre-filled name.
+    // Use getByLabel("名前") instead of getByRole("dialog") to avoid strict-mode
+    // violations during the brief window when both modals are animating.
+    await expect(page.getByLabel("名前")).toHaveValue("テスト商品", {
+      timeout: 10000,
+    });
   });
 });
