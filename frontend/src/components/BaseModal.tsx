@@ -81,7 +81,7 @@ export default function BaseModal({
           />
 
           {/* Dialog / Sheet */}
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 pointer-events-none">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             {isDesktop ? (
               <motion.div
                 role="dialog"
@@ -101,7 +101,7 @@ export default function BaseModal({
               <motion.div
                 role="dialog"
                 aria-modal="true"
-                className="pointer-events-auto w-full bg-white rounded-t-2xl shadow-xl"
+                className="pointer-events-auto w-full max-w-md bg-white rounded-2xl shadow-xl"
                 drag="y"
                 dragControls={dragControls}
                 dragListener={false}

@@ -126,6 +126,8 @@ test.describe("フィルタリング", () => {
 
     // Cleanup: turn off filter, reset wantToBuy, then delete
     await page.getByRole("button", { name: "買いたいものだけ" }).click();
+    await expect(page.getByRole("article", { name: item1.name })).toBeVisible();
+    await expect(page.getByRole("article", { name: item2.name })).toBeVisible();
     await setWantToBuy(page, item1.name, false);
     await deleteItem(page, item1.name);
     await deleteItem(page, item2.name);
