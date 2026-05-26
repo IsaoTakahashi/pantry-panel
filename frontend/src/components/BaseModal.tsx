@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
@@ -39,6 +39,7 @@ export default function BaseModal({
   children,
 }: BaseModalProps) {
   const isDesktop = useIsDesktop();
+  const dragControls = useDragControls();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -101,20 +102,33 @@ export default function BaseModal({
                 role="dialog"
                 aria-modal="true"
                 className="pointer-events-auto w-full bg-white rounded-t-2xl shadow-xl"
+                drag="y"
+                dragControls={dragControls}
+                dragListener={false}
+                dragConstraints={{ top: 0 }}
+                dragElastic={{ top: 0.05, bottom: 0.5 }}
+                onDragEnd={(_, info) => {
+                  if (info.offset.y > 80 || info.velocity.y > 600) {
+                    onClose();
+                  }
+                }}
                 initial={{ y: "100%" }}
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex justify-center pt-3 pb-0">
+                <div
+                  className="flex justify-center pt-3 pb-2 touch-none cursor-grab active:cursor-grabbing"
+                  onPointerDown={(e) => dragControls.start(e)}
+                >
                   <div
                     className="w-9 h-1 bg-gray-300 rounded-full"
                     aria-hidden="true"
                   />
                 </div>
-                <div className="px-5 pt-3 pb-0">{header}</div>
-                <div className="px-5 pb-6 pt-3">{children}</div>
+                <div className="px-5 pt-1 pb-0">{header}</div>
+                <div className="px-5 pb-10 pt-3">{children}</div>
               </motion.div>
             )}
           </div>
