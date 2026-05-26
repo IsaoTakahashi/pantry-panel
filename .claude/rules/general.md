@@ -57,9 +57,11 @@ Unit を厚く、Integration 中程度、E2E を薄く保つ（テストピラ�
 | フェーズ | ツール | タイミング |
 |---------|--------|-----------|
 | 設計・探索 | `superpowers:brainstorming` | 要件が曖昧・UIの視覚比較が必要なとき |
-| 変更登録・タスク化 | `opsx:propose` | 設計が固まったら openspec の change として登録。proposal.md に**ユーザーシナリオとテスト設計**を含める（`.claude/rules/testing.md` のフォーマット参照）。**完了後すぐに GitHub Issue + Draft PR を作成する** |
-| 実装 | `opsx:apply` + `superpowers:subagent-driven-development` | tasks.md を元に subagent を派遣して実装。各 subagent は `superpowers:test-driven-development` で TDD（Red-Green-Refactor）を実施。**commit のたびに push し、PR 上の CI で常に最新状態を確認できるようにする** |
+| 変更登録・タスク化 | `opsx:propose` | 設計が固まったら openspec の change として登録。**完了後すぐに GitHub Issue + Draft PR を作成する** |
+| テスト設計 | **テスト設計 sub-agent** | proposal.md の「ユーザーシナリオとテスト設計」セクションを作成する（`.claude/rules/testing.md` のフォーマット参照）→ ユーザーがレビュー |
+| 実装 | `opsx:apply` + **実装 sub-agent** (`superpowers:subagent-driven-development`) | tasks.md を元に実装 sub-agent を派遣。各 sub-agent は `superpowers:test-driven-development` で TDD（Red-Green-Refactor）を実施。**commit のたびに push し、PR 上の CI で常に最新状態を確認できるようにする** |
 | ローカルE2E確認 | — | すべての実装完了後・push前に `cd frontend && npx playwright test` でローカルE2Eを実行してpassを確認する。**UIコンポーネント（モーダル・アニメーション）を変更した場合は必須**。dev server (`npm run dev`) が起動している状態で実行すること |
+| コードレビュー | **コードレビュー sub-agent** | 実装完了後、変更差分をレビューする → ユーザーが最終確認 |
 | CI 確認 | — | ローカルE2E確認後、`gh pr checks --watch` で PR 上の CI 結果を確認。失敗があれば原因を調査して修正する |
 | 完了処理 | `opsx:archive` | **PR マージ前**に実施。specs 同期・アーカイブのコミットも同じ feature ブランチに含める。加えて: (1) proposal.md のユーザーシナリオを関連 spec.md へ昇格、(2) レビューで確定した判断基準を `testing.md` の更新ログに追記 |
 
@@ -73,13 +75,14 @@ Unit を厚く、Integration 中程度、E2E を薄く保つ（テストピラ�
 |------|------|------|
 | 1 | 機能の洗い出し（コンポーネント、API、DB） | ユーザー → Claude |
 | 1.5 | インターフェース設計（型、スキーマ定義） | Claude が草案 → ユーザーがレビュー |
-| 2 | ユーザーシナリオ定義 + テスト設計 | Claude が草案 → ユーザーがレビュー |
-| 3 | 実装（TDD: Red-Green-Refactor） | `superpowers:subagent-driven-development` で各タスクを subagent に委譲。subagent は `superpowers:test-driven-development` に従いテスト → 実装 → リファクタリングを一体で回す。**commit のたびに push し PR 上の CI を最新状態に保つ** → ユーザーがレビュー |
+| 2 | ユーザーシナリオ定義 + テスト設計 | **テスト設計 sub-agent** が作成 → ユーザーがレビュー |
+| 3 | 実装（TDD: Red-Green-Refactor） | `superpowers:subagent-driven-development` で**実装 sub-agent** に委譲。各 sub-agent は `superpowers:test-driven-development` に従いテスト → 実装 → リファクタリングを一体で回す。**commit のたびに push し PR 上の CI を最新状態に保つ** → ユーザーがレビュー |
 | 3.5 | ローカルE2E確認 | 全タスク完了後・push前に `cd frontend && npx playwright test` を実行してpassを確認する。UIコンポーネント（モーダル・アニメーション）を変更した場合は必須 |
-| 3.6 | CI 確認 | ローカルE2E確認後、`gh pr checks --watch` で PR 上の CI 結果を確認。失敗があれば調査・修正する |
+| 3.6 | コードレビュー | **コードレビュー sub-agent** が変更差分をレビュー → ユーザーが最終確認 |
+| 3.7 | CI 確認 | ローカルE2E確認後、`gh pr checks --watch` で PR 上の CI 結果を確認。失敗があれば調査・修正する |
 | 4 | 動作確認（サーバー起動、手動テスト） | Claude Code が実施 → ユーザーが最終確認 |
 
-**Step 2 の詳細:**
+**Step 2 の詳細（テスト設計 sub-agent が担当）:**
 
 - **ユーザーシナリオ**（日本語）を列挙する。フロントエンド（ユーザー操作）とバックエンド（API契約）でセクションを分ける
 - **テスト設計**は `.claude/rules/testing.md` のハイブリッドフォーマットで行う：サマリテーブル + 各シナリオの G/W/T + スコープ別検証観点
