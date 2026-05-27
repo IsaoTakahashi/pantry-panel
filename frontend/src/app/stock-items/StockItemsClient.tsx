@@ -253,7 +253,7 @@ export default function StockItemsClient() {
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(true)}
-                    className="flex-1 bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium md:flex-none"
+                    className="flex-1 bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded-xl font-bold md:flex-none"
                   >
                     商品を追加
                   </button>
@@ -261,7 +261,7 @@ export default function StockItemsClient() {
                     type="button"
                     onClick={() => setUrlModalOpen(true)}
                     aria-label="URLから追加"
-                    className="shrink-0 bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-3 py-2.5 rounded font-medium"
+                    className="shrink-0 bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-3 py-2.5 rounded-xl font-bold"
                   >
                     <MdLink aria-hidden size={20} />
                   </button>
