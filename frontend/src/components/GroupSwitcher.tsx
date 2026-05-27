@@ -76,7 +76,7 @@ export default function GroupSwitcher({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-black/20 hover:bg-black/30 transition-colors text-sm text-white cursor-pointer border-0"
+        className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors text-sm text-slate-600 cursor-pointer border-0"
       >
         <MdGroup aria-hidden size={16} />
         {activeGroup?.name ?? "グループなし"}

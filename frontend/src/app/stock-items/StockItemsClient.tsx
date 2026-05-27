@@ -192,10 +192,19 @@ export default function StockItemsClient() {
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-gradient-to-br from-[#009e6c] via-[#00d1b2] to-[#00e7eb] text-white py-2 px-4">
+      <div className="min-h-screen bg-slate-50">
+        <header className="bg-white border-b border-slate-100 py-2 px-4">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Pantry Panel</h1>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00d1b2] to-[#0d9488] flex items-center justify-center shrink-0">
+                <span className="text-white text-sm font-bold select-none">
+                  P
+                </span>
+              </div>
+              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                Pantry Panel
+              </h1>
+            </div>
             <div className="flex items-center gap-3 text-sm">
               <GroupSwitcher
                 groups={groups}
@@ -207,7 +216,7 @@ export default function StockItemsClient() {
               {group?.role === "owner" && (
                 <a
                   href="/invite"
-                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-black/20 hover:bg-black/30 transition-colors text-sm text-white no-underline"
+                  className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors text-sm text-slate-500 no-underline"
                 >
                   <MdLink aria-hidden size={16} />
                 </a>
@@ -217,7 +226,7 @@ export default function StockItemsClient() {
                 onClick={() => signOut()}
                 title="サインアウト"
                 aria-label="サインアウト"
-                className="flex items-center justify-center w-8 h-8 rounded-lg bg-black/20 hover:bg-black/30 transition-colors text-white border-0 cursor-pointer"
+                className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors text-slate-500 border-0 cursor-pointer"
               >
                 <MdLogout aria-hidden size={18} />
               </button>
@@ -244,7 +253,7 @@ export default function StockItemsClient() {
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(true)}
-                    className="flex-1 bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded font-medium md:flex-none"
+                    className="flex-1 bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-4 py-2 rounded-xl font-bold md:flex-none"
                   >
                     商品を追加
                   </button>
@@ -252,7 +261,7 @@ export default function StockItemsClient() {
                     type="button"
                     onClick={() => setUrlModalOpen(true)}
                     aria-label="URLから追加"
-                    className="shrink-0 bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-3 py-2.5 rounded font-medium"
+                    className="shrink-0 bg-[#00d1b2] hover:bg-[#00c4a7] text-white px-3 py-2.5 rounded-xl font-bold"
                   >
                     <MdLink aria-hidden size={20} />
                   </button>
