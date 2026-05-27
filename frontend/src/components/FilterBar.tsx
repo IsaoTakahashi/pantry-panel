@@ -49,7 +49,7 @@ export default function FilterBar({
           placeholder="検索"
           value={value.searchText}
           onChange={handleSearchTextChange}
-          className="w-full border border-gray-300 rounded px-3 py-2 pr-10 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00d1b2] [&::-webkit-search-cancel-button]:appearance-none"
+          className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 pr-10 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#00d1b2] transition-colors [&::-webkit-search-cancel-button]:appearance-none"
         />
         {value.searchText && (
           <button
@@ -71,8 +71,8 @@ export default function FilterBar({
           onClick={toggleWantToBuyOnly}
           className={
             value.wantToBuyOnly
-              ? "w-full inline-flex items-center justify-center rounded bg-blue-500 hover:bg-blue-600 px-3 py-2 text-white"
-              : "w-full inline-flex items-center justify-center rounded bg-gray-200 hover:bg-gray-300 px-3 py-2 text-gray-500"
+              ? "w-full inline-flex items-center justify-center rounded-xl bg-blue-500 hover:bg-blue-600 px-3 py-2 text-white"
+              : "w-full inline-flex items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 px-3 py-2 text-slate-400"
           }
         >
           <MdShoppingCart aria-hidden size={24} />
@@ -81,7 +81,7 @@ export default function FilterBar({
           aria-label="カテゴリ"
           value={value.category ?? ""}
           onChange={handleCategoryChange}
-          className="w-full border border-gray-300 rounded px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#00d1b2]"
+          className="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-slate-900 focus:outline-none focus:border-[#00d1b2] transition-colors bg-white"
         >
           <option value="">全部</option>
           {CATEGORIES.map((cat) => (
@@ -99,11 +99,11 @@ export default function FilterBar({
           aria-checked={viewMode === "simple"}
           aria-label="表示モード"
           onClick={toggleViewMode}
-          className="relative inline-flex items-center rounded-full bg-gray-200 p-1"
+          className="relative inline-flex items-center rounded-xl bg-slate-100 p-1"
         >
           <span
             aria-hidden="true"
-            className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-[#00d1b2] transition-transform duration-200 ease-out ${
+            className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-0.25rem)] rounded-lg bg-[#00d1b2] transition-transform duration-200 ease-out ${
               viewMode === "simple" ? "translate-x-full" : "translate-x-0"
             }`}
           />
