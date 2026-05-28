@@ -50,6 +50,8 @@ jobs:
           platforms: linux/amd64
           provenance: false
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ${{ steps.image.outputs.uri }}
             ${{ steps.image.outputs.registry }}/${{ steps.image.outputs.repo }}:latest

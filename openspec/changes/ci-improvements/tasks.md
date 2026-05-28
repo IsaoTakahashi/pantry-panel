@@ -30,7 +30,7 @@
 
 ## 5. Docker buildx layer cache の追加
 
-- [ ] 5.1 (この時点では deploy-backend.yml と preview-backend.yml はまだ別ファイル) 暫定的に両方の `docker/build-push-action` に `cache-from: type=gha` / `cache-to: type=gha,mode=max` を追加する。**Section 7 で reusable workflow に統合した後、その reusable に集約**
+- [x] 5.1 (この時点では deploy-backend.yml と preview-backend.yml はまだ別ファイル) 暫定的に両方の `docker/build-push-action` に `cache-from: type=gha` / `cache-to: type=gha,mode=max` を追加する。**Section 7 で reusable workflow に統合した後、その reusable に集約**
 
 ## 6. dependabot.yml の作成
 
