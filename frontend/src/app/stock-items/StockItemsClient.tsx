@@ -22,13 +22,19 @@ import { useStockItemsRealtime } from "@/lib/useStockItemsRealtime";
 import type { StockItem } from "@/types/stockItem";
 import StockItemsSkeleton from "./StockItemsSkeleton";
 
-const CreateItemModal = dynamic(() => import("@/components/CreateItemModal"));
-const EditItemModal = dynamic(() => import("@/components/EditItemModal"));
+const CreateItemModal = dynamic(() => import("@/components/CreateItemModal"), {
+  ssr: false,
+});
+const EditItemModal = dynamic(() => import("@/components/EditItemModal"), {
+  ssr: false,
+});
 const ImageSelectionModal = dynamic(
   () => import("@/components/ImageSelectionModal"),
+  { ssr: false },
 );
 const UrlRegistrationModal = dynamic(
   () => import("@/components/UrlRegistrationModal"),
+  { ssr: false },
 );
 
 export default function StockItemsClient() {
