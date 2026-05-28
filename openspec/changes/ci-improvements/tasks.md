@@ -1,10 +1,10 @@
 ## 1. permissions の明示 (最小権限化)
 
-- [ ] 1.1 `.github/workflows/ci.yml` の top-level に `permissions: { contents: read }` を追加する
-- [ ] 1.2 `.github/workflows/e2e.yml` の top-level に `permissions: { contents: read }` を追加する
-- [ ] 1.3 `.github/workflows/keep-warm.yml` の top-level に `permissions: {}` を追加する
-- [ ] 1.4 `.github/workflows/learning.yml` の top-level に `permissions: { contents: read }` を追加する
-- [ ] 1.5 deploy-backend.yml / preview-backend.yml / e2e-preview.yml は既に permissions が明示されているため変更なしを確認
+- [x] 1.1 `.github/workflows/ci.yml` の top-level に `permissions: { contents: read }` を追加する
+- [x] 1.2 `.github/workflows/e2e.yml` の top-level に `permissions: { contents: read }` を追加する
+- [x] 1.3 `.github/workflows/keep-warm.yml` の top-level に `permissions: {}` を追加する
+- [x] 1.4 `.github/workflows/learning.yml` の top-level に `permissions: { contents: read }` を追加する
+- [x] 1.5 deploy-backend.yml / preview-backend.yml / e2e-preview.yml は既に permissions が明示されているため変更なしを確認
 
 ## 2. concurrency ブロックの追加
 
