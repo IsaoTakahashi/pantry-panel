@@ -17,7 +17,7 @@
 
 ## 3. ci.yml の Go module cache 有効化
 
-- [ ] 3.1 ci.yml の backend job の `actions/setup-go@v5` step に `cache: true` を追加する
+- [x] 3.1 ci.yml の backend job の `actions/setup-go@v5` step に `cache: true` を追加する
 
 ## 4. ci.yml の paths-filter 導入
 
