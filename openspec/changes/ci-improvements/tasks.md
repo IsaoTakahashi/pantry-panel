@@ -21,12 +21,12 @@
 
 ## 4. ci.yml の paths-filter 導入
 
-- [ ] 4.1 `dorny/paths-filter@v3` を使う `changes` job を ci.yml の最初に追加する
+- [x] 4.1 `dorny/paths-filter@v3` を使う `changes` job を ci.yml の最初に追加する
   - `filters:` に `frontend: ['frontend/**', '.github/workflows/ci.yml']` と `backend: ['backend/**', '.github/workflows/ci.yml']` を定義
   - `outputs: { frontend, backend }` を expose
-- [ ] 4.2 `frontend` job に `needs: changes` と `if: needs.changes.outputs.frontend == 'true'` を追加する
-- [ ] 4.3 `backend` job に `needs: changes` と `if: needs.changes.outputs.backend == 'true'` を追加する
-- [ ] 4.4 (検証) main への push (`pull_request` ではない) 時も全 job が走るよう `if:` を `github.event_name == 'push' || needs.changes.outputs.<area> == 'true'` 形式にする
+- [x] 4.2 `frontend` job に `needs: changes` と `if: needs.changes.outputs.frontend == 'true'` を追加する
+- [x] 4.3 `backend` job に `needs: changes` と `if: needs.changes.outputs.backend == 'true'` を追加する
+- [x] 4.4 (検証) main への push (`pull_request` ではない) 時も全 job が走るよう `if:` を `github.event_name == 'push' || needs.changes.outputs.<area> == 'true'` 形式にする
 
 ## 5. Docker buildx layer cache の追加
 
