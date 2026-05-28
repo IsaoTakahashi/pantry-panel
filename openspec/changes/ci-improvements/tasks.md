@@ -60,9 +60,9 @@
 
 ## 8. ドキュメント: Lambda resource policy 修正手順
 
-- [ ] 8.1 `openspec/changes/ci-improvements/design.md` の Migration Plan セクションを再確認 (既に記載済み)
-- [ ] 8.2 `.claude/rules/backend.md` (もしくは関連 doc) に「Lambda Function URL の resource policy は `lambda:InvokeFunctionUrl` のみで十分。`lambda:InvokeFunction` は不要」と追記する
-- [ ] 8.3 マージ後の手動 apply 手順を README または design.md に明記 (`aws lambda remove-permission` コマンド例)
+- [x] 8.1 `openspec/changes/ci-improvements/design.md` の Migration Plan セクションを再確認 (既に記載済み)
+- [x] 8.2 `.claude/rules/backend.md` (もしくは関連 doc) に「Lambda Function URL の resource policy は `lambda:InvokeFunctionUrl` のみで十分。`lambda:InvokeFunction` は不要」と追記する
+- [x] 8.3 マージ後の手動 apply 手順を README または design.md に明記 (`aws lambda remove-permission` コマンド例)
 
 ## 9. ローカル検証と E2E
 

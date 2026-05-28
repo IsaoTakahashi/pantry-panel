@@ -67,7 +67,38 @@ main への push で **`.github/workflows/deploy-backend.yml`** が自動実行�
 4. **Lambda Function**: container image source、Memory 512 MB、Timeout 30s、`x86_64`、IAM Role: `pantry-panel-lambda-role`
 5. **環境変数 (Lambda)**: `PORT=8080`、`AWS_LWA_PORT=8080`、`AWS_LWA_READINESS_CHECK_PATH=/health`、`CORS_ALLOWED_ORIGINS=...`、`DATABASE_URL=<pooler URL>`、`GOOGLE_CSE_API_KEY`、`GOOGLE_CSE_ID`（いずれも KMS で暗号化保存）。`CORS_ALLOWED_ORIGINS` は **wildcard `*` 対応**（`*` は `.` を跨がない）。Vercel preview URL は `https://pantry-panel-*-rictons-projects.vercel.app` のようにパターンで指定する。`GOOGLE_CSE_*` 未設定時は `/api/image-search` のみ 503 を返し、他の機能は動作する
 6. **Function URL**: AuthType=NONE、CORS は **空 `{}`**（Echo の CORS middleware に一本化）
-7. **resource policy**: `lambda:InvokeFunctionUrl` + `lambda:InvokeFunction` の両方を Principal `*` に許可（過剰権限の TODO あり、後日強化予定）
+7. **resource policy**: 公開アクセスは **`lambda:InvokeFunctionUrl` のみで十分**。`lambda:InvokeFunction` (Principal `*`) は不要なので削除する。Function URL 経由のリクエストは `InvokeFunctionUrl` 権限で評価されるため、`InvokeFunction` を Principal `*` に許可すると過剰権限となる。
+
+   旧 statement (`lambda:InvokeFunction` の Principal `*`) を削除する手順:
+
+   ```bash
+   # 1. 現在の policy を確認 (statement Sid を控える)
+   aws lambda get-policy \
+     --function-name pantry-panel-backend \
+     --region ap-northeast-1 \
+     --query 'Policy' --output text | jq .
+
+   # 2. 該当 statement を Sid 指定で削除 (例: Sid="FunctionURLAllowPublicAccess")
+   aws lambda remove-permission \
+     --function-name pantry-panel-backend \
+     --statement-id <該当 Sid> \
+     --region ap-northeast-1
+
+   # 3. 削除後、Function URL の /health が 200 を返すことを確認
+   curl -fsS "$(aws lambda get-function-url-config \
+     --function-name pantry-panel-backend \
+     --region ap-northeast-1 --query FunctionUrl --output text)health"
+
+   # 4. もし 403 になった場合 (rollback)
+   aws lambda add-permission \
+     --function-name pantry-panel-backend \
+     --statement-id FunctionURLAllowPublicAccess \
+     --action lambda:InvokeFunction \
+     --principal '*' \
+     --region ap-northeast-1
+   ```
+
+   preview Lambda (`pantry-panel-backend-preview`) も同じ手順で適用する。なお `InvokeFunctionUrl` の statement (AuthType=NONE 用) は残すこと。
 
 ### 手動デプロイ（trouble shoot 時）
 

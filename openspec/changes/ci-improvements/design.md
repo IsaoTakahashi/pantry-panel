@@ -96,6 +96,27 @@ GitHub Actions の構成は action のバージョン (`actions/checkout@v6`, `s
 - workflow 変更: revert commit を main に push
 - IAM 変更: `aws lambda add-permission --action lambda:InvokeFunction --principal '*' ...` で復元
 
+### Post-merge manual apply: Lambda resource policy 修正
+
+PR マージ後、ユーザーが以下の手順で本番 / preview Lambda の resource policy から `lambda:InvokeFunction` (Principal `*`) を削除する。詳細手順とロールバックは `.claude/rules/backend.md` 7 項を参照。
+
+```bash
+# 1. 現状確認
+aws lambda get-policy --function-name pantry-panel-backend \
+  --region ap-northeast-1 --query 'Policy' --output text | jq .
+
+# 2. lambda:InvokeFunction の Principal=* の statement を削除
+aws lambda remove-permission \
+  --function-name pantry-panel-backend \
+  --statement-id <該当 Sid> \
+  --region ap-northeast-1
+
+# 3. 200 確認 (失敗時は backend.md のロールバック手順)
+curl -fsS "https://<function-url>/health"
+```
+
+preview Lambda (`pantry-panel-backend-preview`) も同様に処理する。
+
 ## Open Questions
 
 - なし (Lambda resource policy 変更は本 PR ではドキュメント記載のみとし、実適用はマージ後の手動操作とする方針で合意済み)
