@@ -74,9 +74,9 @@
 
 ## 10. CI 確認 (PR 上)
 
-- [ ] 10.1 push 後、`gh pr checks --watch` で CI 結果を確認
-- [ ] 10.2 CI が全て green になるまで修正を続ける
-- [ ] 10.3 e2e.yml / e2e-preview.yml が引き続き走っていることを確認
+- [x] 10.1 push 後、`gh pr checks --watch` で CI 結果を確認
+- [x] 10.2 CI が全て green になるまで修正を続ける
+- [x] 10.3 e2e.yml / e2e-preview.yml が引き続き走っていることを確認
 
 ## 11. アーカイブ
 
