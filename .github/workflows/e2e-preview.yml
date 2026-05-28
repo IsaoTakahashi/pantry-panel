@@ -1,20 +1,46 @@
 name: E2E Preview
 
 on:
-  deployment_status:
+  pull_request:
+    branches: [main]
 
 permissions:
   actions: read
+  deployments: read
 
 jobs:
   e2e-preview:
-    if: >
-      github.event.deployment_status.state == 'success' &&
-      github.event.deployment.environment != 'Production'
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Wait for Vercel preview deployment
+        id: vercel
+        run: |
+          SHA="${{ github.event.pull_request.head.sha }}"
+          echo "Waiting for Vercel preview deployment for SHA: $SHA"
+          PREVIEW_URL=""
+          for i in $(seq 1 40); do
+            DEPLOY_ID=$(gh api "repos/${{ github.repository }}/deployments" \
+              --jq "[.[] | select(.sha==\"$SHA\" and (.environment | test(\"Preview\"; \"i\")))] | .[0].id // empty")
+            if [ -n "$DEPLOY_ID" ]; then
+              PREVIEW_URL=$(gh api "repos/${{ github.repository }}/deployments/$DEPLOY_ID/statuses" \
+                --jq "[.[] | select(.state==\"success\")] | .[0].environment_url // empty")
+              if [ -n "$PREVIEW_URL" ]; then
+                echo "preview_url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
+                echo "Vercel preview ready: $PREVIEW_URL"
+                break
+              fi
+            fi
+            echo "Attempt $i/40: not ready yet, waiting 15s..."
+            sleep 15
+          done
+          if [ -z "$PREVIEW_URL" ]; then
+            echo "Timed out waiting for Vercel preview (10 min)" && exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Wait for preview-backend if running
         run: |
@@ -76,7 +102,7 @@ jobs:
         run: npx playwright test --project=preview
         working-directory: frontend
         env:
-          PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
+          PREVIEW_URL: ${{ steps.vercel.outputs.preview_url }}
           PREVIEW_BACKEND_URL: ${{ vars.PREVIEW_LAMBDA_FUNCTION_URL }}
           E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
           E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
