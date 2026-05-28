@@ -34,11 +34,11 @@
 
 ## 6. dependabot.yml の作成
 
-- [ ] 6.1 `.github/dependabot.yml` を新規作成
-- [ ] 6.2 npm (`/frontend`), gomod (`/backend`), github-actions (`/`), docker (`/backend`) の 4 ecosystem を定義
-- [ ] 6.3 各 entry に `schedule: { interval: weekly, day: monday, time: "09:00", timezone: "Asia/Tokyo" }` を設定
-- [ ] 6.4 各 entry に `open-pull-requests-limit: 5` を設定
-- [ ] 6.5 各 entry に `groups: { minor-and-patch: { update-types: ["minor", "patch"] } }` を設定 (major は個別 PR になる)
+- [x] 6.1 `.github/dependabot.yml` を新規作成
+- [x] 6.2 npm (`/frontend`), gomod (`/backend`), github-actions (`/`), docker (`/backend`) の 4 ecosystem を定義
+- [x] 6.3 各 entry に `schedule: { interval: weekly, day: monday, time: "09:00", timezone: "Asia/Tokyo" }` を設定
+- [x] 6.4 各 entry に `open-pull-requests-limit: 5` を設定
+- [x] 6.5 各 entry に `groups: { minor-and-patch: { update-types: ["minor", "patch"] } }` を設定 (major は個別 PR になる)
 
 ## 7. reusable workflow `_deploy-backend.yml` への抽出
 
