@@ -1,20 +1,52 @@
 name: E2E Preview
 
 on:
-  deployment_status:
+  pull_request:
+    branches: [main]
 
 permissions:
   actions: read
+  deployments: read
 
 jobs:
   e2e-preview:
-    if: >
-      github.event.deployment_status.state == 'success' &&
-      github.event.deployment.environment != 'Production'
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Wait for Vercel preview deployment
+        id: vercel
+        run: |
+          SHA="${{ github.event.pull_request.head.sha }}"
+          echo "Waiting for Vercel preview deployment for SHA: $SHA"
+          PREVIEW_URL=""
+          for i in $(seq 1 40); do
+            DEPLOYS=$(gh api "repos/${{ github.repository }}/deployments" 2>/dev/null) || DEPLOYS="[]"
+            DEPLOY_ID=$(echo "$DEPLOYS" | jq -r \
+              --arg sha "$SHA" \
+              '[.[] | select(.sha==$sha and (.environment | ascii_downcase | contains("preview")))] | .[0].id // ""')
+
+            if [ -n "$DEPLOY_ID" ] && [ "$DEPLOY_ID" != "null" ]; then
+              STATUSES=$(gh api "repos/${{ github.repository }}/deployments/$DEPLOY_ID/statuses" 2>/dev/null) || STATUSES="[]"
+              PREVIEW_URL=$(echo "$STATUSES" | jq -r \
+                '[.[] | select(.state=="success")] | .[0].environment_url // ""')
+
+              if [ -n "$PREVIEW_URL" ] && [ "$PREVIEW_URL" != "null" ]; then
+                echo "preview_url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
+                echo "Vercel preview ready: $PREVIEW_URL"
+                break
+              fi
+            fi
+
+            echo "Attempt $i/40: not ready yet, waiting 15s..."
+            sleep 15
+          done
+          if [ -z "$PREVIEW_URL" ]; then
+            echo "Timed out waiting for Vercel preview (10 min)" && exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Wait for preview-backend if running
         run: |
@@ -60,7 +92,15 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('frontend/package-lock.json') }}
+
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium
         working-directory: frontend
 
@@ -68,7 +108,7 @@ jobs:
         run: npx playwright test --project=preview
         working-directory: frontend
         env:
-          PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
+          PREVIEW_URL: ${{ steps.vercel.outputs.preview_url }}
           PREVIEW_BACKEND_URL: ${{ vars.PREVIEW_LAMBDA_FUNCTION_URL }}
           E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
           E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
