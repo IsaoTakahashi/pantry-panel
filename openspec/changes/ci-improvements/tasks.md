@@ -66,9 +66,9 @@
 
 ## 9. ローカル検証と E2E
 
-- [ ] 9.1 `actionlint` (もしくは `act`) で全 workflow が YAML としてパース可能なことを確認 (ローカルに actionlint があれば)
-- [ ] 9.2 reusable workflow の `uses: ./.github/workflows/_deploy-backend.yml` 参照が正しいことを `gh workflow list` / `gh workflow view _deploy-backend` で確認
-- [ ] 9.3 PR の CI 上で ci.yml の paths-filter が期待どおりに動くことを `gh run view` で確認 (`frontend` 変更のみ / `backend` 変更のみ / workflow 変更を含む の 3 ケース)
+- [x] 9.1 `actionlint` (もしくは `act`) で全 workflow が YAML としてパース可能なことを確認 (ローカルに actionlint があれば)
+- [x] 9.2 reusable workflow の `uses: ./.github/workflows/_deploy-backend.yml` 参照が正しいことを `gh workflow list` / `gh workflow view _deploy-backend` で確認
+- [x] 9.3 PR の CI 上で ci.yml の paths-filter が期待どおりに動くことを `gh run view` で確認 (`frontend` 変更のみ / `backend` 変更のみ / workflow 変更を含む の 3 ケース)
 
 ## 10. CI 確認 (PR 上)
 
