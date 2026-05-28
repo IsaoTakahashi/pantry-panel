@@ -42,21 +42,21 @@
 
 ## 7. reusable workflow `_deploy-backend.yml` への抽出
 
-- [ ] 7.1 `.github/workflows/_deploy-backend.yml` を新規作成
+- [x] 7.1 `.github/workflows/_deploy-backend.yml` を新規作成
   - `on: workflow_call:` で起動
   - `inputs:` に `image-tag-suffix` (string, required), `lambda-function-name` (string, required), `lambda-function-url` (string, required), `git-ref` (string, optional, default '') を定義
   - `permissions: { id-token: write, contents: read }` を明示
-- [ ] 7.2 reusable workflow に既存の `build-and-push` / `deploy` / `smoke-test` ロジックを移植 (Section 5 の cache 設定もここに集約)
+- [x] 7.2 reusable workflow に既存の `build-and-push` / `deploy` / `smoke-test` ロジックを移植 (Section 5 の cache 設定もここに集約)
   - checkout: `inputs.git-ref` が空でなければ `ref:` で参照
   - image tag: `${{ inputs.image-tag-suffix }}` を活用
-- [ ] 7.3 `.github/workflows/deploy-backend.yml` を書き換え
+- [x] 7.3 `.github/workflows/deploy-backend.yml` を書き換え
   - 既存のジョブを削除し、`uses: ./.github/workflows/_deploy-backend.yml` の呼び出しに変更
   - `with: { image-tag-suffix: latest, lambda-function-name: ${{ vars.LAMBDA_FUNCTION_NAME }}, lambda-function-url: ${{ vars.LAMBDA_FUNCTION_URL }} }` を渡す
   - `permissions: { id-token: write, contents: read }` は呼び出し側にも残す (継承のため)
-- [ ] 7.4 `.github/workflows/preview-backend.yml` を書き換え
+- [x] 7.4 `.github/workflows/preview-backend.yml` を書き換え
   - 既存のジョブを削除し、`uses: ./.github/workflows/_deploy-backend.yml` の呼び出しに変更
   - `with: { image-tag-suffix: pr-${{ github.event.pull_request.number }}, lambda-function-name: ${{ vars.PREVIEW_LAMBDA_FUNCTION_NAME }}, lambda-function-url: ${{ vars.PREVIEW_LAMBDA_FUNCTION_URL }}, git-ref: ${{ github.event.pull_request.head.sha }} }` を渡す
-- [ ] 7.5 PR の CI 上で reusable workflow がエラーなく解決されることを確認 (`gh workflow view`)
+- [x] 7.5 PR の CI 上で reusable workflow がエラーなく解決されることを確認 (`gh workflow view`)
 
 ## 8. ドキュメント: Lambda resource policy 修正手順
 
