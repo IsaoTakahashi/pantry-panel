@@ -8,6 +8,10 @@ permissions:
   actions: read
   deployments: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e-preview:
     runs-on: ubuntu-latest
