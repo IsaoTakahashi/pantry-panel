@@ -92,6 +92,11 @@ GitHub Actions の構成は action のバージョン (`actions/checkout@v6`, `s
 3. **Lambda resource policy 変更**: マージ後、ユーザーが AWS Console で resource policy から `lambda:InvokeFunction` の Principal `*` を削除。直後に `curl https://<function-url>/health` で 200 確認
 4. **dependabot 初回 PR の処理**: ユーザーが順次マージ判断
 
+### 副作用に注意 (post-merge で個別対応)
+
+- **GitHub branch protection の required status check 名が変化する**: reusable workflow への分解で deploy-backend / preview-backend の check 名が `build-and-push` / `deploy` / `smoke-test` から `deploy / build-and-push` / `deploy / deploy` / `deploy / smoke-test` (caller job 名 `deploy` を prefix) に変わる。現状 main の branch protection で当該 check を required にしていないため自動的な影響はないが、将来 required 化する際は新しい名前で登録する MUST。
+- **Preview の ECR タグ命名が `pr-preview` → `pr-<PR番号>` に変わる**: 旧コードは全 PR が同じ `pr-preview` タグを上書きしていたが、新コードは PR ごとに `pr-<N>` タグを付与する。Lambda は SHA tag (`${{ github.sha }}`) で deploy するため Lambda 側の挙動には影響しないが、ECR 上の旧 `pr-preview` タグはガベージとして残る (定期 lifecycle policy で消すか手動削除)。
+
 **Rollback**:
 - workflow 変更: revert commit を main に push
 - IAM 変更: `aws lambda add-permission --action lambda:InvokeFunction --principal '*' ...` で復元
