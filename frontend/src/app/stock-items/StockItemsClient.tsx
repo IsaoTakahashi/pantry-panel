@@ -1,17 +1,14 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MdLink, MdLogout } from "react-icons/md";
 import AuthGuard from "@/components/AuthGuard";
-import CreateItemModal from "@/components/CreateItemModal";
-import EditItemModal from "@/components/EditItemModal";
 import FilterBar from "@/components/FilterBar";
 import GroupSwitcher from "@/components/GroupSwitcher";
-import ImageSelectionModal from "@/components/ImageSelectionModal";
 import ItemCard from "@/components/ItemCard";
 import ItemCardSimple from "@/components/ItemCardSimple";
-import UrlRegistrationModal from "@/components/UrlRegistrationModal";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   createStockItem,
@@ -23,6 +20,16 @@ import { createGroup, updateGroupName } from "@/lib/authApi";
 import { type FilterCondition, filterStockItems } from "@/lib/filterStockItems";
 import { useStockItemsRealtime } from "@/lib/useStockItemsRealtime";
 import type { StockItem } from "@/types/stockItem";
+import StockItemsSkeleton from "./StockItemsSkeleton";
+
+const CreateItemModal = dynamic(() => import("@/components/CreateItemModal"));
+const EditItemModal = dynamic(() => import("@/components/EditItemModal"));
+const ImageSelectionModal = dynamic(
+  () => import("@/components/ImageSelectionModal"),
+);
+const UrlRegistrationModal = dynamic(
+  () => import("@/components/UrlRegistrationModal"),
+);
 
 export default function StockItemsClient() {
   const {
@@ -189,6 +196,8 @@ export default function StockItemsClient() {
       )
       .finally(() => setLoading(false));
   }, [authLoading, accessToken, activeGroupId]);
+
+  if (authLoading) return <StockItemsSkeleton />;
 
   return (
     <AuthGuard>
