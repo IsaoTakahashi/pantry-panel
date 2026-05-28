@@ -8,12 +8,12 @@
 
 ## 2. concurrency ブロックの追加
 
-- [ ] 2.1 `.github/workflows/ci.yml` に `concurrency: { group: ${{ github.workflow }}-${{ github.ref }}, cancel-in-progress: true }` を追加
-- [ ] 2.2 `.github/workflows/e2e.yml` に同様の concurrency を追加
-- [ ] 2.3 `.github/workflows/e2e-preview.yml` に同様の concurrency を追加
-- [ ] 2.4 `.github/workflows/learning.yml` に同様の concurrency を追加
-- [ ] 2.5 `.github/workflows/preview-backend.yml` に同様の concurrency を追加 (preview のみ、deploy-backend.yml は対象外)
-- [ ] 2.6 `.github/workflows/deploy-backend.yml` には concurrency を **付けない** ことを確認 (main の deploy を途中で止めないため)
+- [x] 2.1 `.github/workflows/ci.yml` に `concurrency: { group: ${{ github.workflow }}-${{ github.ref }}, cancel-in-progress: true }` を追加
+- [x] 2.2 `.github/workflows/e2e.yml` に同様の concurrency を追加
+- [x] 2.3 `.github/workflows/e2e-preview.yml` に同様の concurrency を追加
+- [x] 2.4 `.github/workflows/learning.yml` に同様の concurrency を追加
+- [x] 2.5 `.github/workflows/preview-backend.yml` に同様の concurrency を追加 (preview のみ、deploy-backend.yml は対象外)
+- [x] 2.6 `.github/workflows/deploy-backend.yml` には concurrency を **付けない** ことを確認 (main の deploy を途中で止めないため)
 
 ## 3. ci.yml の Go module cache 有効化
 
