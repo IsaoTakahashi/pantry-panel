@@ -61,7 +61,8 @@ main への push で **`.github/workflows/deploy-backend.yml`** が自動実行�
 
 要点:
 
-1. **Dockerfile**: `backend/Dockerfile` で multi-stage build。最終ステージに LWA レイヤをコピー (`COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter`)
+1. **Dockerfile**: `backend/Dockerfile` で multi-stage build。最終ステージに LWA レイヤをコピー (`COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter`)。
+   - **LWA のバージョン管理は手動**: Dependabot の `docker` ecosystem は `FROM` 命令のイメージは更新提案するが、`COPY --from=public.ecr.aws/...` で参照する ECR Public のイメージは現状サポート外。LWA の `v0.9.1` などのバージョンアップは定期的に [aws-lambda-adapter releases](https://github.com/awslabs/aws-lambda-web-adapter/releases) を確認して手動で bump する
 2. **ビルド**: GH Actions が `docker buildx build --platform linux/amd64 --provenance=false --push ...` を実行（Lambda 互換 manifest のため `--provenance=false` 必須）
 3. **ECR push**: `pantry-panel-backend` リポジトリ (`ap-northeast-1`)、タグは `${{ github.sha }}` と `latest`
 4. **Lambda Function**: container image source、Memory 512 MB、Timeout 30s、`x86_64`、IAM Role: `pantry-panel-lambda-role`

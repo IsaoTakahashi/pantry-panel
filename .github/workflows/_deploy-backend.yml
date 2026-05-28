@@ -21,6 +21,9 @@ on:
         type: string
         default: ""
 
+# NOTE: reusable workflow の permissions は caller の GITHUB_TOKEN 権限を狭めるだけで、
+# `id-token: write` を含む caller 側 permissions は **必ず caller 側にも明示する必要がある** (継承ではない)。
+# deploy-backend.yml / preview-backend.yml の top-level permissions を参照。
 permissions:
   id-token: write
   contents: read
