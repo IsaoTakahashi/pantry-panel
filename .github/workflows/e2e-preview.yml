@@ -22,17 +22,23 @@ jobs:
           echo "Waiting for Vercel preview deployment for SHA: $SHA"
           PREVIEW_URL=""
           for i in $(seq 1 40); do
-            DEPLOY_ID=$(gh api "repos/${{ github.repository }}/deployments" \
-              --jq "[.[] | select(.sha==\"$SHA\" and (.environment | test(\"Preview\"; \"i\")))] | .[0].id // empty")
-            if [ -n "$DEPLOY_ID" ]; then
-              PREVIEW_URL=$(gh api "repos/${{ github.repository }}/deployments/$DEPLOY_ID/statuses" \
-                --jq "[.[] | select(.state==\"success\")] | .[0].environment_url // empty")
-              if [ -n "$PREVIEW_URL" ]; then
+            DEPLOYS=$(gh api "repos/${{ github.repository }}/deployments" 2>/dev/null) || DEPLOYS="[]"
+            DEPLOY_ID=$(echo "$DEPLOYS" | jq -r \
+              --arg sha "$SHA" \
+              '[.[] | select(.sha==$sha and (.environment | ascii_downcase | contains("preview")))] | .[0].id // ""')
+
+            if [ -n "$DEPLOY_ID" ] && [ "$DEPLOY_ID" != "null" ]; then
+              STATUSES=$(gh api "repos/${{ github.repository }}/deployments/$DEPLOY_ID/statuses" 2>/dev/null) || STATUSES="[]"
+              PREVIEW_URL=$(echo "$STATUSES" | jq -r \
+                '[.[] | select(.state=="success")] | .[0].environment_url // ""')
+
+              if [ -n "$PREVIEW_URL" ] && [ "$PREVIEW_URL" != "null" ]; then
                 echo "preview_url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
                 echo "Vercel preview ready: $PREVIEW_URL"
                 break
               fi
             fi
+
             echo "Attempt $i/40: not ready yet, waiting 15s..."
             sleep 15
           done
