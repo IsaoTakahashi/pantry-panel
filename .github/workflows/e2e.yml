@@ -33,7 +33,10 @@ jobs:
         working-directory: frontend
 
       - name: Build backend
-        run: go build -o /tmp/pantry-backend .
+        # -buildvcs=false skips git VCS stamping. Inside the Playwright container
+        # the workspace owner differs from the process user, so `git status` fails
+        # with exit 128 ("dubious ownership"). We don't need VCS info in the test binary.
+        run: go build -buildvcs=false -o /tmp/pantry-backend .
         working-directory: backend
 
       - name: Start backend
