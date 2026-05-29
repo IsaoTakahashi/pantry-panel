@@ -131,7 +131,6 @@ describe("StockItemsPage", () => {
       .mockResolvedValueOnce(mockItems)
       .mockResolvedValueOnce([mockItems[1]]); // 削除後は味噌だけ
     vi.mocked(deleteStockItem).mockResolvedValue(undefined);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
 
     const user = userEvent.setup();
     render(<StockItemsPage />);
@@ -144,6 +143,9 @@ describe("StockItemsPage", () => {
     await user.click(
       within(shoyuArticle).getByRole("button", { name: "削除" }),
     );
+
+    // ConfirmDialog が表示されるので「確認」ボタンをクリック
+    await user.click(screen.getByRole("button", { name: "確認" }));
 
     await waitFor(() => {
       expect(deleteStockItem).toHaveBeenCalledWith(
@@ -159,7 +161,6 @@ describe("StockItemsPage", () => {
     const { fetchStockItems, deleteStockItem } = await import("@/lib/api");
     vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
     vi.mocked(deleteStockItem).mockResolvedValue(undefined);
-    vi.spyOn(window, "confirm").mockReturnValue(false);
 
     const user = userEvent.setup();
     render(<StockItemsPage />);
@@ -172,6 +173,9 @@ describe("StockItemsPage", () => {
     await user.click(
       within(shoyuArticle).getByRole("button", { name: "削除" }),
     );
+
+    // ConfirmDialog が表示されるので「キャンセル」ボタンをクリック
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
 
     expect(deleteStockItem).not.toHaveBeenCalled();
     expect(screen.getByText("醤油")).toBeInTheDocument();

@@ -70,7 +70,7 @@ describe("ItemCard", () => {
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "削除" }));
-    expect(onDelete).toHaveBeenCalledWith("1");
+    expect(onDelete).toHaveBeenCalledWith(baseItem);
   });
 
   it("カードをクリックすると onEdit が呼ばれる", async () => {
@@ -102,7 +102,7 @@ describe("ItemCard", () => {
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: "削除" }));
-    expect(onDelete).toHaveBeenCalledWith("1");
+    expect(onDelete).toHaveBeenCalledWith(baseItem);
     expect(onEdit).not.toHaveBeenCalled();
   });
 

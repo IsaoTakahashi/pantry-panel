@@ -2,25 +2,18 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { MdLink, MdLogout } from "react-icons/md";
 import AuthGuard from "@/components/AuthGuard";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import FilterBar from "@/components/FilterBar";
 import GroupSwitcher from "@/components/GroupSwitcher";
 import ItemCard from "@/components/ItemCard";
 import ItemCardSimple from "@/components/ItemCardSimple";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  createStockItem,
-  deleteStockItem,
-  fetchStockItems,
-  updateStockItem,
-} from "@/lib/api";
-import { createGroup, updateGroupName } from "@/lib/authApi";
 import { type FilterCondition, filterStockItems } from "@/lib/filterStockItems";
-import { useStockItemsRealtime } from "@/lib/useStockItemsRealtime";
-import type { StockItem } from "@/types/stockItem";
 import StockItemsSkeleton from "./StockItemsSkeleton";
+import { useStockItems } from "./useStockItems";
 
 const CreateItemModal = dynamic(() => import("@/components/CreateItemModal"), {
   ssr: false,
@@ -49,20 +42,36 @@ export default function StockItemsClient() {
   } = useAuth();
   const accessToken = session?.access_token;
   const activeGroupId = group?.groupId;
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [urlModalOpen, setUrlModalOpen] = useState(false);
-  const [prefill, setPrefill] = useState<{
-    name: string;
-    imageUrl: string | null;
-    sourceUrl: string | null;
-  }>({ name: "", imageUrl: null, sourceUrl: null });
-  const [items, setItems] = useState<StockItem[]>([]);
-  const [editingItem, setEditingItem] = useState<StockItem | null>(null);
-  const [imageEditingItem, setImageEditingItem] = useState<StockItem | null>(
-    null,
-  );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const {
+    items,
+    loading,
+    error,
+    isModalOpen,
+    urlModalOpen,
+    prefill,
+    editingItem,
+    imageEditingItem,
+    confirmDeleteItem,
+    handleCreate,
+    handleSave,
+    handleToggleWantToBuy,
+    handleDelete,
+    handleCancelDelete,
+    handleConfirmDelete,
+    handleOpenEdit,
+    handleCloseEdit,
+    handleOpenImageEdit,
+    handleImageSelect,
+    handleRenameGroup,
+    handleCreateNewGroup,
+    handleExtracted,
+    handleCloseCreateModal,
+    handleCloseImageEdit,
+    setIsModalOpen,
+    setUrlModalOpen,
+  } = useStockItems(accessToken, activeGroupId, refreshGroup, authLoading);
+
   const [filter, setFilter] = useState<FilterCondition>({
     searchText: "",
     wantToBuyOnly: false,
@@ -76,132 +85,6 @@ export default function StockItemsClient() {
   );
 
   const Card = viewMode === "simple" ? ItemCardSimple : ItemCard;
-
-  const handleCreate = async (
-    name: string,
-    category: string,
-    wantToBuy: boolean,
-    imageUrl: string | null,
-    sourceUrl: string | null,
-  ) => {
-    const created = await createStockItem(
-      { name, category, wantToBuy, sourceUrl: sourceUrl ?? undefined },
-      accessToken,
-      activeGroupId,
-    );
-    if (imageUrl) {
-      await updateStockItem(
-        created.id,
-        { imageUrl },
-        accessToken,
-        activeGroupId,
-      );
-    }
-    const data = await fetchStockItems(accessToken, activeGroupId);
-    setItems(data);
-  };
-
-  const handleOpenEdit = (item: StockItem) => {
-    setEditingItem(item);
-  };
-
-  const handleCloseEdit = () => {
-    setEditingItem(null);
-  };
-
-  const handleSave = async (name: string, category: string) => {
-    if (!editingItem) return;
-    await updateStockItem(
-      editingItem.id,
-      { name, category },
-      accessToken,
-      activeGroupId,
-    );
-    const data = await fetchStockItems(accessToken, activeGroupId);
-    setItems(data);
-  };
-
-  const handleToggleWantToBuy = async (item: StockItem) => {
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === item.id ? { ...i, wantToBuy: !item.wantToBuy } : i,
-      ),
-    );
-    await updateStockItem(
-      item.id,
-      { wantToBuy: !item.wantToBuy },
-      accessToken,
-      activeGroupId,
-    );
-    const data = await fetchStockItems(accessToken, activeGroupId);
-    setItems(data);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("この商品を削除しますか？")) return;
-    await deleteStockItem(id, accessToken, activeGroupId);
-    const data = await fetchStockItems(accessToken, activeGroupId);
-    setItems(data);
-  };
-
-  const handleOpenImageEdit = (item: StockItem) => {
-    setImageEditingItem(item);
-  };
-
-  const handleImageSelect = async (imageUrl: string | null) => {
-    if (!imageEditingItem) return;
-    await updateStockItem(
-      imageEditingItem.id,
-      { imageUrl },
-      accessToken,
-      activeGroupId,
-    );
-    setImageEditingItem(null);
-    const data = await fetchStockItems(accessToken, activeGroupId);
-    setItems(data);
-  };
-
-  const handleRenameGroup = async (groupId: string, name: string) => {
-    if (!accessToken || !activeGroupId) return;
-    await updateGroupName(groupId, name, accessToken, activeGroupId);
-    await refreshGroup();
-  };
-
-  const handleCreateNewGroup = async (name: string) => {
-    if (!accessToken) return;
-    await createGroup(name, accessToken);
-    await refreshGroup();
-  };
-
-  function handleExtracted(
-    name: string,
-    imageUrl: string | null,
-    sourceUrl: string,
-  ) {
-    setUrlModalOpen(false);
-    setPrefill({ name, imageUrl, sourceUrl });
-    setIsModalOpen(true);
-  }
-
-  const handleRealtimeChange = useCallback(() => {
-    fetchStockItems(accessToken, activeGroupId)
-      .then((data) => setItems(data))
-      .catch(() => {});
-  }, [accessToken, activeGroupId]);
-
-  useStockItemsRealtime(handleRealtimeChange);
-
-  useEffect(() => {
-    if (authLoading) return;
-    setLoading(true);
-    setError(null);
-    fetchStockItems(accessToken, activeGroupId)
-      .then((data) => setItems(data))
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Unknown error"),
-      )
-      .finally(() => setLoading(false));
-  }, [authLoading, accessToken, activeGroupId]);
 
   if (authLoading) return <StockItemsSkeleton />;
 
@@ -282,6 +165,12 @@ export default function StockItemsClient() {
                   </button>
                 </div>
               </div>
+              <ConfirmDialog
+                isOpen={!!confirmDeleteItem}
+                message={`「${confirmDeleteItem?.name}」を削除しますか？`}
+                onConfirm={handleConfirmDelete}
+                onCancel={handleCancelDelete}
+              />
               <CreateItemModal
                 isOpen={isModalOpen}
                 initialName={prefill.name || filter.searchText}
@@ -289,10 +178,7 @@ export default function StockItemsClient() {
                 initialWantToBuy={filter.wantToBuyOnly}
                 initialImageUrl={prefill.imageUrl}
                 initialSourceUrl={prefill.sourceUrl}
-                onClose={() => {
-                  setIsModalOpen(false);
-                  setPrefill({ name: "", imageUrl: null, sourceUrl: null });
-                }}
+                onClose={handleCloseCreateModal}
                 onCreate={handleCreate}
               />
               <UrlRegistrationModal
@@ -323,7 +209,7 @@ export default function StockItemsClient() {
                   }
                 }
                 isOpen={!!imageEditingItem}
-                onClose={() => setImageEditingItem(null)}
+                onClose={handleCloseImageEdit}
                 onSelect={handleImageSelect}
                 accessToken={accessToken}
                 activeGroupId={activeGroupId}

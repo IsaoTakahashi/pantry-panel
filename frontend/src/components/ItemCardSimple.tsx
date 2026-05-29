@@ -6,7 +6,7 @@ type ItemCardProps = {
   item: StockItem;
   onEdit: (item: StockItem) => void;
   onToggleWantToBuy: (item: StockItem) => void;
-  onDelete: (id: string) => void;
+  onDelete: (item: StockItem) => void;
   onImageEdit: (item: StockItem) => void;
 };
 
