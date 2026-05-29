@@ -17,12 +17,14 @@ type progressExtractor interface {
 	ExtractWithProgress(ctx context.Context, rawURL string, onProgress urlextract.ProgressFunc) (urlextract.Result, error)
 }
 
-type UrlExtractStreamHandler struct {
+// URLExtractStreamHandler handles streaming URL product extraction via SSE.
+type URLExtractStreamHandler struct {
 	extractor progressExtractor
 }
 
-func NewUrlExtractStreamHandler(extractor *urlextract.DefaultExtractor) *UrlExtractStreamHandler {
-	return &UrlExtractStreamHandler{extractor: extractor}
+// NewURLExtractStreamHandler creates a new URLExtractStreamHandler backed by the given extractor.
+func NewURLExtractStreamHandler(extractor *urlextract.DefaultExtractor) *URLExtractStreamHandler {
+	return &URLExtractStreamHandler{extractor: extractor}
 }
 
 type sseProgressData struct {
@@ -67,7 +69,8 @@ func writeErrorEvent(w http.ResponseWriter, kind, message, detail string) error 
 	return writeSSEEvent(w, "error", sseErrorData{Kind: kind, Message: message, Detail: detail})
 }
 
-func (h *UrlExtractStreamHandler) ExtractStream(c *echo.Context) error {
+// ExtractStream handles POST /api/extract-from-url/stream, streaming progress via SSE.
+func (h *URLExtractStreamHandler) ExtractStream(c *echo.Context) error {
 	var req ExtractFromURLRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, apierror.ErrorResponse{Message: "Invalid request body"})

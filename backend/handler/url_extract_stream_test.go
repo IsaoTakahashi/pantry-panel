@@ -29,7 +29,7 @@ func (m *mockProgressExtractor) ExtractWithProgress(_ context.Context, _ string,
 	return m.result, m.err
 }
 
-func setupStreamRouter(h *UrlExtractStreamHandler) *echo.Echo {
+func setupStreamRouter(h *URLExtractStreamHandler) *echo.Echo {
 	e := echo.New()
 	e.POST("/api/extract-from-url/stream", h.ExtractStream)
 	return e
@@ -74,7 +74,7 @@ func TestExtractStream_NormalPath_ProgressThenDone(t *testing.T) {
 		},
 		result: urlextract.Result{Name: "テスト商品", ImageURL: "https://example.com/img.jpg"},
 	}
-	h := &UrlExtractStreamHandler{extractor: mock}
+	h := &URLExtractStreamHandler{extractor: mock}
 	e := setupStreamRouter(h)
 
 	rec := postExtractStream(e, `{"url":"https://example.com/product"}`)
@@ -104,7 +104,7 @@ func TestExtractStream_ErrorPath_ErrorEventNoDone(t *testing.T) {
 		},
 		err: fmt.Errorf("connection refused: %w", urlextract.ErrFetchFailed),
 	}
-	h := &UrlExtractStreamHandler{extractor: mock}
+	h := &URLExtractStreamHandler{extractor: mock}
 	e := setupStreamRouter(h)
 
 	rec := postExtractStream(e, `{"url":"https://example.com/product"}`)
@@ -138,7 +138,7 @@ func TestExtractStream_WithCandidates_DoneIncludesCandidates(t *testing.T) {
 			NameCandidates: []string{"候補1", "候補2", "候補3"},
 		},
 	}
-	h := &UrlExtractStreamHandler{extractor: mock}
+	h := &URLExtractStreamHandler{extractor: mock}
 	e := setupStreamRouter(h)
 
 	rec := postExtractStream(e, `{"url":"https://example.com/product"}`)
@@ -162,7 +162,7 @@ func TestExtractStream_WithoutCandidates_DoneOmitsCandidates(t *testing.T) {
 	mock := &mockProgressExtractor{
 		result: urlextract.Result{Name: "牛乳", ImageURL: ""},
 	}
-	h := &UrlExtractStreamHandler{extractor: mock}
+	h := &URLExtractStreamHandler{extractor: mock}
 	e := setupStreamRouter(h)
 
 	rec := postExtractStream(e, `{"url":"https://example.com/product"}`)
@@ -182,7 +182,7 @@ func TestExtractStream_WithoutCandidates_DoneOmitsCandidates(t *testing.T) {
 }
 
 func TestExtractStream_EmptyURL_Returns400(t *testing.T) {
-	h := &UrlExtractStreamHandler{extractor: &mockProgressExtractor{}}
+	h := &URLExtractStreamHandler{extractor: &mockProgressExtractor{}}
 	e := setupStreamRouter(h)
 
 	rec := postExtractStream(e, `{"url":""}`)

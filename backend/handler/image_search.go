@@ -10,18 +10,22 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// ImageSearchHandler handles image search proxy endpoints.
 type ImageSearchHandler struct {
 	client imagesearch.Client
 }
 
+// NewImageSearchHandler creates a new ImageSearchHandler backed by the given client.
 func NewImageSearchHandler(client imagesearch.Client) *ImageSearchHandler {
 	return &ImageSearchHandler{client: client}
 }
 
+// ImageSearchResponse is the response body for image search results.
 type ImageSearchResponse struct {
 	Items []imagesearch.Result `json:"items"`
 }
 
+// Search handles GET /api/image-search.
 func (h *ImageSearchHandler) Search(c *echo.Context) error {
 	if h.client == nil {
 		return c.JSON(http.StatusServiceUnavailable, apierror.ErrorResponse{Message: "image search is not configured"})

@@ -17,7 +17,7 @@ type mockPinger struct {
 	err error
 }
 
-func (m *mockPinger) Ping(ctx context.Context) error {
+func (m *mockPinger) Ping(_ context.Context) error {
 	return m.err
 }
 

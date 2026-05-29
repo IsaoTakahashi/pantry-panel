@@ -1,3 +1,4 @@
+// Package main is the entry point for the Pantry Panel backend API server.
 package main
 
 import (
@@ -9,13 +10,13 @@ import (
 	"regexp"
 	"strings"
 
-	keyfunc "github.com/MicahParks/keyfunc/v3"
 	"github.com/IsaoTakahashi/pantry-panel/backend/db"
 	"github.com/IsaoTakahashi/pantry-panel/backend/handler"
 	"github.com/IsaoTakahashi/pantry-panel/backend/imagesearch"
 	jwtmiddleware "github.com/IsaoTakahashi/pantry-panel/backend/middleware"
 	"github.com/IsaoTakahashi/pantry-panel/backend/repository"
 	"github.com/IsaoTakahashi/pantry-panel/backend/urlextract"
+	keyfunc "github.com/MicahParks/keyfunc/v3"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 )
@@ -54,8 +55,8 @@ func main() {
 	}
 	imageSearchHandler := handler.NewImageSearchHandler(imageClient)
 	defaultExtractor := urlextract.NewDefaultExtractor()
-	urlExtractHandler := handler.NewUrlExtractHandler(defaultExtractor)
-	urlExtractStreamHandler := handler.NewUrlExtractStreamHandler(defaultExtractor)
+	urlExtractHandler := handler.NewURLExtractHandler(defaultExtractor)
+	urlExtractStreamHandler := handler.NewURLExtractStreamHandler(defaultExtractor)
 
 	noopMW := func(next echo.HandlerFunc) echo.HandlerFunc { return next }
 	jwtGroupMW := echo.MiddlewareFunc(noopMW)
@@ -97,7 +98,7 @@ func main() {
 
 	e := echo.New()
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		UnsafeAllowOriginFunc: func(c *echo.Context, origin string) (string, bool, error) {
+		UnsafeAllowOriginFunc: func(_ *echo.Context, origin string) (string, bool, error) {
 			if matcher(origin) {
 				return origin, true, nil
 			}

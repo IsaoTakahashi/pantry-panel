@@ -1,3 +1,4 @@
+// Package middleware provides Echo middleware for JWT authentication and group authorization.
 package middleware
 
 import (
@@ -13,18 +14,21 @@ import (
 
 const authInfoKey = "authInfo"
 
+// AuthInfo holds the authenticated user's identity and active group membership.
 type AuthInfo struct {
 	UserID  uuid.UUID
 	GroupID uuid.UUID // アクティブグループ未設定なら uuid.Nil
 	Role    string    // アクティブグループ未設定なら ""
 }
 
+// JWTAuthConfig holds the configuration for the JWT authentication middleware.
 type JWTAuthConfig struct {
 	KeyFunc      jwt.Keyfunc
 	GroupRepo    repository.GroupRepository
 	RequireGroup bool
 }
 
+// NewJWTAuth returns an Echo middleware that validates Bearer JWT tokens and optionally enforces group membership.
 func NewJWTAuth(cfg JWTAuthConfig) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
@@ -91,6 +95,7 @@ func NewJWTAuth(cfg JWTAuthConfig) echo.MiddlewareFunc {
 	}
 }
 
+// GetAuthInfo retrieves the AuthInfo stored in the Echo context by the JWT middleware.
 func GetAuthInfo(c *echo.Context) (*AuthInfo, bool) {
 	v, ok := c.Get(authInfoKey).(*AuthInfo)
 	return v, ok

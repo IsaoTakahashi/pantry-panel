@@ -10,25 +10,30 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
-type UrlExtractHandler struct {
+// URLExtractHandler handles URL product extraction endpoints.
+type URLExtractHandler struct {
 	extractor urlextract.Extractor
 }
 
-func NewUrlExtractHandler(extractor urlextract.Extractor) *UrlExtractHandler {
-	return &UrlExtractHandler{extractor: extractor}
+// NewURLExtractHandler creates a new URLExtractHandler backed by the given extractor.
+func NewURLExtractHandler(extractor urlextract.Extractor) *URLExtractHandler {
+	return &URLExtractHandler{extractor: extractor}
 }
 
+// ExtractFromURLRequest is the request body for extracting product info from a URL.
 type ExtractFromURLRequest struct {
 	URL string `json:"url"`
 }
 
+// ExtractFromURLResponse is the response body for URL extraction results.
 type ExtractFromURLResponse struct {
 	Name           string   `json:"name"`
-	ImageURL       *string  `json:"imageUrl"`           // null when empty
+	ImageURL       *string  `json:"imageUrl"` // null when empty
 	NameCandidates []string `json:"nameCandidates,omitempty"`
 }
 
-func (h *UrlExtractHandler) Extract(c *echo.Context) error {
+// Extract handles POST /api/extract-from-url.
+func (h *URLExtractHandler) Extract(c *echo.Context) error {
 	var req ExtractFromURLRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, apierror.ErrorResponse{Message: "Invalid request body"})

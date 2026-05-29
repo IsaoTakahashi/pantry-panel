@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// CreateStockItemRequest is the request body for creating a stock item.
 type CreateStockItemRequest struct {
 	Name      string  `json:"name"`
 	Category  string  `json:"category"`
@@ -22,6 +23,7 @@ type CreateStockItemRequest struct {
 	SourceURL *string `json:"sourceUrl"`
 }
 
+// UpdateStockItemRequest is the request body for updating a stock item.
 type UpdateStockItemRequest struct {
 	Name      *string         `json:"name"`
 	Category  *string         `json:"category"`
@@ -29,14 +31,17 @@ type UpdateStockItemRequest struct {
 	ImageURL  json.RawMessage `json:"imageUrl"`
 }
 
+// StockItemHandler handles stock item CRUD endpoints.
 type StockItemHandler struct {
 	repo repository.StockItemRepository
 }
 
+// NewStockItemHandler creates a new StockItemHandler backed by the given repository.
 func NewStockItemHandler(repo repository.StockItemRepository) *StockItemHandler {
 	return &StockItemHandler{repo: repo}
 }
 
+// List handles GET /api/stock-items.
 func (h *StockItemHandler) List(c *echo.Context) error {
 	authInfo, ok := middleware.GetAuthInfo(c)
 	if !ok {
@@ -49,6 +54,7 @@ func (h *StockItemHandler) List(c *echo.Context) error {
 	return c.JSON(http.StatusOK, items)
 }
 
+// Create handles POST /api/stock-items.
 func (h *StockItemHandler) Create(c *echo.Context) error {
 	authInfo, ok := middleware.GetAuthInfo(c)
 	if !ok {
@@ -76,6 +82,7 @@ func (h *StockItemHandler) Create(c *echo.Context) error {
 	return c.JSON(http.StatusCreated, item)
 }
 
+// Update handles PATCH /api/stock-items/:id.
 func (h *StockItemHandler) Update(c *echo.Context) error {
 	authInfo, ok := middleware.GetAuthInfo(c)
 	if !ok {
@@ -138,6 +145,7 @@ func parseImageURLPatch(raw json.RawMessage) (*repository.ImageURLUpdate, error)
 	return &repository.ImageURLUpdate{Value: &s}, nil
 }
 
+// Delete handles DELETE /api/stock-items/:id.
 func (h *StockItemHandler) Delete(c *echo.Context) error {
 	authInfo, ok := middleware.GetAuthInfo(c)
 	if !ok {

@@ -1,3 +1,4 @@
+// Package handler implements HTTP handlers for the Pantry Panel API.
 package handler
 
 import (
@@ -12,22 +13,27 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+// GroupHandler handles group management endpoints.
 type GroupHandler struct {
 	repo repository.GroupRepository
 }
 
+// NewGroupHandler creates a new GroupHandler backed by the given repository.
 func NewGroupHandler(repo repository.GroupRepository) *GroupHandler {
 	return &GroupHandler{repo: repo}
 }
 
+// CreateGroupRequest is the request body for creating a group.
 type CreateGroupRequest struct {
 	Name string `json:"name"`
 }
 
+// UpdateGroupRequest is the request body for updating a group name.
 type UpdateGroupRequest struct {
 	Name string `json:"name"`
 }
 
+// CreateGroup handles POST /api/groups.
 func (h *GroupHandler) CreateGroup(c *echo.Context) error {
 	authInfo, ok := middleware.GetAuthInfo(c)
 	if !ok {
@@ -46,6 +52,7 @@ func (h *GroupHandler) CreateGroup(c *echo.Context) error {
 	return c.JSON(http.StatusCreated, group)
 }
 
+// GetMyGroups handles GET /api/groups/me.
 func (h *GroupHandler) GetMyGroups(c *echo.Context) error {
 	authInfo, ok := middleware.GetAuthInfo(c)
 	if !ok {
@@ -59,6 +66,7 @@ func (h *GroupHandler) GetMyGroups(c *echo.Context) error {
 	return c.JSON(http.StatusOK, memberships)
 }
 
+// UpdateGroup handles PATCH /api/groups/:id.
 func (h *GroupHandler) UpdateGroup(c *echo.Context) error {
 	authInfo, ok := middleware.GetAuthInfo(c)
 	if !ok {
@@ -92,6 +100,7 @@ func (h *GroupHandler) UpdateGroup(c *echo.Context) error {
 	return c.JSON(http.StatusOK, group)
 }
 
+// CreateInvitation handles POST /api/invitations.
 func (h *GroupHandler) CreateInvitation(c *echo.Context) error {
 	authInfo, ok := middleware.GetAuthInfo(c)
 	if !ok {
@@ -109,6 +118,7 @@ func (h *GroupHandler) CreateInvitation(c *echo.Context) error {
 	return c.JSON(http.StatusCreated, inv)
 }
 
+// AcceptInvitation handles POST /api/invitations/:token/accept.
 func (h *GroupHandler) AcceptInvitation(c *echo.Context) error {
 	authInfo, ok := middleware.GetAuthInfo(c)
 	if !ok {

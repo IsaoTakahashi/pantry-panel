@@ -1,0 +1,22 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - revive
+  disable:
+    - exhaustruct
+    - wrapcheck
+  settings:
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true
+        - name: exported
+          disabled: true
+        - name: unused-parameter
+          disabled: true
+
+formatters:
+  enable:
+    - goimports

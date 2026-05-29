@@ -23,7 +23,7 @@ func (m *mockExtractor) Extract(_ context.Context, _ string) (urlextract.Result,
 	return m.result, m.err
 }
 
-func setupUrlExtractRouter(h *UrlExtractHandler) *echo.Echo {
+func setupURLExtractRouter(h *URLExtractHandler) *echo.Echo {
 	e := echo.New()
 	e.POST("/api/extract-from-url", h.Extract)
 	return e
@@ -39,10 +39,10 @@ func postExtractFromURL(e *echo.Echo, body string) *httptest.ResponseRecorder {
 
 func TestUrlExtract_200_withImage(t *testing.T) {
 	imageURL := "https://example.com/img.jpg"
-	h := NewUrlExtractHandler(&mockExtractor{
+	h := NewURLExtractHandler(&mockExtractor{
 		result: urlextract.Result{Name: "牛乳", ImageURL: imageURL},
 	})
-	e := setupUrlExtractRouter(h)
+	e := setupURLExtractRouter(h)
 
 	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
 
@@ -55,10 +55,10 @@ func TestUrlExtract_200_withImage(t *testing.T) {
 }
 
 func TestUrlExtract_200_noImage(t *testing.T) {
-	h := NewUrlExtractHandler(&mockExtractor{
+	h := NewURLExtractHandler(&mockExtractor{
 		result: urlextract.Result{Name: "牛乳", ImageURL: ""},
 	})
-	e := setupUrlExtractRouter(h)
+	e := setupURLExtractRouter(h)
 
 	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
 
@@ -70,14 +70,14 @@ func TestUrlExtract_200_noImage(t *testing.T) {
 }
 
 func TestUrlExtract_200_withCandidates(t *testing.T) {
-	h := NewUrlExtractHandler(&mockExtractor{
+	h := NewURLExtractHandler(&mockExtractor{
 		result: urlextract.Result{
 			Name:           "長い商品名テストサンプル二十五文字以上",
 			ImageURL:       "https://example.com/img.jpg",
 			NameCandidates: []string{"候補A", "候補B"},
 		},
 	})
-	e := setupUrlExtractRouter(h)
+	e := setupURLExtractRouter(h)
 
 	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
 
@@ -88,10 +88,10 @@ func TestUrlExtract_200_withCandidates(t *testing.T) {
 }
 
 func TestUrlExtract_200_noCandidates(t *testing.T) {
-	h := NewUrlExtractHandler(&mockExtractor{
+	h := NewURLExtractHandler(&mockExtractor{
 		result: urlextract.Result{Name: "牛乳", ImageURL: ""},
 	})
-	e := setupUrlExtractRouter(h)
+	e := setupURLExtractRouter(h)
 
 	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
 
@@ -103,8 +103,8 @@ func TestUrlExtract_200_noCandidates(t *testing.T) {
 }
 
 func TestUrlExtract_400_emptyBody(t *testing.T) {
-	h := NewUrlExtractHandler(&mockExtractor{})
-	e := setupUrlExtractRouter(h)
+	h := NewURLExtractHandler(&mockExtractor{})
+	e := setupURLExtractRouter(h)
 
 	rec := postExtractFromURL(e, ``)
 
@@ -112,8 +112,8 @@ func TestUrlExtract_400_emptyBody(t *testing.T) {
 }
 
 func TestUrlExtract_400_emptyURL(t *testing.T) {
-	h := NewUrlExtractHandler(&mockExtractor{})
-	e := setupUrlExtractRouter(h)
+	h := NewURLExtractHandler(&mockExtractor{})
+	e := setupURLExtractRouter(h)
 
 	rec := postExtractFromURL(e, `{"url":""}`)
 
@@ -121,8 +121,8 @@ func TestUrlExtract_400_emptyURL(t *testing.T) {
 }
 
 func TestUrlExtract_422_extractionFailed(t *testing.T) {
-	h := NewUrlExtractHandler(&mockExtractor{err: urlextract.ErrExtractionFailed})
-	e := setupUrlExtractRouter(h)
+	h := NewURLExtractHandler(&mockExtractor{err: urlextract.ErrExtractionFailed})
+	e := setupURLExtractRouter(h)
 
 	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
 
@@ -130,8 +130,8 @@ func TestUrlExtract_422_extractionFailed(t *testing.T) {
 }
 
 func TestUrlExtract_502_fetchFailed(t *testing.T) {
-	h := NewUrlExtractHandler(&mockExtractor{err: urlextract.ErrFetchFailed})
-	e := setupUrlExtractRouter(h)
+	h := NewURLExtractHandler(&mockExtractor{err: urlextract.ErrFetchFailed})
+	e := setupURLExtractRouter(h)
 
 	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
 

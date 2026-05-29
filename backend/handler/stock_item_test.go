@@ -70,7 +70,7 @@ func TestList_Success(t *testing.T) {
 		{ID: uuid.New(), Name: "味噌", Category: "調味料", WantToBuy: true, GroupID: testGroupID, CreatedAt: now, UpdatedAt: now},
 	}
 	mock := &mockStockItemRepo{
-		listFn: func(ctx context.Context, groupID uuid.UUID) ([]repository.StockItem, error) {
+		listFn: func(_ context.Context, groupID uuid.UUID) ([]repository.StockItem, error) {
 			assert.Equal(t, testGroupID, groupID)
 			return items, nil
 		},
@@ -94,7 +94,7 @@ func TestList_Success(t *testing.T) {
 func TestList_Success_Empty(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		listFn: func(ctx context.Context, groupID uuid.UUID) ([]repository.StockItem, error) {
+		listFn: func(_ context.Context, _ uuid.UUID) ([]repository.StockItem, error) {
 			return []repository.StockItem{}, nil
 		},
 	}
@@ -116,7 +116,7 @@ func TestList_Success_Empty(t *testing.T) {
 func TestList_RepoError(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		listFn: func(ctx context.Context, groupID uuid.UUID) ([]repository.StockItem, error) {
+		listFn: func(_ context.Context, _ uuid.UUID) ([]repository.StockItem, error) {
 			return nil, errors.New("repository error")
 		},
 	}
@@ -143,7 +143,7 @@ func TestCreate_Success(t *testing.T) {
 		UpdatedAt: now,
 	}
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*repository.StockItem, error) {
+		createFn: func(_ context.Context, groupID uuid.UUID, name, category string, _ *bool, _ *string) (*repository.StockItem, error) {
 			assert.Equal(t, testGroupID, groupID)
 			assert.Equal(t, "醤油", name)
 			assert.Equal(t, "調味料", category)
@@ -183,7 +183,7 @@ func TestCreate_WithWantToBuyTrue(t *testing.T) {
 		UpdatedAt: now,
 	}
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*repository.StockItem, error) {
+		createFn: func(_ context.Context, _ uuid.UUID, _, _ string, wantToBuy *bool, _ *string) (*repository.StockItem, error) {
 			require.NotNil(t, wantToBuy)
 			assert.True(t, *wantToBuy)
 			return expected, nil
@@ -209,7 +209,7 @@ func TestCreate_WithWantToBuyTrue(t *testing.T) {
 func TestCreate_EmptyName(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*repository.StockItem, error) {
+		createFn: func(_ context.Context, _ uuid.UUID, _, _ string, _ *bool, _ *string) (*repository.StockItem, error) {
 			return nil, nil
 		},
 	}
@@ -228,7 +228,7 @@ func TestCreate_EmptyName(t *testing.T) {
 func TestCreate_EmptyCategory(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*repository.StockItem, error) {
+		createFn: func(_ context.Context, _ uuid.UUID, _, _ string, _ *bool, _ *string) (*repository.StockItem, error) {
 			return nil, nil
 		},
 	}
@@ -247,7 +247,7 @@ func TestCreate_EmptyCategory(t *testing.T) {
 func TestCreate_DuplicateName(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		createFn: func(ctx context.Context, groupID uuid.UUID, name, category string, wantToBuy *bool, sourceURL *string) (*repository.StockItem, error) {
+		createFn: func(_ context.Context, _ uuid.UUID, _, _ string, _ *bool, _ *string) (*repository.StockItem, error) {
 			return nil, &pgconn.PgError{Code: "23505"}
 		},
 	}
@@ -276,7 +276,7 @@ func TestUpdate_Success(t *testing.T) {
 		UpdatedAt: now,
 	}
 	mock := &mockStockItemRepo{
-		updateFn: func(ctx context.Context, id uuid.UUID, groupID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
+		updateFn: func(_ context.Context, id uuid.UUID, groupID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
 			assert.Equal(t, expected.ID, id)
 			assert.Equal(t, testGroupID, groupID)
 			assert.Equal(t, "こいくち醤油", *params.Name)
@@ -311,7 +311,7 @@ func TestUpdate_ImageURL_SetValue(t *testing.T) {
 	testGroupID := uuid.New()
 	var captured repository.UpdateParams
 	mock := &mockStockItemRepo{
-		updateFn: func(ctx context.Context, gotID uuid.UUID, groupID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
+		updateFn: func(_ context.Context, gotID uuid.UUID, _ uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
 			captured = params
 			url := "https://example.com/a.jpg"
 			return &repository.StockItem{ID: gotID, Name: "醤油", Category: "調味料", GroupID: testGroupID, ImageURL: &url, CreatedAt: now, UpdatedAt: now}, nil
@@ -338,7 +338,7 @@ func TestUpdate_ImageURL_ExplicitNull(t *testing.T) {
 	testGroupID := uuid.New()
 	var captured repository.UpdateParams
 	mock := &mockStockItemRepo{
-		updateFn: func(ctx context.Context, gotID uuid.UUID, groupID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
+		updateFn: func(_ context.Context, gotID uuid.UUID, _ uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
 			captured = params
 			return &repository.StockItem{ID: gotID, Name: "醤油", Category: "調味料", GroupID: testGroupID, ImageURL: nil, CreatedAt: now, UpdatedAt: now}, nil
 		},
@@ -363,7 +363,7 @@ func TestUpdate_ImageURL_Unspecified(t *testing.T) {
 	testGroupID := uuid.New()
 	var captured repository.UpdateParams
 	mock := &mockStockItemRepo{
-		updateFn: func(ctx context.Context, gotID uuid.UUID, groupID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
+		updateFn: func(_ context.Context, gotID uuid.UUID, _ uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
 			captured = params
 			return &repository.StockItem{ID: gotID, Name: "x", Category: "★", GroupID: testGroupID, CreatedAt: now, UpdatedAt: now}, nil
 		},
@@ -384,7 +384,7 @@ func TestUpdate_ImageURL_Unspecified(t *testing.T) {
 func TestUpdate_ImageURL_InvalidType(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		updateFn: func(ctx context.Context, id uuid.UUID, groupID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
+		updateFn: func(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ repository.UpdateParams) (*repository.StockItem, error) {
 			t.Fatal("repo.Update should not be called on invalid imageUrl")
 			return nil, nil
 		},
@@ -404,7 +404,7 @@ func TestUpdate_ImageURL_InvalidType(t *testing.T) {
 func TestUpdate_InvalidID(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		updateFn: func(ctx context.Context, id uuid.UUID, groupID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
+		updateFn: func(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ repository.UpdateParams) (*repository.StockItem, error) {
 			return nil, nil
 		},
 	}
@@ -423,7 +423,7 @@ func TestUpdate_InvalidID(t *testing.T) {
 func TestUpdate_NotFound(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		updateFn: func(ctx context.Context, id uuid.UUID, groupID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
+		updateFn: func(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ repository.UpdateParams) (*repository.StockItem, error) {
 			return nil, pgx.ErrNoRows
 		},
 	}
@@ -442,7 +442,7 @@ func TestUpdate_NotFound(t *testing.T) {
 func TestUpdate_DuplicateName(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		updateFn: func(ctx context.Context, id uuid.UUID, groupID uuid.UUID, params repository.UpdateParams) (*repository.StockItem, error) {
+		updateFn: func(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ repository.UpdateParams) (*repository.StockItem, error) {
 			return nil, &pgconn.PgError{Code: "23505"}
 		},
 	}
@@ -461,7 +461,7 @@ func TestUpdate_DuplicateName(t *testing.T) {
 func TestDelete_Success(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		getFn: func(ctx context.Context, id uuid.UUID, groupID uuid.UUID) (*repository.StockItem, error) {
+		getFn: func(_ context.Context, id uuid.UUID, groupID uuid.UUID) (*repository.StockItem, error) {
 			assert.Equal(t, testGroupID, groupID)
 			return &repository.StockItem{
 				ID:        id,
@@ -471,7 +471,7 @@ func TestDelete_Success(t *testing.T) {
 				GroupID:   testGroupID,
 			}, nil
 		},
-		deleteFn: func(ctx context.Context, id uuid.UUID, groupID uuid.UUID) error {
+		deleteFn: func(_ context.Context, _ uuid.UUID, groupID uuid.UUID) error {
 			assert.Equal(t, testGroupID, groupID)
 			return nil
 		},
@@ -490,7 +490,7 @@ func TestDelete_Success(t *testing.T) {
 func TestDelete_InvalidID(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		deleteFn: func(ctx context.Context, id uuid.UUID, groupID uuid.UUID) error {
+		deleteFn: func(_ context.Context, _ uuid.UUID, _ uuid.UUID) error {
 			return nil
 		},
 	}
@@ -507,7 +507,7 @@ func TestDelete_InvalidID(t *testing.T) {
 func TestDelete_NotFound(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		getFn: func(ctx context.Context, id uuid.UUID, groupID uuid.UUID) (*repository.StockItem, error) {
+		getFn: func(_ context.Context, _ uuid.UUID, _ uuid.UUID) (*repository.StockItem, error) {
 			return nil, pgx.ErrNoRows
 		},
 	}
@@ -525,7 +525,7 @@ func TestDelete_NotFound(t *testing.T) {
 func TestDelete_WantToBuyTrue(t *testing.T) {
 	testGroupID := uuid.New()
 	mock := &mockStockItemRepo{
-		getFn: func(ctx context.Context, id uuid.UUID, groupID uuid.UUID) (*repository.StockItem, error) {
+		getFn: func(_ context.Context, id uuid.UUID, _ uuid.UUID) (*repository.StockItem, error) {
 			return &repository.StockItem{
 				ID:        id,
 				Name:      "醤油",
