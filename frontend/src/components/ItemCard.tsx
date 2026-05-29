@@ -6,7 +6,7 @@ type ItemCardProps = {
   item: StockItem;
   onEdit: (item: StockItem) => void;
   onToggleWantToBuy: (item: StockItem) => void;
-  onDelete: (id: string) => void;
+  onDelete: (item: StockItem) => void;
   onImageEdit: (item: StockItem) => void;
 };
 
@@ -80,7 +80,7 @@ export default function ItemCard({
         aria-label="削除"
         disabled={item.wantToBuy}
         className="w-9 h-9 rounded-xl bg-red-50 hover:bg-red-100 p-0 text-red-300 inline-flex items-center justify-center disabled:bg-slate-100 disabled:text-slate-200 disabled:cursor-not-allowed"
-        onClick={() => onDelete(item.id)}
+        onClick={() => onDelete(item)}
       >
         <MdDelete aria-hidden size={28} />
       </button>

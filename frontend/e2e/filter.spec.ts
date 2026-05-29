@@ -22,8 +22,11 @@ async function createItem(
 async function deleteItem(page: import("@playwright/test").Page, name: string) {
   const article = page.getByRole("article", { name });
   if (!(await article.isVisible())) return;
-  page.once("dialog", (d) => d.accept());
   await article.getByRole("button", { name: "削除" }).click();
+  // ConfirmDialog opens — click the confirm button
+  await page.getByRole("button", { name: "確認" }).click();
+  // Wait for exit animation to finish
+  await expect(page.getByRole("dialog")).not.toBeAttached();
   await expect(page.getByRole("article", { name })).not.toBeVisible();
 }
 
