@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/IsaoTakahashi/pantry-panel/backend/apierror"
@@ -76,7 +76,7 @@ func (h *UrlExtractStreamHandler) ExtractStream(c *echo.Context) error {
 		return c.JSON(http.StatusBadRequest, apierror.ErrorResponse{Message: "url is required"})
 	}
 
-	log.Printf("extract-from-url/stream: url=%s", req.URL)
+	slog.Info("extract-from-url/stream", "url", req.URL)
 
 	w := c.Response()
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -85,7 +85,7 @@ func (h *UrlExtractStreamHandler) ExtractStream(c *echo.Context) error {
 	w.WriteHeader(http.StatusOK)
 
 	result, err := h.extractor.ExtractWithProgress(c.Request().Context(), req.URL, func(step, message string) {
-		log.Printf("extract-from-url/stream: progress step=%s", step)
+		slog.Info("extract-from-url/stream progress", "step", step)
 		_ = writeProgressEvent(w, step, message)
 	})
 
@@ -99,12 +99,12 @@ func (h *UrlExtractStreamHandler) ExtractStream(c *echo.Context) error {
 			kind = "extractionFailed"
 			msg = "could not extract product name from page"
 		}
-		log.Printf("extract-from-url/stream: error kind=%s err=%v", kind, err)
+		slog.Error("extract-from-url/stream error", "kind", kind, "error", err)
 		_ = writeErrorEvent(w, kind, msg, err.Error())
 		return nil
 	}
 
-	log.Printf("extract-from-url/stream: done name=%q hasImage=%v", result.Name, result.ImageURL != "")
+	slog.Info("extract-from-url/stream done", "name", result.Name, "hasImage", result.ImageURL != "")
 	var imageURL *string
 	if result.ImageURL != "" {
 		imageURL = &result.ImageURL

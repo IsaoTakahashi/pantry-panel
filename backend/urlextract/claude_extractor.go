@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"unicode/utf8"
@@ -110,7 +110,7 @@ func (e *ClaudeExtractor) Extract(ctx context.Context, content string, meta Resu
 		}
 	}
 
-	log.Printf("claude: raw response=%q", responseText)
+	slog.Info("claude raw response", "response", responseText)
 
 	if responseText == "" {
 		return Result{}, nil
@@ -129,7 +129,7 @@ func (e *ClaudeExtractor) Extract(ctx context.Context, content string, meta Resu
 		ImageURL string `json:"imageUrl"`
 	}
 	if err := json.Unmarshal([]byte(responseText), &extracted); err != nil {
-		log.Printf("claude: json unmarshal error err=%v response=%q", err, responseText)
+		slog.Info("claude json unmarshal error", "error", err, "response", responseText)
 		return Result{}, nil
 	}
 
@@ -145,7 +145,7 @@ func (e *ClaudeExtractor) GenerateCandidates(ctx context.Context, name string) (
 	if e.generateFn != nil {
 		candidates, err := e.generateFn(ctx, name)
 		if err != nil {
-			log.Printf("claude: GenerateCandidates error (stub) err=%v", err)
+			slog.Info("claude GenerateCandidates error (stub)", "error", err)
 			return []string{}, nil
 		}
 		return candidates, nil
@@ -165,7 +165,7 @@ func (e *ClaudeExtractor) GenerateCandidates(ctx context.Context, name string) (
 		},
 	})
 	if err != nil {
-		log.Printf("claude: GenerateCandidates API error err=%v", err)
+		slog.Info("claude GenerateCandidates API error", "error", err)
 		return []string{}, nil
 	}
 
@@ -177,7 +177,7 @@ func (e *ClaudeExtractor) GenerateCandidates(ctx context.Context, name string) (
 		}
 	}
 
-	log.Printf("claude: GenerateCandidates raw response=%q", responseText)
+	slog.Info("claude GenerateCandidates raw response", "response", responseText)
 
 	if responseText == "" {
 		return []string{}, nil
@@ -193,7 +193,7 @@ func (e *ClaudeExtractor) GenerateCandidates(ctx context.Context, name string) (
 
 	var candidates []string
 	if err := json.Unmarshal([]byte(responseText), &candidates); err != nil {
-		log.Printf("claude: GenerateCandidates json unmarshal error err=%v response=%q", err, responseText)
+		slog.Info("claude GenerateCandidates json unmarshal error", "error", err, "response", responseText)
 		return []string{}, nil
 	}
 
