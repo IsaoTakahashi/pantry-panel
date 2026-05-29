@@ -260,6 +260,28 @@ describe("useStockItems", () => {
     });
   });
 
+  describe("handleImageSelect", () => {
+    it("handleImageSelect が API エラーで error をセットする", async () => {
+      vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+      vi.mocked(updateStockItem).mockRejectedValue(
+        new Error("画像の更新に失敗しました"),
+      );
+
+      const { result } = renderHook(() => useStockItems(...defaultArgs));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      act(() => {
+        result.current.handleOpenImageEdit(mockItems[0]);
+      });
+
+      await act(async () => {
+        await result.current.handleImageSelect("https://example.com/image.jpg");
+      });
+
+      expect(result.current.error).toBe("画像の更新に失敗しました");
+    });
+  });
+
   describe("handleRenameGroup", () => {
     it("handleRenameGroup が API エラーで error をセットする", async () => {
       vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
