@@ -13,27 +13,27 @@
 
 ## 3. slog 構造化ログを導入する
 
-- [ ] 3.1 `backend/main.go` の冒頭（`main()` 先頭）に `slog.SetDefault(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))` を追加する
-- [ ] 3.2 `main.go` の全 `log.Println` / `log.Fatal` を `slog.Info` / `slog.Error` + `os.Exit(1)` に置き換える（`log.Fatal` は `slog.Error` + `os.Exit(1)` で代替）
-- [ ] 3.3 他のファイルに `log.*` が残っていないか確認し、あれば `slog.*` に置き換える
-- [ ] 3.4 `go build ./...` が成功することを確認する
+- [x] 3.1 `backend/main.go` の冒頭（`main()` 先頭）に `slog.SetDefault(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))` を追加する
+- [x] 3.2 `main.go` の全 `log.Println` / `log.Fatal` を `slog.Info` / `slog.Error` + `os.Exit(1)` に置き換える（`log.Fatal` は `slog.Error` + `os.Exit(1)` で代替）
+- [x] 3.3 他のファイルに `log.*` が残っていないか確認し、あれば `slog.*` に置き換える
+- [x] 3.4 `go build ./...` が成功することを確認する
 
 ## 4. .golangci.yml を作成する
 
-- [ ] 4.1 `backend/.golangci.yml` を新規作成する（govet / errcheck / staticcheck / goimports / revive / gosimple を有効化）
-- [ ] 4.2 `cd backend && golangci-lint run ./...` を実行して lint エラーが 0 件であることを確認する
-- [ ] 4.3 lint エラーがある場合は修正する（ただし動作変更を伴うものは別 Issue に先送りせず、リファクタ範囲内で修正する）
+- [x] 4.1 `backend/.golangci.yml` を新規作成する（govet / errcheck / staticcheck / goimports / revive / gosimple を有効化）
+- [x] 4.2 `cd backend && golangci-lint run ./...` を実行して lint エラーが 0 件であることを確認する
+- [x] 4.3 lint エラーがある場合は修正する（ただし動作変更を伴うものは別 Issue に先送りせず、リファクタ範囲内で修正する）
 
 ## 5. timeout middleware を追加する
 
-- [ ] 5.1 `backend/main.go` に `middleware.TimeoutWithConfig(middleware.TimeoutConfig{Timeout: 25 * time.Second})` を追加する（全ルートに適用、CORS の後に設定）
-- [ ] 5.2 `go test ./...` でテストが pass することを確認する（特に integration tests）
+- [x] 5.1 `backend/main.go` に `middleware.TimeoutWithConfig(middleware.TimeoutConfig{Timeout: 25 * time.Second})` を追加する（全ルートに適用、CORS の後に設定）
+- [x] 5.2 `go test ./...` でテストが pass することを確認する（特に integration tests）
 
 ## 6. テスト・品質チェック
 
-- [ ] 6.1 `go test ./...` で全テストが pass することを確認する
-- [ ] 6.2 `go build ./...` が成功することを確認する
-- [ ] 6.3 `cd backend && golangci-lint run ./...` が lint エラー 0 件であることを確認する
+- [x] 6.1 `go test ./...` で全テストが pass することを確認する
+- [x] 6.2 `go build ./...` が成功することを確認する
+- [x] 6.3 `cd backend && golangci-lint run ./...` が lint エラー 0 件であることを確認する
 
 ## 7. PR を作成して CI を確認する
 
