@@ -107,13 +107,15 @@ test.describe
       // サブスクリプション確立後の初回 onChange() フェッチ完了を待つ
       await pageB.waitForLoadState("networkidle");
 
-      pageA.once("dialog", (dialog) => dialog.accept());
       await pageA
         .getByRole("article", {
           name: itemName,
         })
         .getByRole("button", { name: "削除" })
         .click();
+      // ConfirmDialog opens — click the confirm button
+      await pageA.getByRole("button", { name: "確認" }).click();
+      await expect(pageA.getByRole("dialog")).not.toBeAttached();
       await expect(pageA.getByText(itemName)).not.toBeVisible();
 
       await expect(pageB.getByText(itemName)).not.toBeVisible({

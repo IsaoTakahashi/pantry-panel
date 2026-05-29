@@ -21,8 +21,10 @@ test.describe("画像設定", () => {
     await page.keyboard.press("Escape");
     const article = page.getByRole("article", { name: itemName });
     if (await article.isVisible()) {
-      page.once("dialog", (d) => d.accept());
       await article.getByRole("button", { name: "削除" }).click();
+      // ConfirmDialog opens — click the confirm button
+      await page.getByRole("button", { name: "確認" }).click();
+      await expect(page.getByRole("dialog")).not.toBeAttached();
     }
   });
 

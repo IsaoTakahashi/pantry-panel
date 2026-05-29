@@ -16,11 +16,14 @@ test("商品を登録して削除できる", async ({ page }) => {
   await expect(page.getByText(itemName)).toBeVisible();
 
   // 商品を削除
-  page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("article", { name: itemName })
     .getByRole("button", { name: "削除" })
     .click();
+  // ConfirmDialog opens — click the confirm button
+  await page.getByRole("button", { name: "確認" }).click();
+  // Wait for exit animation to finish
+  await expect(page.getByRole("dialog")).not.toBeAttached();
 
   // 商品が削除されていることを確認
   await expect(page.getByText(itemName)).not.toBeVisible();
@@ -62,11 +65,13 @@ test("商品の名前を編集できる", async ({ page }) => {
   await expect(page.getByText(newItemName)).toBeVisible();
 
   // クリーンアップ: 商品を削除
-  page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("article", { name: newItemName })
     .getByRole("button", { name: "削除" })
     .click();
+  // ConfirmDialog opens — click the confirm button
+  await page.getByRole("button", { name: "確認" }).click();
+  await expect(page.getByRole("dialog")).not.toBeAttached();
 
   await expect(page.getByText(newItemName)).not.toBeVisible();
 });
@@ -112,11 +117,13 @@ test("商品のカテゴリを編集できる", async ({ page }) => {
   ).toBeVisible();
 
   // クリーンアップ: 商品を削除
-  page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("article", { name: itemName })
     .getByRole("button", { name: "削除" })
     .click();
+  // ConfirmDialog opens — click the confirm button
+  await page.getByRole("button", { name: "確認" }).click();
+  await expect(page.getByRole("dialog")).not.toBeAttached();
 
   await expect(page.getByText(itemName)).not.toBeVisible();
 });
