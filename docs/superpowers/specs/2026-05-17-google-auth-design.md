@@ -84,7 +84,7 @@ ALTER TABLE stock_items
 ```
 ① オーナーが /invite で招待リンクを生成
       POST /api/invitations → token 発行（有効期限 7日）
-      https://pantry-panel-xi.vercel.app/join?token=<uuid> をコピー・共有
+      https://<vercel-app>.vercel.app/join?token=<uuid> をコピー・共有
 
 ② 家族がリンクを踏む
       /join?token=<uuid>

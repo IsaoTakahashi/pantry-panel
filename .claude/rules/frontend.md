@@ -8,7 +8,7 @@ paths:
 
 - **Next.js** (TypeScript)
 - デプロイ先: **Vercel**（無料枠で十分、Next.js native）
-- 本番 URL: https://pantry-panel-xi.vercel.app
+- 本番 URL: Vercel Dashboard で確認（URL は GitHub Actions Variables / Vercel で管理）
 
 ## API 連携
 
