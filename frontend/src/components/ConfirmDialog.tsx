@@ -29,7 +29,7 @@ export default function ConfirmDialog({
         <button
           type="button"
           onClick={onConfirm}
-          className="flex-1 sm:flex-none bg-[#00d1b2] hover:bg-[#00c4a7] text-white font-bold rounded-xl py-2.5 text-sm transition-colors"
+          className="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl py-2.5 text-sm transition-colors"
         >
           確認
         </button>
