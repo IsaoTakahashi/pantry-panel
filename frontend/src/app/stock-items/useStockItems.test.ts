@@ -236,6 +236,28 @@ describe("useStockItems", () => {
 
       expect(result.current.error).toBe("削除に失敗しました");
     });
+
+    it("handleConfirmDelete が API エラーで confirmDeleteItem を null にリセットする", async () => {
+      vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+      vi.mocked(deleteStockItem).mockRejectedValue(
+        new Error("削除に失敗しました"),
+      );
+
+      const { result } = renderHook(() => useStockItems(...defaultArgs));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      act(() => {
+        result.current.handleDelete(mockItems[0]);
+      });
+      expect(result.current.confirmDeleteItem).toEqual(mockItems[0]);
+
+      await act(async () => {
+        await result.current.handleConfirmDelete();
+      });
+
+      expect(result.current.confirmDeleteItem).toBeNull();
+      expect(result.current.error).toBe("削除に失敗しました");
+    });
   });
 
   describe("handleSave", () => {

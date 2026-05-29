@@ -184,6 +184,7 @@ export function useStockItems(
       setItems(data);
       setError(null);
     } catch (err) {
+      setConfirmDeleteItem(null);
       setError(err instanceof Error ? err.message : "操作に失敗しました");
     }
   };
