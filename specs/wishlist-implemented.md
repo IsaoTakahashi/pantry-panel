@@ -16,6 +16,12 @@ wishlist.md に記載していた機能のうち、実装が完了したもの�
 
 実装: PR #98 / Issue #109（openspec: `2026-05-23-url-extract-error-detail-and-source-url`）
 
+### URL 登録機能の改善2: 長い商品名の候補選択 UI
+
+抽出した商品名が 25 文字以上のとき、Claude が短縮候補（最大 3 件）を生成し、`UrlRegistrationModal` で選択 UI を表示する。Jina ベースの名前短縮を廃止。
+
+実装: PR #121 / Issue #120
+
 ### URL 登録機能の改善4: 抽出処理の途中経過表示
 
 `/api/extract-from-url/stream` エンドポイント（SSE）を追加し、各ステップ（fetching / extracting 等）の開始時にイベントを配信。フロントエンドは `fetch` + ReadableStream で受信し、進捗ステップをリスト表示（完了済み・進行中・未着手を視覚的に区別）する。
@@ -27,6 +33,14 @@ wishlist.md に記載していた機能のうち、実装が完了したもの�
 `stock_items` テーブルに `source_url TEXT` カラムを追加。URL 登録した商品に対して `ItemCard` に外部リンクアイコン（別タブで開く）を表示する。
 
 実装: PR #98 / Issue #109（openspec: `2026-05-23-url-extract-error-detail-and-source-url`）
+
+## CI/UX 改善
+
+### CIのテスト結果見づらい問題
+
+E2E ワークフローに `dorny/test-reporter` を追加し、PR の Checks タブでテスト一覧をブラウザから直接確認できるようにした。`playwright.config.ts` に `junit` reporter を追加。
+
+実装: PR #129 / Issue #128
 
 ## Google 認証
 
