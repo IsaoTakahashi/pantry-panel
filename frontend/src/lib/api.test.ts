@@ -98,7 +98,7 @@ describe("fetchStockItems", () => {
     );
   });
 
-  it("sends X-Active-Group-ID header when activeGroupId provided", async () => {
+  it("activeGroupId を渡すと X-Active-Group-ID ヘッダーが付加される", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(JSON.stringify([]), { status: 200 }),
     );

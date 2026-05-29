@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe("fetchMyGroups", () => {
-  it("returns group list on success", async () => {
+  it("成功時にグループ一覧を返す", async () => {
     const groups = [{ groupId: "g1", name: "我が家", role: "owner" }];
     vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(JSON.stringify(groups), { status: 200 }),
@@ -20,14 +20,14 @@ describe("fetchMyGroups", () => {
     expect(result).toEqual(groups);
   });
 
-  it("returns empty array on 404", async () => {
+  it("404 のとき空配列を返す", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(null, { status: 404 }),
     );
     expect(await fetchMyGroups("token")).toEqual([]);
   });
 
-  it("returns empty array on 403", async () => {
+  it("403 のとき空配列を返す", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(null, { status: 403 }),
     );
@@ -36,7 +36,7 @@ describe("fetchMyGroups", () => {
 });
 
 describe("createGroup", () => {
-  it("sends POST and returns created group", async () => {
+  it("POST を送信して作成されたグループを返す", async () => {
     const created = {
       id: "g1",
       name: "我が家",
@@ -55,7 +55,7 @@ describe("createGroup", () => {
 });
 
 describe("updateGroupName", () => {
-  it("sends PATCH with X-Active-Group-ID header", async () => {
+  it("X-Active-Group-ID ヘッダー付きで PATCH を送信する", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 }),
     );
@@ -67,7 +67,7 @@ describe("updateGroupName", () => {
     expect(headers["X-Active-Group-ID"]).toBe("g1");
   });
 
-  it("throws on error response", async () => {
+  it("エラーレスポンス時に throw する", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(null, { status: 403 }),
     );
@@ -78,7 +78,7 @@ describe("updateGroupName", () => {
 });
 
 describe("createInvitation", () => {
-  it("sends X-Active-Group-ID header", async () => {
+  it("X-Active-Group-ID ヘッダーを送信する", async () => {
     const inv = {
       token: "t1",
       groupId: "g1",
