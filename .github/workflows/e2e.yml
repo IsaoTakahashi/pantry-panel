@@ -32,9 +32,18 @@ jobs:
         run: npm ci
         working-directory: frontend
 
-      - name: Start backend
-        run: go run . &
+      - name: Build backend
+        run: go build -o /tmp/pantry-backend .
         working-directory: backend
+
+      - name: Start backend
+        # In container mode, GHA defaults to `sh -e` which may kill backgrounded children
+        # when the step's shell exits. Use bash + nohup + disown for reliable detachment.
+        # stdout/stderr captured to /tmp/backend.log for diagnostics on failure.
+        shell: bash
+        run: |
+          nohup /tmp/pantry-backend > /tmp/backend.log 2>&1 < /dev/null &
+          disown
         env:
           DATABASE_URL: ${{ secrets.E2E_SUPABASE_DATABASE_URL }}
           SUPABASE_JWKS_URL: "${{ secrets.E2E_SUPABASE_URL }}/auth/v1/.well-known/jwks.json"
@@ -43,7 +52,7 @@ jobs:
 
       - name: Wait for backend
         run: |
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
             if curl -s http://localhost:8080/health > /dev/null 2>&1; then
               echo "Backend is ready"
               exit 0
@@ -51,6 +60,8 @@ jobs:
             sleep 1
           done
           echo "Backend failed to start"
+          echo "--- backend log ---"
+          cat /tmp/backend.log || true
           exit 1
 
       - name: Run E2E tests (mock)
