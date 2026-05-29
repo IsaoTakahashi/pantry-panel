@@ -1,3 +1,5 @@
+> **[WITHDRAWN 2026-05-28]** 本 proposal のうち「Lambda Function URL の resource policy から `lambda:InvokeFunction` を削除する」項目は **撤回** された。マージ後の手動 apply で削除したところ `/health` が 403 を返したため。LWA (Lambda Web Adapter) Lambda では `InvokeFunctionUrl` と `InvokeFunction` の **両方** の Allow が必要。詳細と訂正は Issue #163 / `.claude/rules/backend.md` 7項。CI/CD ハイジーン (cache, permissions, concurrency, dependabot, reusable workflow) の他の項目は採用済みで影響なし。
+
 ## Why
 
 GitHub Actions の現状は action のバージョン管理と OIDC 認証は先進的で整備度が高いが、以下の運用上のハイジーンが不足している:

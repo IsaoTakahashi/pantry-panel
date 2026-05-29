@@ -1,3 +1,5 @@
+> **[WITHDRAWN 2026-05-28]** 本 design の「Lambda IAM 変更の適用順序」(Decisions 5) と Migration Plan の `lambda:InvokeFunction` 削除手順は **撤回**。LWA Lambda では `InvokeFunctionUrl` と `InvokeFunction` の両方が必要 (実証済み)。詳細は Issue #163 / `.claude/rules/backend.md` 7項。
+
 ## Context
 
 GitHub Actions の構成は action のバージョン (`actions/checkout@v6`, `setup-node@v6`, `setup-go@v5`, `golangci-lint-action@v7`, etc.) も OIDC 認証も最新で、メインの設計は健全。今回の改善は「運用ハイジーン」のレイヤで、以下の前提に立つ:

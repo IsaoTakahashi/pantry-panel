@@ -83,5 +83,5 @@
 - [x] 11.1 PR マージ前に `opsx:archive ci-improvements` を実行
 - [x] 11.2 archive のコミットも同じ feature ブランチに含める
 - [ ] 11.3 PR をマージ
-- [ ] 11.4 マージ後、ユーザーが Lambda resource policy の `lambda:InvokeFunction` を削除する手動 apply 作業を実施
-- [ ] 11.5 削除後、`curl https://<function-url>/health` で 200 を確認
+- [ ] ~~11.4 マージ後、ユーザーが Lambda resource policy の `lambda:InvokeFunction` を削除する手動 apply 作業を実施~~ **[WITHDRAWN 2026-05-28]** 削除後 403 で復元 (Issue #163)
+- [ ] ~~11.5 削除後、`curl https://<function-url>/health` で 200 を確認~~ **[WITHDRAWN]**

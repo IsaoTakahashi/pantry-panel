@@ -68,38 +68,37 @@ main への push で **`.github/workflows/deploy-backend.yml`** が自動実行�
 4. **Lambda Function**: container image source、Memory 512 MB、Timeout 30s、`x86_64`、IAM Role: `pantry-panel-lambda-role`
 5. **環境変数 (Lambda)**: `PORT=8080`、`AWS_LWA_PORT=8080`、`AWS_LWA_READINESS_CHECK_PATH=/health`、`CORS_ALLOWED_ORIGINS=...`、`DATABASE_URL=<pooler URL>`、`GOOGLE_CSE_API_KEY`、`GOOGLE_CSE_ID`（いずれも KMS で暗号化保存）。`CORS_ALLOWED_ORIGINS` は **wildcard `*` 対応**（`*` は `.` を跨がない）。Vercel preview URL は `https://pantry-panel-*-rictons-projects.vercel.app` のようにパターンで指定する。`GOOGLE_CSE_*` 未設定時は `/api/image-search` のみ 503 を返し、他の機能は動作する
 6. **Function URL**: AuthType=NONE、CORS は **空 `{}`**（Echo の CORS middleware に一本化）
-7. **resource policy**: 公開アクセスは **`lambda:InvokeFunctionUrl` のみで十分**。`lambda:InvokeFunction` (Principal `*`) は不要なので削除する。Function URL 経由のリクエストは `InvokeFunctionUrl` 権限で評価されるため、`InvokeFunction` を Principal `*` に許可すると過剰権限となる。
+7. **resource policy**: 公開アクセスには **`lambda:InvokeFunctionUrl` と `lambda:InvokeFunction` の両方** (Principal `*`) が **MUST 必要**。**いずれかを削除すると `/health` が 403 になる** (本番 `pantry-panel-backend` と preview `pantry-panel-backend-preview` で実証済み、2026-05-28)。
 
-   旧 statement (`lambda:InvokeFunction` の Principal `*`) を削除する手順:
+   一見「Function URL 経由なら `InvokeFunctionUrl` のみで十分」に思えるが、**Lambda Web Adapter (LWA) 経由の起動では `InvokeFunction` も評価される**ため、両方の Allow が無いと 403 になる。AWS マネコンで Function URL を作ると 2 つとも自動付与されるが、CLI で個別作成した場合は明示的に追加する MUST。
 
    ```bash
-   # 1. 現在の policy を確認 (statement Sid を控える)
+   # 公開設定時 (両方必須)
+   aws lambda add-permission \
+     --function-name pantry-panel-backend \
+     --statement-id FunctionURLAllowPublicAccess \
+     --action lambda:InvokeFunctionUrl \
+     --principal "*" \
+     --function-url-auth-type NONE \
+     --region ap-northeast-1
+
+   aws lambda add-permission \
+     --function-name pantry-panel-backend \
+     --statement-id FunctionInvokeAllowPublicAccess \
+     --action lambda:InvokeFunction \
+     --principal "*" \
+     --region ap-northeast-1
+
+   # 現状確認
    aws lambda get-policy \
      --function-name pantry-panel-backend \
      --region ap-northeast-1 \
      --query 'Policy' --output text | jq .
-
-   # 2. 該当 statement を Sid 指定で削除 (例: Sid="FunctionURLAllowPublicAccess")
-   aws lambda remove-permission \
-     --function-name pantry-panel-backend \
-     --statement-id <該当 Sid> \
-     --region ap-northeast-1
-
-   # 3. 削除後、Function URL の /health が 200 を返すことを確認
-   curl -fsS "$(aws lambda get-function-url-config \
-     --function-name pantry-panel-backend \
-     --region ap-northeast-1 --query FunctionUrl --output text)health"
-
-   # 4. もし 403 になった場合 (rollback)
-   aws lambda add-permission \
-     --function-name pantry-panel-backend \
-     --statement-id FunctionURLAllowPublicAccess \
-     --action lambda:InvokeFunction \
-     --principal '*' \
-     --region ap-northeast-1
    ```
 
-   preview Lambda (`pantry-panel-backend-preview`) も同じ手順で適用する。なお `InvokeFunctionUrl` の statement (AuthType=NONE 用) は残すこと。
+   preview Lambda (`pantry-panel-backend-preview`) も同じ 2 つを設定する MUST。
+
+   **Do NOT remove `lambda:InvokeFunction`**: 過去に「過剰権限なので削除する」と spec 化したが、削除後 403 となりロールバック (Issue #163)。`InvokeFunctionUrl` のみで動くという通説は LWA Lambda には適用されない。
 
 ### 手動デプロイ（trouble shoot 時）
 
