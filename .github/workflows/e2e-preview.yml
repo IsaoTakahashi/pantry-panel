@@ -13,12 +13,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  e2e-preview:
+  prepare:
     runs-on: ubuntu-latest
-
+    outputs:
+      preview_url: ${{ steps.vercel.outputs.preview_url }}
     steps:
-      - uses: actions/checkout@v6
-
       - name: Wait for Vercel preview deployment
         id: vercel
         run: |
@@ -86,33 +85,27 @@ jobs:
             --retry-all-errors \
             "${{ vars.PREVIEW_LAMBDA_FUNCTION_URL }}/health"
 
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+  e2e-preview:
+    needs: prepare
+    runs-on: ubuntu-latest
+    # Playwright official image: bundles Chromium/Firefox/WebKit + system deps.
+    # Eliminates `npx playwright install` (no CDN dependency, no cache miss).
+    # Image tag must match @playwright/test version in package-lock.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble
+
+    steps:
+      - uses: actions/checkout@v6
 
       - name: Install frontend dependencies
         run: npm ci
-        working-directory: frontend
-
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('frontend/package-lock.json') }}
-
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install chromium
         working-directory: frontend
 
       - name: Run E2E tests (preview)
         run: npx playwright test --project=preview
         working-directory: frontend
         env:
-          PREVIEW_URL: ${{ steps.vercel.outputs.preview_url }}
+          PREVIEW_URL: ${{ needs.prepare.outputs.preview_url }}
           PREVIEW_BACKEND_URL: ${{ vars.PREVIEW_LAMBDA_FUNCTION_URL }}
           E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
           E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
