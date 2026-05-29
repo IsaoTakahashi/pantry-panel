@@ -37,5 +37,5 @@
 
 ## 7. PR を作成して CI を確認する
 
-- [ ] 7.1 変更をコミット・push して PR を作成する（`Closes #N` を本文に含める）
-- [ ] 7.2 `gh pr checks --watch` で CI が pass することを確認する
+- [x] 7.1 変更をコミット・push して PR を作成する（`Closes #N` を本文に含める）
+- [x] 7.2 `gh pr checks --watch` で CI が pass することを確認する

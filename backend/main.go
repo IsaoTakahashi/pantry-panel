@@ -1,26 +1,30 @@
+// Package main is the entry point for the Pantry Panel backend API server.
 package main
 
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
-	keyfunc "github.com/MicahParks/keyfunc/v3"
 	"github.com/IsaoTakahashi/pantry-panel/backend/db"
 	"github.com/IsaoTakahashi/pantry-panel/backend/handler"
 	"github.com/IsaoTakahashi/pantry-panel/backend/imagesearch"
 	jwtmiddleware "github.com/IsaoTakahashi/pantry-panel/backend/middleware"
 	"github.com/IsaoTakahashi/pantry-panel/backend/repository"
 	"github.com/IsaoTakahashi/pantry-panel/backend/urlextract"
+	keyfunc "github.com/MicahParks/keyfunc/v3"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
+
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		dsn = "postgres://pantry:pantry@localhost:5432/pantry_panel?sslmode=disable"
@@ -28,10 +32,12 @@ func main() {
 
 	pool, err := db.Connect(dsn)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	if err := db.Ping(pool); err != nil {
-		log.Fatal(err)
+		slog.Error("failed to ping database", "error", err)
+		os.Exit(1)
 	}
 
 	stockItemRepo := repository.NewPgStockItemRepository(pool)
@@ -46,12 +52,12 @@ func main() {
 	if googleKey != "" && googleCSE != "" {
 		imageClient = imagesearch.NewGoogleClient(googleKey, googleCSE)
 	} else {
-		log.Println("warning: GOOGLE_CSE_API_KEY / GOOGLE_CSE_ID not set; image search disabled")
+		slog.Warn("GOOGLE_CSE_API_KEY / GOOGLE_CSE_ID not set; image search disabled")
 	}
 	imageSearchHandler := handler.NewImageSearchHandler(imageClient)
 	defaultExtractor := urlextract.NewDefaultExtractor()
-	urlExtractHandler := handler.NewUrlExtractHandler(defaultExtractor)
-	urlExtractStreamHandler := handler.NewUrlExtractStreamHandler(defaultExtractor)
+	urlExtractHandler := handler.NewURLExtractHandler(defaultExtractor)
+	urlExtractStreamHandler := handler.NewURLExtractStreamHandler(defaultExtractor)
 
 	noopMW := func(next echo.HandlerFunc) echo.HandlerFunc { return next }
 	jwtGroupMW := echo.MiddlewareFunc(noopMW)
@@ -67,7 +73,8 @@ func main() {
 		}
 		given, err := keyfunc.NewDefaultOverrideCtx(context.Background(), []string{jwksURL}, override)
 		if err != nil {
-			log.Fatal(err)
+			slog.Error("failed to initialize JWKS", "error", err)
+			os.Exit(1)
 		}
 		jwtGroupMW = jwtmiddleware.NewJWTAuth(jwtmiddleware.JWTAuthConfig{
 			KeyFunc:      given.Keyfunc,
@@ -79,24 +86,29 @@ func main() {
 			GroupRepo:    groupRepo,
 			RequireGroup: false,
 		})
-		log.Println("JWT authentication enabled")
+		slog.Info("JWT authentication enabled")
 	} else {
-		log.Println("warning: SUPABASE_JWKS_URL not set; authentication disabled")
+		slog.Warn("SUPABASE_JWKS_URL not set; authentication disabled")
 	}
 
 	matcher, err := compileOriginMatcher(parseCORSAllowedOrigins(os.Getenv("CORS_ALLOWED_ORIGINS")))
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("failed to compile CORS origin matcher", "error", err)
+		os.Exit(1)
 	}
 
 	e := echo.New()
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		UnsafeAllowOriginFunc: func(c *echo.Context, origin string) (string, bool, error) {
+		UnsafeAllowOriginFunc: func(_ *echo.Context, origin string) (string, bool, error) {
 			if matcher(origin) {
 				return origin, true, nil
 			}
 			return "", false, nil
 		},
+	}))
+
+	e.Use(middleware.ContextTimeoutWithConfig(middleware.ContextTimeoutConfig{
+		Timeout: 25 * time.Second,
 	}))
 
 	e.GET("/health", handler.HealthCheck(pool))
@@ -116,7 +128,8 @@ func main() {
 	e.DELETE("/api/stock-items/:id", stockItemHandler.Delete, jwtGroupMW)
 
 	if err := e.Start(":" + parsePort(os.Getenv("PORT"))); err != nil {
-		log.Fatal(err)
+		slog.Error("server stopped", "error", err)
+		os.Exit(1)
 	}
 }
 

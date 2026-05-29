@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -71,7 +71,7 @@ func (c *GoogleClient) Search(ctx context.Context, query string, num int) ([]Res
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("imagesearch: upstream error status=%d body=%s", resp.StatusCode, body)
+		slog.Error("imagesearch upstream error", "status", resp.StatusCode, "body", string(body))
 		return nil, fmt.Errorf("%w: status %d", ErrUpstreamFailure, resp.StatusCode)
 	}
 

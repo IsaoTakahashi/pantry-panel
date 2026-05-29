@@ -16,6 +16,7 @@
 /playwright-report
 /results.xml
 /.auth
+/.playwright-cli/
 
 # next.js
 /.next/

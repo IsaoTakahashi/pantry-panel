@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 
+	"github.com/IsaoTakahashi/pantry-panel/backend/apierror"
 	"github.com/IsaoTakahashi/pantry-panel/backend/urlextract"
 	"github.com/labstack/echo/v5"
 )
@@ -16,12 +17,14 @@ type progressExtractor interface {
 	ExtractWithProgress(ctx context.Context, rawURL string, onProgress urlextract.ProgressFunc) (urlextract.Result, error)
 }
 
-type UrlExtractStreamHandler struct {
+// URLExtractStreamHandler handles streaming URL product extraction via SSE.
+type URLExtractStreamHandler struct {
 	extractor progressExtractor
 }
 
-func NewUrlExtractStreamHandler(extractor *urlextract.DefaultExtractor) *UrlExtractStreamHandler {
-	return &UrlExtractStreamHandler{extractor: extractor}
+// NewURLExtractStreamHandler creates a new URLExtractStreamHandler backed by the given extractor.
+func NewURLExtractStreamHandler(extractor *urlextract.DefaultExtractor) *URLExtractStreamHandler {
+	return &URLExtractStreamHandler{extractor: extractor}
 }
 
 type sseProgressData struct {
@@ -66,16 +69,17 @@ func writeErrorEvent(w http.ResponseWriter, kind, message, detail string) error 
 	return writeSSEEvent(w, "error", sseErrorData{Kind: kind, Message: message, Detail: detail})
 }
 
-func (h *UrlExtractStreamHandler) ExtractStream(c *echo.Context) error {
+// ExtractStream handles POST /api/extract-from-url/stream, streaming progress via SSE.
+func (h *URLExtractStreamHandler) ExtractStream(c *echo.Context) error {
 	var req ExtractFromURLRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "Invalid request body"})
+		return c.JSON(http.StatusBadRequest, apierror.ErrorResponse{Message: "Invalid request body"})
 	}
 	if req.URL == "" {
-		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "url is required"})
+		return c.JSON(http.StatusBadRequest, apierror.ErrorResponse{Message: "url is required"})
 	}
 
-	log.Printf("extract-from-url/stream: url=%s", req.URL)
+	slog.Info("extract-from-url/stream", "url", req.URL)
 
 	w := c.Response()
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -84,7 +88,7 @@ func (h *UrlExtractStreamHandler) ExtractStream(c *echo.Context) error {
 	w.WriteHeader(http.StatusOK)
 
 	result, err := h.extractor.ExtractWithProgress(c.Request().Context(), req.URL, func(step, message string) {
-		log.Printf("extract-from-url/stream: progress step=%s", step)
+		slog.Info("extract-from-url/stream progress", "step", step)
 		_ = writeProgressEvent(w, step, message)
 	})
 
@@ -98,12 +102,12 @@ func (h *UrlExtractStreamHandler) ExtractStream(c *echo.Context) error {
 			kind = "extractionFailed"
 			msg = "could not extract product name from page"
 		}
-		log.Printf("extract-from-url/stream: error kind=%s err=%v", kind, err)
+		slog.Error("extract-from-url/stream error", "kind", kind, "error", err)
 		_ = writeErrorEvent(w, kind, msg, err.Error())
 		return nil
 	}
 
-	log.Printf("extract-from-url/stream: done name=%q hasImage=%v", result.Name, result.ImageURL != "")
+	slog.Info("extract-from-url/stream done", "name", result.Name, "hasImage", result.ImageURL != "")
 	var imageURL *string
 	if result.ImageURL != "" {
 		imageURL = &result.ImageURL
