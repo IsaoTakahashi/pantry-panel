@@ -1,6 +1,7 @@
 # Claude Code
 .claude/settings.local.json
 .superpowers/
+.playwright-cli/
 
 # Serena MCP (local state)
 .serena/
