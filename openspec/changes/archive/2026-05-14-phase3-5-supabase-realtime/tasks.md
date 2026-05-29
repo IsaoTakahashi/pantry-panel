@@ -5,7 +5,7 @@
 - [x] 1.3 Supabase Dashboard の SQL Editor で `002` を適用し、Database → Replication で `stock_items` が含まれることを確認
 - [x] 1.4 Supabase Dashboard の SQL Editor で `003` を適用し、`SELECT * FROM pg_policies WHERE tablename='stock_items'` でポリシーを確認
 - [x] 1.5 Supabase Dashboard の Table Editor で anon ロールから INSERT が拒否されることを確認（手動）
-- [x] 1.6 Lambda 経由の CRUD が引き続き動作することを `https://pantry-panel-xi.vercel.app` で手動確認
+- [x] 1.6 Lambda 経由の CRUD が引き続き動作することを `本番 Vercel URL` で手動確認
 
 ## 2. Frontend dependencies と env
 
@@ -51,7 +51,7 @@
 ## 7. 動作確認 & ドキュメント
 
 - [ ] 7.1 ローカル frontend + 本番 Supabase で、別ブラウザ 2 タブを開いて Realtime 反映を手動確認
-- [x] 7.2 main マージ後に Vercel 本番（https://pantry-panel-xi.vercel.app）を 2 端末で開いて Realtime 反映を手動確認
+- [x] 7.2 main マージ後に Vercel 本番（本番 Vercel URL）を 2 端末で開いて Realtime 反映を手動確認
 - [x] 7.3 `.claude/rules/frontend.md` の「API 連携」「テスト」セクションを Supabase Realtime 採用後の状態に更新
 - [x] 7.4 `.claude/rules/backend.md` の Phase 3.5 関連記述を最新化（RLS / publication migration の運用ルール追記）
 - [x] 7.5 `specs/features.md` の Phase 3.5 セクションのステータスを「✅ 完了」に更新

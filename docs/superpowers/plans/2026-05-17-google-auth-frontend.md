@@ -1465,7 +1465,7 @@ Supabase Dashboard → Authentication → URL Configuration → Redirect URLs �
 
 ```
 http://localhost:3000/**
-https://pantry-panel-xi.vercel.app/**
+https://<vercel-app>.vercel.app/**
 ```
 
 - [ ] **Step 3: ローカルで動作確認する**

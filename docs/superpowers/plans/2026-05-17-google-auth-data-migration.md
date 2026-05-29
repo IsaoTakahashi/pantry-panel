@@ -180,7 +180,7 @@ git commit -m "Add migration 008: set group_id NOT NULL after data migration"
 
 - [ ] **Step 1: アプリにアクセスしてログインできることを確認する**
 
-https://pantry-panel-xi.vercel.app にアクセス:
+本番 URL にアクセス:
 1. `/login` ページが表示される
 2. "Googleでサインイン" でログインできる
 3. `/stock-items` に遷移し、既存の商品一覧が表示される（グループ名が表示される）

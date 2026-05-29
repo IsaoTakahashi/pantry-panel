@@ -6,7 +6,7 @@
  *   node scripts/migrate-from-firebase.mjs <stockItems.json> <api-base-url>
  *
  * Example:
- *   node scripts/migrate-from-firebase.mjs stockItems.json https://pantry-panel-xi.vercel.app
+ *   node scripts/migrate-from-firebase.mjs stockItems.json https://<vercel-app>.vercel.app
  *
  * stockItems.json: exported from Firebase Console or `firebase database:get /stockItems`
  */

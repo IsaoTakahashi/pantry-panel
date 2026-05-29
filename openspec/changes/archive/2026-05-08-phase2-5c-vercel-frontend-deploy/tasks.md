@@ -18,7 +18,7 @@
 - [ ] 3.2 GitHub リポジトリ `pantry-panel` を Vercel に import する
 - [ ] 3.3 プロジェクト設定で Root Directory を `frontend/` に指定する
 - [ ] 3.4 Framework Preset が Next.js として認識されていることを確認する
-- [ ] 3.5 環境変数 `NEXT_PUBLIC_API_BASE_URL` に Phase 2.5b の Lambda Function URL（例: `https://4xdn54pecs7z4hepmt2xcovq7m0nizno.lambda-url.ap-northeast-1.on.aws`）を Production / Preview / Development の全環境に設定する
+- [ ] 3.5 環境変数 `NEXT_PUBLIC_API_BASE_URL` に Phase 2.5b の Lambda Function URL（例: `https://<lambda-id>.lambda-url.ap-northeast-1.on.aws`）を Production / Preview / Development の全環境に設定する
 - [ ] 3.6 main ブランチを Production Branch として確認する
 - [ ] 3.7 初回デプロイを実行 → 完了を確認
 - [ ] 3.8 デプロイ完了後の本番 URL（`*.vercel.app`）を控える
