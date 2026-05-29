@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/IsaoTakahashi/pantry-panel/backend/apierror"
 	"github.com/IsaoTakahashi/pantry-panel/backend/imagesearch"
 	"github.com/labstack/echo/v5"
 )
@@ -23,12 +24,12 @@ type ImageSearchResponse struct {
 
 func (h *ImageSearchHandler) Search(c *echo.Context) error {
 	if h.client == nil {
-		return c.JSON(http.StatusServiceUnavailable, ErrorResponse{Message: "image search is not configured"})
+		return c.JSON(http.StatusServiceUnavailable, apierror.ErrorResponse{Message: "image search is not configured"})
 	}
 
 	q := c.QueryParam("q")
 	if q == "" {
-		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "query parameter 'q' is required"})
+		return c.JSON(http.StatusBadRequest, apierror.ErrorResponse{Message: "query parameter 'q' is required"})
 	}
 
 	num := 10
@@ -41,9 +42,9 @@ func (h *ImageSearchHandler) Search(c *echo.Context) error {
 	results, err := h.client.Search(c.Request().Context(), q, num)
 	if err != nil {
 		if errors.Is(err, imagesearch.ErrQuotaExceeded) {
-			return c.JSON(http.StatusTooManyRequests, ErrorResponse{Message: "quota exceeded"})
+			return c.JSON(http.StatusTooManyRequests, apierror.ErrorResponse{Message: "quota exceeded"})
 		}
-		return c.JSON(http.StatusBadGateway, ErrorResponse{Message: "image search failed"})
+		return c.JSON(http.StatusBadGateway, apierror.ErrorResponse{Message: "image search failed"})
 	}
 
 	return c.JSON(http.StatusOK, ImageSearchResponse{Items: results})

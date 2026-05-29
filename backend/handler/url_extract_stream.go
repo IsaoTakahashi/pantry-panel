@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/IsaoTakahashi/pantry-panel/backend/apierror"
 	"github.com/IsaoTakahashi/pantry-panel/backend/urlextract"
 	"github.com/labstack/echo/v5"
 )
@@ -69,10 +70,10 @@ func writeErrorEvent(w http.ResponseWriter, kind, message, detail string) error 
 func (h *UrlExtractStreamHandler) ExtractStream(c *echo.Context) error {
 	var req ExtractFromURLRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "Invalid request body"})
+		return c.JSON(http.StatusBadRequest, apierror.ErrorResponse{Message: "Invalid request body"})
 	}
 	if req.URL == "" {
-		return c.JSON(http.StatusBadRequest, ErrorResponse{Message: "url is required"})
+		return c.JSON(http.StatusBadRequest, apierror.ErrorResponse{Message: "url is required"})
 	}
 
 	log.Printf("extract-from-url/stream: url=%s", req.URL)
