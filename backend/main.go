@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/IsaoTakahashi/pantry-panel/backend/db"
 	"github.com/IsaoTakahashi/pantry-panel/backend/handler"
@@ -104,6 +105,10 @@ func main() {
 			}
 			return "", false, nil
 		},
+	}))
+
+	e.Use(middleware.ContextTimeoutWithConfig(middleware.ContextTimeoutConfig{
+		Timeout: 25 * time.Second,
 	}))
 
 	e.GET("/health", handler.HealthCheck(pool))
