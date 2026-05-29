@@ -37,103 +37,105 @@ func postExtractFromURL(e *echo.Echo, body string) *httptest.ResponseRecorder {
 	return rec
 }
 
-func TestUrlExtract_200_withImage(t *testing.T) {
-	imageURL := "https://example.com/img.jpg"
-	h := NewURLExtractHandler(&mockExtractor{
-		result: urlextract.Result{Name: "牛乳", ImageURL: imageURL},
+func TestUrlExtract(t *testing.T) {
+	t.Run("200_with_image", func(t *testing.T) {
+		imageURL := "https://example.com/img.jpg"
+		h := NewURLExtractHandler(&mockExtractor{
+			result: urlextract.Result{Name: "牛乳", ImageURL: imageURL},
+		})
+		e := setupURLExtractRouter(h)
+
+		rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		var resp ExtractFromURLResponse
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+		assert.Equal(t, "牛乳", resp.Name)
+		require.NotNil(t, resp.ImageURL)
+		assert.Equal(t, imageURL, *resp.ImageURL)
 	})
-	e := setupURLExtractRouter(h)
 
-	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
+	t.Run("200_no_image", func(t *testing.T) {
+		h := NewURLExtractHandler(&mockExtractor{
+			result: urlextract.Result{Name: "牛乳", ImageURL: ""},
+		})
+		e := setupURLExtractRouter(h)
 
-	require.Equal(t, http.StatusOK, rec.Code)
-	var resp ExtractFromURLResponse
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
-	assert.Equal(t, "牛乳", resp.Name)
-	require.NotNil(t, resp.ImageURL)
-	assert.Equal(t, imageURL, *resp.ImageURL)
-}
+		rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
 
-func TestUrlExtract_200_noImage(t *testing.T) {
-	h := NewURLExtractHandler(&mockExtractor{
-		result: urlextract.Result{Name: "牛乳", ImageURL: ""},
+		require.Equal(t, http.StatusOK, rec.Code)
+		var resp ExtractFromURLResponse
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+		assert.Equal(t, "牛乳", resp.Name)
+		assert.Nil(t, resp.ImageURL)
 	})
-	e := setupURLExtractRouter(h)
 
-	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
+	t.Run("200_with_candidates", func(t *testing.T) {
+		h := NewURLExtractHandler(&mockExtractor{
+			result: urlextract.Result{
+				Name:           "長い商品名テストサンプル二十五文字以上",
+				ImageURL:       "https://example.com/img.jpg",
+				NameCandidates: []string{"候補A", "候補B"},
+			},
+		})
+		e := setupURLExtractRouter(h)
 
-	require.Equal(t, http.StatusOK, rec.Code)
-	var resp ExtractFromURLResponse
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
-	assert.Equal(t, "牛乳", resp.Name)
-	assert.Nil(t, resp.ImageURL)
-}
+		rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
 
-func TestUrlExtract_200_withCandidates(t *testing.T) {
-	h := NewURLExtractHandler(&mockExtractor{
-		result: urlextract.Result{
-			Name:           "長い商品名テストサンプル二十五文字以上",
-			ImageURL:       "https://example.com/img.jpg",
-			NameCandidates: []string{"候補A", "候補B"},
-		},
+		require.Equal(t, http.StatusOK, rec.Code)
+		var resp ExtractFromURLResponse
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+		assert.Equal(t, []string{"候補A", "候補B"}, resp.NameCandidates)
 	})
-	e := setupURLExtractRouter(h)
 
-	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
+	t.Run("200_no_candidates", func(t *testing.T) {
+		h := NewURLExtractHandler(&mockExtractor{
+			result: urlextract.Result{Name: "牛乳", ImageURL: ""},
+		})
+		e := setupURLExtractRouter(h)
 
-	require.Equal(t, http.StatusOK, rec.Code)
-	var resp ExtractFromURLResponse
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
-	assert.Equal(t, []string{"候補A", "候補B"}, resp.NameCandidates)
-}
+		rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
 
-func TestUrlExtract_200_noCandidates(t *testing.T) {
-	h := NewURLExtractHandler(&mockExtractor{
-		result: urlextract.Result{Name: "牛乳", ImageURL: ""},
+		require.Equal(t, http.StatusOK, rec.Code)
+		var raw map[string]any
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&raw))
+		_, present := raw["nameCandidates"]
+		assert.False(t, present, "nameCandidates key must be absent from JSON when there are no candidates")
 	})
-	e := setupURLExtractRouter(h)
 
-	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
+	t.Run("400_empty_body", func(t *testing.T) {
+		h := NewURLExtractHandler(&mockExtractor{})
+		e := setupURLExtractRouter(h)
 
-	require.Equal(t, http.StatusOK, rec.Code)
-	var raw map[string]any
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&raw))
-	_, present := raw["nameCandidates"]
-	assert.False(t, present, "nameCandidates key must be absent from JSON when there are no candidates")
-}
+		rec := postExtractFromURL(e, ``)
 
-func TestUrlExtract_400_emptyBody(t *testing.T) {
-	h := NewURLExtractHandler(&mockExtractor{})
-	e := setupURLExtractRouter(h)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
 
-	rec := postExtractFromURL(e, ``)
+	t.Run("400_empty_url", func(t *testing.T) {
+		h := NewURLExtractHandler(&mockExtractor{})
+		e := setupURLExtractRouter(h)
 
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
+		rec := postExtractFromURL(e, `{"url":""}`)
 
-func TestUrlExtract_400_emptyURL(t *testing.T) {
-	h := NewURLExtractHandler(&mockExtractor{})
-	e := setupURLExtractRouter(h)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
 
-	rec := postExtractFromURL(e, `{"url":""}`)
+	t.Run("422_extraction_failed", func(t *testing.T) {
+		h := NewURLExtractHandler(&mockExtractor{err: urlextract.ErrExtractionFailed})
+		e := setupURLExtractRouter(h)
 
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
+		rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
 
-func TestUrlExtract_422_extractionFailed(t *testing.T) {
-	h := NewURLExtractHandler(&mockExtractor{err: urlextract.ErrExtractionFailed})
-	e := setupURLExtractRouter(h)
+		assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+	})
 
-	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
+	t.Run("502_fetch_failed", func(t *testing.T) {
+		h := NewURLExtractHandler(&mockExtractor{err: urlextract.ErrFetchFailed})
+		e := setupURLExtractRouter(h)
 
-	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
-}
+		rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
 
-func TestUrlExtract_502_fetchFailed(t *testing.T) {
-	h := NewURLExtractHandler(&mockExtractor{err: urlextract.ErrFetchFailed})
-	e := setupURLExtractRouter(h)
-
-	rec := postExtractFromURL(e, `{"url":"https://example.com/product"}`)
-
-	assert.Equal(t, http.StatusBadGateway, rec.Code)
+		assert.Equal(t, http.StatusBadGateway, rec.Code)
+	})
 }
