@@ -18,7 +18,7 @@ import (
 
 var testSecret = []byte("test-secret-key")
 
-func testKeyFunc(token *jwt.Token) (interface{}, error) {
+func testKeyFunc(token *jwt.Token) (any, error) {
 	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 		return nil, jwt.ErrSignatureInvalid
 	}
