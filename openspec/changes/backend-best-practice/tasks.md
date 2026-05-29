@@ -1,15 +1,15 @@
 ## 1. GitHub Issue とブランチを作成する
 
-- [ ] 1.1 GitHub Issue を作成する（タイトル: "refactor(backend): slog, golangci.yml, timeout middleware, apierror package"）
-- [ ] 1.2 Issue 番号を使ってブランチを作成する（例: `{N}-backend-best-practice`）
+- [x] 1.1 GitHub Issue を作成する（タイトル: "refactor(backend): slog, golangci.yml, timeout middleware, apierror package"）
+- [x] 1.2 Issue 番号を使ってブランチを作成する（例: `{N}-backend-best-practice`）
 
 ## 2. apierror パッケージを作成する
 
-- [ ] 2.1 `backend/apierror/apierror.go` を新規作成する（`ErrorResponse{Message, Detail}` 型を定義）
-- [ ] 2.2 `backend/handler/stock_item.go` の `ErrorResponse` 型を削除し、`apierror.ErrorResponse` を使うよう書き換える
-- [ ] 2.3 `backend/handler/group.go` と他のハンドラファイルも同様に `apierror.ErrorResponse` を使うよう書き換える
-- [ ] 2.4 `backend/middleware/auth.go` の `map[string]string{"message": "..."}` を `apierror.ErrorResponse{Message: "..."}` に書き換える
-- [ ] 2.5 `go test ./...` でテストが pass することを確認する
+- [x] 2.1 `backend/apierror/apierror.go` を新規作成する（`ErrorResponse{Message, Detail}` 型を定義）
+- [x] 2.2 `backend/handler/stock_item.go` の `ErrorResponse` 型を削除し、`apierror.ErrorResponse` を使うよう書き換える
+- [x] 2.3 `backend/handler/group.go` と他のハンドラファイルも同様に `apierror.ErrorResponse` を使うよう書き換える
+- [x] 2.4 `backend/middleware/auth.go` の `map[string]string{"message": "..."}` を `apierror.ErrorResponse{Message: "..."}` に書き換える
+- [x] 2.5 `go test ./...` でテストが pass することを確認する
 
 ## 3. slog 構造化ログを導入する
 

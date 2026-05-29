@@ -129,7 +129,7 @@ func (e *ClaudeExtractor) Extract(ctx context.Context, content string, meta Resu
 		ImageURL string `json:"imageUrl"`
 	}
 	if err := json.Unmarshal([]byte(responseText), &extracted); err != nil {
-		slog.Info("claude json unmarshal error", "error", err, "response", responseText)
+		slog.Error("claude json unmarshal error", "error", err, "response", responseText)
 		return Result{}, nil
 	}
 
@@ -145,7 +145,7 @@ func (e *ClaudeExtractor) GenerateCandidates(ctx context.Context, name string) (
 	if e.generateFn != nil {
 		candidates, err := e.generateFn(ctx, name)
 		if err != nil {
-			slog.Info("claude GenerateCandidates error (stub)", "error", err)
+			slog.Error("claude GenerateCandidates error (stub)", "error", err)
 			return []string{}, nil
 		}
 		return candidates, nil
@@ -165,7 +165,7 @@ func (e *ClaudeExtractor) GenerateCandidates(ctx context.Context, name string) (
 		},
 	})
 	if err != nil {
-		slog.Info("claude GenerateCandidates API error", "error", err)
+		slog.Error("claude GenerateCandidates API error", "error", err)
 		return []string{}, nil
 	}
 
@@ -193,7 +193,7 @@ func (e *ClaudeExtractor) GenerateCandidates(ctx context.Context, name string) (
 
 	var candidates []string
 	if err := json.Unmarshal([]byte(responseText), &candidates); err != nil {
-		slog.Info("claude GenerateCandidates json unmarshal error", "error", err, "response", responseText)
+		slog.Error("claude GenerateCandidates json unmarshal error", "error", err, "response", responseText)
 		return []string{}, nil
 	}
 

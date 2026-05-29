@@ -89,7 +89,7 @@ func (e *DefaultExtractor) extractWithProgress(ctx context.Context, rawURL strin
 	onProgress("fetching", "ページを取得中...")
 	htmlBytes, fetchErr := e.fetcher.Fetch(ctx, rawURL)
 	if fetchErr != nil {
-		slog.Info("urlextract step1 fetch failed, trying Jina", "url", rawURL, "error", fetchErr)
+		slog.Warn("urlextract step1 fetch failed, trying Jina", "url", rawURL, "error", fetchErr)
 		onProgress("fetching_jina", "別の方法でページを取得中...")
 		res, jinaErr := e.extractViaJinaWithProgress(ctx, rawURL, onProgress)
 		if jinaErr != nil {
@@ -113,7 +113,7 @@ func (e *DefaultExtractor) extractWithProgress(ctx context.Context, rawURL strin
 		slog.Info("urlextract step1 visible text", "len", len(text))
 		claudeResult, err := e.claude.Extract(ctx, text, metaResult)
 		if err != nil {
-			slog.Info("urlextract step1 claude error", "error", err)
+			slog.Error("urlextract step1 claude error", "error", err)
 			return Result{}, err
 		}
 		slog.Info("urlextract step1 claude", "name", claudeResult.Name, "imageURL", claudeResult.ImageURL)
@@ -123,7 +123,7 @@ func (e *DefaultExtractor) extractWithProgress(ctx context.Context, rawURL strin
 		}
 		name := claudeResult.Name
 		if name == "" {
-			slog.Info("urlextract step1 claude returned no name, trying Jina")
+			slog.Warn("urlextract step1 claude returned no name, trying Jina")
 			onProgress("fetching_jina", "別の方法でページを取得中...")
 			res, jinaErr := e.extractViaJinaWithProgress(ctx, rawURL, onProgress)
 			if jinaErr != nil {
@@ -159,7 +159,7 @@ func (e *DefaultExtractor) extractWithProgress(ctx context.Context, rawURL strin
 	if metaResult.Name != "" {
 		return metaResult, nil
 	}
-	slog.Info("urlextract step1 no claude, empty meta, trying Jina")
+	slog.Warn("urlextract step1 no claude, empty meta, trying Jina")
 	onProgress("fetching_jina", "別の方法でページを取得中...")
 	return e.extractViaJinaWithProgress(ctx, rawURL, onProgress)
 }
@@ -173,7 +173,7 @@ func (e *DefaultExtractor) extractViaJinaWithProgress(ctx context.Context, rawUR
 
 	jinaResult, err := e.jinaFetcher.Fetch(ctx, rawURL)
 	if err != nil {
-		slog.Info("urlextract jina fetch failed", "url", rawURL, "error", err)
+		slog.Warn("urlextract jina fetch failed", "url", rawURL, "error", err)
 		return Result{}, fmt.Errorf("jina: %v: %w", err, ErrFetchFailed)
 	}
 	slog.Info("urlextract jina fetch ok", "title", jinaResult.Title, "contentLen", len(jinaResult.Content), "images", len(jinaResult.Images))
@@ -182,18 +182,18 @@ func (e *DefaultExtractor) extractViaJinaWithProgress(ctx context.Context, rawUR
 		onProgress("extracting", "商品情報を解析中...")
 		claudeResult, err := e.claude.Extract(ctx, jinaResult.Content, Result{Name: jinaResult.Title})
 		if err != nil {
-			slog.Info("urlextract jina claude error", "error", err)
+			slog.Error("urlextract jina claude error", "error", err)
 			return Result{}, err
 		}
 		slog.Info("urlextract jina claude", "name", claudeResult.Name, "imageURL", claudeResult.ImageURL)
 		if claudeResult.Name == "" {
-			slog.Info("urlextract jina claude returned no name, ErrExtractionFailed")
+			slog.Warn("urlextract jina claude returned no name, ErrExtractionFailed")
 			return Result{}, fmt.Errorf("claude returned empty name: %w", ErrExtractionFailed)
 		}
 		name := claudeResult.Name
 		imageURL := claudeResult.ImageURL
 		if imageURL == "" {
-			slog.Info("urlextract jina result missing image, supplementing from raw Jina")
+			slog.Warn("urlextract jina result missing image, supplementing from raw Jina")
 			imageURL = imageURLFromJina(jinaResult.Images, jinaResult.Content, name)
 		}
 		return Result{Name: name, ImageURL: imageURL}, nil
@@ -201,7 +201,7 @@ func (e *DefaultExtractor) extractViaJinaWithProgress(ctx context.Context, rawUR
 
 	name := jinaResult.Title
 	if name == "" {
-		slog.Info("urlextract jina no claude, empty title, ErrExtractionFailed")
+		slog.Warn("urlextract jina no claude, empty title, ErrExtractionFailed")
 		return Result{}, fmt.Errorf("jina: empty title: %w", ErrExtractionFailed)
 	}
 	return Result{Name: name, ImageURL: imageURLFromJina(jinaResult.Images, jinaResult.Content, name)}, nil
@@ -216,7 +216,7 @@ func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (R
 
 	jinaResult, err := e.jinaFetcher.Fetch(ctx, rawURL)
 	if err != nil {
-		slog.Info("urlextract jina fetch failed", "url", rawURL, "error", err)
+		slog.Warn("urlextract jina fetch failed", "url", rawURL, "error", err)
 		return Result{}, fmt.Errorf("jina: %v: %w", err, ErrFetchFailed)
 	}
 	slog.Info("urlextract jina fetch ok", "title", jinaResult.Title, "contentLen", len(jinaResult.Content), "images", len(jinaResult.Images))
@@ -224,18 +224,18 @@ func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (R
 	if e.claude != nil {
 		claudeResult, err := e.claude.Extract(ctx, jinaResult.Content, Result{Name: jinaResult.Title})
 		if err != nil {
-			slog.Info("urlextract jina claude error", "error", err)
+			slog.Error("urlextract jina claude error", "error", err)
 			return Result{}, err
 		}
 		slog.Info("urlextract jina claude", "name", claudeResult.Name, "imageURL", claudeResult.ImageURL)
 		if claudeResult.Name == "" {
-			slog.Info("urlextract jina claude returned no name, ErrExtractionFailed")
+			slog.Warn("urlextract jina claude returned no name, ErrExtractionFailed")
 			return Result{}, fmt.Errorf("claude returned empty name: %w", ErrExtractionFailed)
 		}
 		name := claudeResult.Name
 		imageURL := claudeResult.ImageURL
 		if imageURL == "" {
-			slog.Info("urlextract jina result missing image, supplementing from raw Jina")
+			slog.Warn("urlextract jina result missing image, supplementing from raw Jina")
 			imageURL = imageURLFromJina(jinaResult.Images, jinaResult.Content, name)
 		}
 		return Result{Name: name, ImageURL: imageURL}, nil
@@ -244,7 +244,7 @@ func (e *DefaultExtractor) extractViaJina(ctx context.Context, rawURL string) (R
 	// No Claude: use Jina title and first image
 	name := jinaResult.Title
 	if name == "" {
-		slog.Info("urlextract jina no claude, empty title, ErrExtractionFailed")
+		slog.Warn("urlextract jina no claude, empty title, ErrExtractionFailed")
 		return Result{}, fmt.Errorf("jina: empty title: %w", ErrExtractionFailed)
 	}
 	return Result{Name: name, ImageURL: imageURLFromJina(jinaResult.Images, jinaResult.Content, name)}, nil

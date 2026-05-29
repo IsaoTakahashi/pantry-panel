@@ -1,0 +1,77 @@
+- generic [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e7] [cursor=pointer]:
+    - img [ref=e8]
+  - alert [ref=e11]
+  - generic [ref=e38]:
+    - banner [ref=e39]:
+      - generic [ref=e40]:
+        - heading "Pantry Panel" [level=1] [ref=e41]
+        - generic [ref=e42]:
+          - button "E2E Test Group" [ref=e44] [cursor=pointer]:
+            - img [ref=e45]
+            - text: E2E Test Group
+            - img [ref=e48]
+          - link [ref=e51] [cursor=pointer]:
+            - /url: /invite
+            - img [ref=e52]
+          - button "サインアウト" [ref=e55] [cursor=pointer]:
+            - img [ref=e56]
+    - main [ref=e59]:
+      - generic [ref=e60]:
+        - generic [ref=e61]:
+          - searchbox "検索" [ref=e63]
+          - generic [ref=e64]:
+            - button "買いたいものだけ" [ref=e65]:
+              - img [ref=e66]
+            - combobox "カテゴリ" [ref=e69]:
+              - option "全部" [selected]
+              - option "★"
+              - option "こども"
+              - option "洗面"
+              - option "100均"
+              - option "KALDI"
+              - option "調味料"
+              - option "飲み物"
+              - option "缶詰"
+              - option "おかず"
+              - option "おかずの素"
+              - option "おやつ"
+              - option "その他"
+          - switch "表示モード" [ref=e71]:
+            - generic [ref=e72]: 通常
+            - generic [ref=e73]: シンプル
+        - generic [ref=e74]:
+          - button "商品を追加" [active] [ref=e75]
+          - button "URLから追加" [ref=e76]:
+            - img [ref=e77]
+      - dialog [ref=e162]:
+        - generic [ref=e164]:
+          - heading "商品を追加" [level=2] [ref=e165]
+          - button "閉じる" [ref=e166]: ✕
+        - generic [ref=e169]:
+          - generic [ref=e170]:
+            - generic [ref=e171]: 名前
+            - textbox "名前" [ref=e172]
+          - generic [ref=e173]:
+            - generic [ref=e174]: カテゴリ
+            - combobox "カテゴリ" [ref=e175]:
+              - option "★" [selected]
+              - option "こども"
+              - option "洗面"
+              - option "100均"
+              - option "KALDI"
+              - option "調味料"
+              - option "飲み物"
+              - option "缶詰"
+              - option "おかず"
+              - option "おかずの素"
+              - option "おやつ"
+              - option "その他"
+          - generic [ref=e176]:
+            - generic [ref=e177]: 買いたい
+            - button "買いたい" [ref=e178]:
+              - img [ref=e179]
+          - generic [ref=e182]:
+            - button "キャンセル" [ref=e183]
+            - button "追加" [disabled] [ref=e184]
+      - paragraph [ref=e80]: 商品がありません
