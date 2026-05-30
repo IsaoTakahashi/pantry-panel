@@ -86,4 +86,32 @@ test.describe("URL からの商品登録", () => {
       timeout: 10000,
     });
   });
+
+  test("クリップボードに有効URLがある状態でリンクボタンをクリック → 自動submitが走り streaming が開始される", async ({
+    page,
+  }) => {
+    await page.route("**/api/extract-from-url/stream", (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body:
+          SSE_PROGRESS("fetching", "ページを取得中...") +
+          SSE_DONE("クリップボード商品", null),
+      });
+    });
+    await page
+      .context()
+      .grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.goto("/stock-items");
+    await page.evaluate(() =>
+      navigator.clipboard.writeText("https://example.com/product"),
+    );
+    await page.getByRole("button", { name: "URLから追加" }).click();
+    // Auto-submit fires immediately: streaming starts and then completes.
+    // Verify by waiting for the CreateItemModal (name field) to be pre-filled,
+    // which proves the auto-submit ran end-to-end.
+    await expect(page.getByLabel("名前")).toHaveValue("クリップボード商品", {
+      timeout: 10000,
+    });
+  });
 });
