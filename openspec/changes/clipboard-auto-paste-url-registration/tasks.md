@@ -1,21 +1,21 @@
 ## 1. UrlRegistrationModal — クリップボード読み取りロジック
 
-- [ ] 1.1 `isValidUrl(text: string): boolean` ヘルパー関数をコンポーネント外に追加する（`new URL()` + protocol チェック）
-- [ ] 1.2 `ClipboardNotice` 型を定義する（`{ type: "notUrl"; text: string } | { type: "failed" }`）
-- [ ] 1.3 `clipboardNotice` state を `useState<ClipboardNotice | null>(null)` で追加する
-- [ ] 1.4 `submitRef = useRef(submit)` パターンを実装し、毎render後に `submitRef.current = submit` を更新するeffectを追加する
-- [ ] 1.5 既存の `useEffect([isOpen])` に clipboard 読み取りロジックを追加する
+- [x] 1.1 `isValidUrl(text: string): boolean` ヘルパー関数をコンポーネント外に追加する（`new URL()` + protocol チェック）
+- [x] 1.2 `ClipboardNotice` 型を定義する（`{ type: "notUrl"; text: string } | { type: "failed" }`）
+- [x] 1.3 `clipboardNotice` state を `useState<ClipboardNotice | null>(null)` で追加する
+- [x] 1.4 `submitRef = useRef(submit)` パターンを実装し、毎render後に `submitRef.current = submit` を更新するeffectを追加する
+- [x] 1.5 既存の `useEffect([isOpen])` に clipboard 読み取りロジックを追加する
   - `navigator?.clipboard?.readText` が存在しない場合は早期リターン
   - 読み取り成功 + 有効URL → `setUrl(trimmed)` → `submitRef.current(trimmed)`
   - 読み取り成功 + 非URL → `setClipboardNotice({ type: "notUrl", text: trimmed })`
   - 読み取り失敗（catch）→ `setClipboardNotice({ type: "failed" })`
   - 空文字列 → 何もしない
-- [ ] 1.6 `submit` 関数の冒頭で `setClipboardNotice(null)` を呼び、通知をクリアする
-- [ ] 1.7 URL input の `onChange` ハンドラで `clipboardNotice` をクリアする（ユーザーが入力を始めたとき）
+- [x] 1.6 `submit` 関数の冒頭で `setClipboardNotice(null)` を呼び、通知をクリアする
+- [x] 1.7 URL input の `onChange` ハンドラで `clipboardNotice` をクリアする（ユーザーが入力を始めたとき）
 
 ## 2. UrlRegistrationModal — 通知UI
 
-- [ ] 2.1 `clipboardNotice` が存在するとき、フォーム内（URL input の下）に通知ブロックを表示するJSXを追加する
+- [x] 2.1 `clipboardNotice` が存在するとき、フォーム内（URL input の下）に通知ブロックを表示するJSXを追加する
   - "URLの読み取りに失敗しました" のメッセージを表示
   - `type === "notUrl"` のとき、読み取れた文字列（60文字超は末尾に…を付けてトリム）を表示
   - スタイル: amber系の警告ボックス（`bg-amber-50 border-amber-200 text-amber-700`）

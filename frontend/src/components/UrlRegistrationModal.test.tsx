@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type React from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExtractFromUrlError, extractFromUrlStream } from "@/lib/api";
 import UrlRegistrationModal from "./UrlRegistrationModal";
 
@@ -569,5 +569,134 @@ describe("UrlRegistrationModal", () => {
     expect(
       screen.queryByText("ページを取得できませんでした"),
     ).not.toBeInTheDocument();
+  });
+
+  describe("クリップボード自動ペースト", () => {
+    const mockReadText = vi.fn();
+
+    beforeEach(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: { readText: mockReadText },
+        writable: true,
+        configurable: true,
+      });
+      mockReadText.mockReset();
+    });
+
+    afterEach(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it("有効URLがクリップボードにある場合、モーダルを開くと自動でsubmitが開始される", async () => {
+      mockReadText.mockResolvedValue("https://example.com/product");
+      vi.mocked(extractFromUrlStream).mockReturnValue(new Promise(() => {}));
+
+      render(<UrlRegistrationModal {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(extractFromUrlStream).toHaveBeenCalledWith(
+          "https://example.com/product",
+          expect.any(Function),
+          expect.any(Function),
+          expect.any(Function),
+          undefined,
+          undefined,
+        );
+      });
+    });
+
+    it("非URLテキストがクリップボードにある場合、通知が表示される", async () => {
+      mockReadText.mockResolvedValue("何かのテキスト");
+
+      render(<UrlRegistrationModal {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText("URLの読み取りに失敗しました"),
+        ).toBeInTheDocument();
+      });
+      expect(screen.getByText(/何かのテキスト/)).toBeInTheDocument();
+    });
+
+    it("60文字超の非URLテキストは60文字＋省略記号に切り詰められて表示される", async () => {
+      const longText = "あ".repeat(61);
+      mockReadText.mockResolvedValue(longText);
+
+      render(<UrlRegistrationModal {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText("URLの読み取りに失敗しました"),
+        ).toBeInTheDocument();
+      });
+      const truncated = `${"あ".repeat(60)}…`;
+      expect(screen.getByText(new RegExp(truncated))).toBeInTheDocument();
+    });
+
+    it("clipboard読み取りが失敗した場合、エラー通知のみ表示されクリップボードテキストは表示されない", async () => {
+      mockReadText.mockRejectedValue(new Error("permission denied"));
+
+      render(<UrlRegistrationModal {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText("URLの読み取りに失敗しました"),
+        ).toBeInTheDocument();
+      });
+      expect(screen.queryByText(/読み取れた文字列/)).not.toBeInTheDocument();
+    });
+
+    it("クリップボードが空の場合、通知が表示されない", async () => {
+      mockReadText.mockResolvedValue("");
+
+      render(<UrlRegistrationModal {...defaultProps} />);
+
+      // Wait a tick for the async clipboard read to complete
+      await waitFor(() => {
+        expect(mockReadText).toHaveBeenCalled();
+      });
+      expect(
+        screen.queryByText("URLの読み取りに失敗しました"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("navigator.clipboardがundefinedの場合、クラッシュせずモーダルが開き通知も表示されない", async () => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
+
+      render(<UrlRegistrationModal {...defaultProps} />);
+
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(
+        screen.queryByText("URLの読み取りに失敗しました"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("通知表示後にURL inputに文字を入力すると通知が消える", async () => {
+      mockReadText.mockResolvedValue("何かのテキスト");
+
+      render(<UrlRegistrationModal {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByText("URLの読み取りに失敗しました"),
+        ).toBeInTheDocument();
+      });
+
+      fireEvent.change(screen.getByLabelText("商品ページの URL"), {
+        target: { value: "h" },
+      });
+
+      expect(
+        screen.queryByText("URLの読み取りに失敗しました"),
+      ).not.toBeInTheDocument();
+    });
   });
 });
