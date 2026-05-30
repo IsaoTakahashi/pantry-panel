@@ -113,5 +113,6 @@ test.describe("URL からの商品登録", () => {
     await expect(page.getByLabel("名前")).toHaveValue("クリップボード商品", {
       timeout: 10000,
     });
+    await page.context().clearPermissions();
   });
 });
