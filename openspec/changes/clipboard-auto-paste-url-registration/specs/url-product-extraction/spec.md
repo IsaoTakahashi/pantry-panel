@@ -68,3 +68,7 @@ When the button is tapped, the system SHALL attempt to read the clipboard and au
 #### Scenario: Page fetch failure shown as error
 - **WHEN** the API returns an error with kind `fetchFailed`
 - **THEN** the modal shows "ページを取得できませんでした" and allows retry
+
+#### Scenario: Invalid URL shown as validation error
+- **WHEN** the API returns HTTP 400
+- **THEN** the modal shows "有効な URL を入力してください"
