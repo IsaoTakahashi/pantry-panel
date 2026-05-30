@@ -250,9 +250,7 @@ export default function UrlRegistrationModal({
               <p>URLの読み取りに失敗しました</p>
               {clipboardNotice.type === "notUrl" && (
                 <p className="mt-0.5 break-all">
-                  {clipboardNotice.text.length > 60
-                    ? `${clipboardNotice.text.slice(0, 60)}…`
-                    : clipboardNotice.text}
+                  {`読み取れた文字列："${clipboardNotice.text.length > 60 ? `${clipboardNotice.text.slice(0, 60)}…` : clipboardNotice.text}"`}
                 </p>
               )}
             </div>
