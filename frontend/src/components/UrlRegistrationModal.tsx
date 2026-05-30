@@ -142,6 +142,7 @@ export default function UrlRegistrationModal({
     useState<ClipboardNotice | null>(null);
 
   const submitRef = useRef(submit);
+  // Keep ref current so the clipboard effect can call submit without adding it to deps
   useEffect(() => {
     submitRef.current = submit;
   });
@@ -241,7 +242,11 @@ export default function UrlRegistrationModal({
             disabled={state === "streaming"}
           />
           {clipboardNotice && (
-            <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700"
+            >
               <p>URLの読み取りに失敗しました</p>
               {clipboardNotice.type === "notUrl" && (
                 <p className="mt-0.5 break-all">
