@@ -607,6 +607,9 @@ describe("UrlRegistrationModal", () => {
           undefined,
         );
       });
+      expect(screen.getByLabelText("商品ページの URL")).toHaveValue(
+        "https://example.com/product",
+      );
     });
 
     it("非URLテキストがクリップボードにある場合、通知が表示される", async () => {
