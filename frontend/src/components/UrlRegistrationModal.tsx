@@ -1,12 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ExtractFromUrlError,
   type ExtractionProgressEvent,
   extractFromUrlStream,
 } from "@/lib/api";
 import BaseModal from "./BaseModal";
+
+function isValidUrl(text: string): boolean {
+  try {
+    const parsed = new URL(text);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+type ClipboardNotice = { type: "notUrl"; text: string } | { type: "failed" };
 
 type UrlRegistrationModalProps = {
   isOpen: boolean;
@@ -127,6 +138,13 @@ export default function UrlRegistrationModal({
     candidates: string[];
     sourceUrl: string;
   } | null>(null);
+  const [clipboardNotice, setClipboardNotice] =
+    useState<ClipboardNotice | null>(null);
+
+  const submitRef = useRef(submit);
+  useEffect(() => {
+    submitRef.current = submit;
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -136,11 +154,31 @@ export default function UrlRegistrationModal({
       setShowDetail(false);
       setSteps(BASE_STEPS);
       setSelectionData(null);
+      setClipboardNotice(null);
+
+      if (!navigator?.clipboard?.readText) return;
+
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          const trimmed = text.trim();
+          if (!trimmed) return;
+          if (isValidUrl(trimmed)) {
+            setUrl(trimmed);
+            submitRef.current(trimmed);
+          } else {
+            setClipboardNotice({ type: "notUrl", text: trimmed });
+          }
+        })
+        .catch(() => {
+          setClipboardNotice({ type: "failed" });
+        });
     }
   }, [isOpen]);
 
   async function submit(urlToSubmit: string) {
     if (!urlToSubmit) return;
+    setClipboardNotice(null);
     setState("streaming");
     setError(null);
     setSteps(BASE_STEPS);
@@ -196,9 +234,24 @@ export default function UrlRegistrationModal({
             className="w-full border-2 border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 placeholder:text-slate-400 focus:border-[#00d1b2] focus:outline-none transition-colors"
             placeholder="https://example.com/product"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(e) => {
+              setUrl(e.target.value);
+              setClipboardNotice(null);
+            }}
             disabled={state === "streaming"}
           />
+          {clipboardNotice && (
+            <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+              <p>URLの読み取りに失敗しました</p>
+              {clipboardNotice.type === "notUrl" && (
+                <p className="mt-0.5 break-all">
+                  {clipboardNotice.text.length > 60
+                    ? `${clipboardNotice.text.slice(0, 60)}…`
+                    : clipboardNotice.text}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {state === "streaming" && (
