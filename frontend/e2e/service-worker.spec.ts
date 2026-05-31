@@ -103,18 +103,19 @@ test.describe("Service Worker", () => {
   test("S-8: shell HTML は SWR (キャッシュ即返 + 裏で更新) で配信される", async ({
     page,
   }) => {
-    // Use a dedicated stable URL so we can serve deterministic bodies. The
-    // exact path does not need to exist server-side because page.route
-    // intercepts every request — including SW-initiated fetches when
-    // serviceWorkers: "allow" — before they hit the network.
-    const SHELL_URL = "/swr-shell-fixture";
-    const v1Body =
-      '<!doctype html><html><body><main id="m">swr-marker-v1</main></body></html>';
-    const v2Body =
-      '<!doctype html><html><body><main id="m">swr-marker-v2</main></body></html>';
+    // Plant a known body into the SWR document cache, then navigate. SWR
+    // must (a) return the planted body instantly (cache-first leg) and
+    // (b) overwrite the cache with the real network body in the background
+    // (revalidate leg). page.route is not usable here because Playwright
+    // does not intercept SW-initiated fetches in this configuration —
+    // direct cache manipulation discriminates SWR vs CacheFirst cleanly:
+    //   - CacheFirst: passes (a), fails (b) — never revalidates.
+    //   - NetworkOnly/First: fails (a) — would render the real /health.
+    //   - StaleWhileRevalidate: passes both.
+    const V1_MARKER = "swr-marker-v1";
+    const DOC_CACHE = "pantry-document-pages"; // must match sw.ts cacheName.
 
-    // Prime the SW first via a real same-origin navigation so it is
-    // controlling subsequent fetches by the time we navigate to the fixture.
+    // 1) Register & wait for the SW to control the page.
     await page.goto("/health");
     await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
@@ -123,60 +124,52 @@ test.describe("Service Worker", () => {
       }
     });
 
-    // Phase 1: serve v1. The SW has no cache for SHELL_URL yet, so SWR falls
-    // through to network, caches v1, and returns v1.
-    let currentBody = v1Body;
-    await page.route(`**${SHELL_URL}`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "text/html; charset=utf-8",
-        body: currentBody,
-      });
-    });
+    // 2) Plant a synthetic v1 response into the SWR cache for /health. The
+    //    cache key must be the full URL string (Serwist's default), not
+    //    just the path.
+    await page.evaluate(
+      async ([cacheName, marker]) => {
+        const cache = await caches.open(cacheName);
+        const url = new URL("/health", location.origin).toString();
+        await cache.put(
+          new Request(url),
+          new Response(
+            `<!doctype html><html><body><main id="m">${marker}</main></body></html>`,
+            { headers: { "content-type": "text/html; charset=utf-8" } },
+          ),
+        );
+      },
+      [DOC_CACHE, V1_MARKER] as const,
+    );
 
-    await page.goto(SHELL_URL);
-    await expect(page.locator("#m")).toHaveText("swr-marker-v1");
+    // 3) Cache-first leg: navigation must render the planted v1 instantly.
+    await page.goto("/health");
+    await expect(page.locator("#m")).toHaveText(V1_MARKER);
 
-    // Wait for the v1 response to be persisted in CacheStorage.
-    const cachedV1 = await page.evaluate(async (url) => {
-      const deadline = Date.now() + 10_000;
-      while (Date.now() < deadline) {
-        const match = await caches.match(url);
-        if (match) return await match.text();
-        await new Promise((r) => setTimeout(r, 100));
-      }
-      return null;
-    }, SHELL_URL);
-    expect(cachedV1).not.toBeNull();
-    expect(cachedV1).toContain("swr-marker-v1");
-
-    // Phase 2: flip the network to serve v2. SWR must return the cached v1
-    // immediately on the next navigation while it fetches v2 in the
-    // background, and the cache must then transition to v2.
-    currentBody = v2Body;
-
-    await page.goto(SHELL_URL);
-    // Immediate render must be the cached v1 (proves cache-first leg of SWR;
-    // a plain CacheFirst would also pass this, but the v2 transition below
-    // would then fail because CacheFirst never revalidates).
-    await expect(page.locator("#m")).toHaveText("swr-marker-v1");
-
-    // Background revalidation must replace the cached body with v2.
-    const cachedV2 = await page.evaluate(async (url) => {
-      const deadline = Date.now() + 10_000;
-      while (Date.now() < deadline) {
-        const match = await caches.match(url);
-        if (match) {
-          const text = await match.text();
-          if (text.includes("swr-marker-v2")) return text;
+    // 4) Revalidate leg: SW's background fetch must overwrite the cache
+    //    with the real /health response (which does NOT contain V1_MARKER).
+    const cachedAfter = await page.evaluate(
+      async ([cacheName, marker]) => {
+        const url = new URL("/health", location.origin).toString();
+        const deadline = Date.now() + 10_000;
+        while (Date.now() < deadline) {
+          const cache = await caches.open(cacheName);
+          const match = await cache.match(url);
+          if (match) {
+            const text = await match.text();
+            if (!text.includes(marker)) return text;
+          }
+          await new Promise((r) => setTimeout(r, 100));
         }
-        await new Promise((r) => setTimeout(r, 100));
-      }
-      const fallback = await caches.match(url);
-      return fallback ? await fallback.text() : null;
-    }, SHELL_URL);
-    expect(cachedV2).not.toBeNull();
-    expect(cachedV2).toContain("swr-marker-v2");
+        const cache = await caches.open(cacheName);
+        const fallback = await cache.match(url);
+        return fallback ? await fallback.text() : null;
+      },
+      [DOC_CACHE, V1_MARKER] as const,
+    );
+    expect(cachedAfter).not.toBeNull();
+    expect(cachedAfter).not.toContain(V1_MARKER);
+    expect((cachedAfter ?? "").length).toBeGreaterThan(0);
   });
 
   test("S-7: 静的アセット (_next/static/*) は CacheFirst でネットワーク非依存", async ({
