@@ -1,10 +1,12 @@
 import withSerwistInit from "@serwist/next";
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV === "development";
+
 const withSerwist = withSerwistInit({
   swSrc: "src/sw.ts",
   swDest: "public/sw.js",
-  disable: process.env.NODE_ENV === "development",
+  disable: isDev,
   scope: "/",
   register: false,
   reloadOnOnline: true,
@@ -27,4 +29,7 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
 };
 
-export default withSerwist(nextConfig);
+// Apply Serwist only when SW generation is actually wanted (production build).
+// Wrapping in dev injects a webpack config, which conflicts with Turbopack
+// (Next.js 16 default) and forces `--webpack` in dev too.
+export default isDev ? nextConfig : withSerwist(nextConfig);

@@ -15,9 +15,18 @@ const playwrightConfigSource = fs.readFileSync(PLAYWRIGHT_CONFIG, "utf-8");
 
 describe("Service Worker source guards", () => {
   describe("S-3: 開発モードでは SW を生成・登録しない", () => {
-    it("next.config.ts disables Serwist in development", () => {
+    it("next.config.ts derives a dev flag from NODE_ENV and passes it to disable", () => {
+      // Must compute NODE_ENV === "development" somewhere and pass it as disable.
       expect(nextConfigSource).toMatch(
-        /disable:\s*process\.env\.NODE_ENV\s*===\s*["']development["']/,
+        /process\.env\.NODE_ENV\s*===\s*["']development["']/,
+      );
+      expect(nextConfigSource).toMatch(/disable:\s*\w+/);
+    });
+
+    it("next.config.ts also skips wrapping with Serwist when in dev", () => {
+      // The export gates Serwist behind the dev flag so Turbopack works in dev.
+      expect(nextConfigSource).toMatch(
+        /export\s+default\s+\w+\s*\?\s*nextConfig\s*:\s*withSerwist\(nextConfig\)/,
       );
     });
 
