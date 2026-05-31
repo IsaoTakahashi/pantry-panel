@@ -32,7 +32,7 @@
 ## 5. 既存 E2E への影響対策
 
 - [x] 5.1 `frontend/playwright.config.ts` の `mock` / `preview` project に `use.serviceWorkers: "block"` を追加 (→ 加えて `sw` project を追加し SW spec をそちらに隔離)
-- [ ] 5.2 既存 E2E スイートを `npm run test:e2e` で実行し、green を確認
+- [x] 5.2 既存 E2E スイートを `npm run test:e2e` で実行し、green を確認 (→ `npx playwright test --project=mock` 23 passed in 38s。SW 専用 `sw` project も 6 passed)
 
 ## 6. ローカル検証
 
