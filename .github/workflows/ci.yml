@@ -56,11 +56,13 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      - name: Unit test
-        run: npm test
-
+      # Build runs before unit tests so sw.precache.test.ts can read the
+      # generated public/sw.js without triggering its own Next.js build.
       - name: Build
         run: npm run build
+
+      - name: Unit test
+        run: npm test
 
   backend:
     needs: changes

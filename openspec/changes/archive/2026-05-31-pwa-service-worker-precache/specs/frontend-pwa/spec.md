@@ -1,58 +1,4 @@
-# frontend-pwa Specification
-
-## Purpose
-TBD - created by archiving change frontend-pwa-and-modal-polish. Update Purpose after archive.
-## Requirements
-### Requirement: アプリは PWA としてインストール可能
-Frontend は Web App Manifest を提供し、対応ブラウザで「ホーム画面に追加」「アプリをインストール」UI が利用可能となる SHALL。
-
-#### Scenario: マニフェストが配信される
-- **WHEN** ブラウザで `/manifest.webmanifest` を取得する
-- **THEN** JSON が返り、`name`、`short_name`、`start_url`、`display`、`icons` を含む
-
-### Requirement: アイコンが配信される
-PWA マニフェストは 192×192 と 512×512 の 2 サイズのアイコンを個別ファイルで提供する SHALL。アイコンはブランドカラー（`#00d1b2`）を背景に、白抜きの3段棚ピクトグラムを描いた PNG MUST。
-
-#### Scenario: 192px アイコンが配信される
-- **WHEN** ブラウザで `/icon-192.png` を取得する
-- **THEN** 192×192 PNG が返る（Vercel デプロイ後）
-
-#### Scenario: 512px アイコンが配信される
-- **WHEN** ブラウザで `/icon-512.png` を取得する
-- **THEN** 512×512 PNG が返る（Vercel デプロイ後）
-
-#### Scenario: manifest の icons エントリが 2 つある
-- **WHEN** `/manifest.webmanifest` を取得する
-- **THEN** `icons` 配列に `{ src: "/icon-192.png", sizes: "192x192" }` と `{ src: "/icon-512.png", sizes: "512x512" }` の 2 エントリが含まれる
-
-### Requirement: Manifest は本番起点として `/stock-items` を指定する
-Web App Manifest の `start_url` は `/stock-items` に MUST 設定する。インストール後のアプリ起動で商品一覧が直接開く。
-
-#### Scenario: start_url の値
-- **WHEN** Manifest を取得する
-- **THEN** `start_url` が `"/stock-items"` である
-
-### Requirement: アプリのテーマカラーは旧仕様の teal に揃える
-Manifest の `theme_color` および `background_color` を Pantry Panel ブランド色に MUST 設定する。
-- `theme_color`: `#00d1b2` (旧仕様 teal)
-- `background_color`: `#ffffff`
-
-#### Scenario: テーマカラー
-- **WHEN** Manifest を取得する
-- **THEN** `theme_color` と `background_color` が上記の値で設定されている
-
-### Requirement: ページタイトルとファビコン
-- ブラウザタブのタイトルは `"Pantry Panel"` MUST
-- favicon は `frontend/src/app/favicon.ico`（ブランドカラー teal 背景の棚ピクトグラム）を使用する MUST
-- apple-touch-icon は `icon-192.png` を参照する MUST
-
-#### Scenario: ページタイトル
-- **WHEN** ブラウザで任意のページを開く
-- **THEN** タブのタイトルが `Pantry Panel` で始まる
-
-#### Scenario: favicon が表示される
-- **WHEN** ブラウザでページを開く
-- **THEN** Next.js metadata により `favicon.ico` が favicon として参照される
+## ADDED Requirements
 
 ### Requirement: アプリは Service Worker を登録する
 Frontend は本番ビルドで Service Worker (`/sw.js`) を配信し、ブラウザで自動登録する SHALL。スコープは `/` MUST。開発時 (`npm run dev`) は SW を生成・登録しない MUST。
@@ -130,4 +76,3 @@ SW は以下のランタイムキャッシュ戦略を MUST 適用する:
 #### Scenario: SW 専用 E2E が独立ファイルで存在する
 - **WHEN** `e2e/` 配下を確認する
 - **THEN** SW の pre-cache 挙動を検証する独立した spec ファイル（例: `service-worker.spec.ts`）が存在する
-

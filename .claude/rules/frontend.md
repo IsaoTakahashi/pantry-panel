@@ -50,6 +50,7 @@ cd frontend && npm run dev
 | Unit | **Vitest** + **React Testing Library** | ロジック、hooks、コンポーネント描画 |
 | Learning | **Vitest** (別 config) | `*.learning.test.{ts,tsx}` のみ。通常 vitest からは除外 |
 | E2E | **Playwright** | ユーザー操作フロー、リアルタイム同期（複数 BrowserContext） |
+| E2E (SW) | **Playwright** (`sw` project) | Service Worker 専用。`npm run test:e2e:sw` で opt-in 実行（内部で `RUN_SW_E2E=1` を立て、port 3001 に本番ビルドを起動） |
 
 ## 学習用 WebSocket クライアント（Phase 3）
 
