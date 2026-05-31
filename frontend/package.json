@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "biome check .",
     "format": "biome format --write .",
@@ -26,6 +26,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.12",
     "@playwright/test": "^1.59.1",
+    "@serwist/next": "^9.5.11",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -35,6 +36,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^29.0.2",
+    "serwist": "^9.5.11",
     "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "to-ico": "^1.1.5",

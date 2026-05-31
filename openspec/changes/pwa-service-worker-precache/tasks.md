@@ -1,24 +1,24 @@
 ## 1. 事前準備とテスト設計
 
-- [ ] 1.1 `npm view @serwist/next versions --json` で最新安定版を確認しバージョンを決定する
-- [ ] 1.2 Next.js 16 / App Router での `@serwist/next` の最小サンプルをドキュメントで確認する
-- [ ] 1.3 テスト設計 sub-agent を起動し、`.claude/rules/testing.md` のハイブリッドフォーマットで proposal.md に「ユーザーシナリオとテスト設計」セクションを追加する → ユーザーレビュー
-- [ ] 1.4 GitHub Issue #180 から branch `180-pwa-service-worker-precache` を作成し、Draft PR を起こす
+- [x] 1.1 `npm view @serwist/next versions --json` で最新安定版を確認しバージョンを決定する (→ 9.5.11 stable, peer next>=14.0.0)
+- [x] 1.2 Next.js 16 / App Router での `@serwist/next` の最小サンプルをドキュメントで確認する (→ withSerwistInit + app/sw.ts + defaultCache パターン)
+- [x] 1.3 テスト設計 sub-agent を起動し、`.claude/rules/testing.md` のハイブリッドフォーマットで proposal.md に「ユーザーシナリオとテスト設計」セクションを追加する → ユーザーレビュー (→ 13 シナリオ追加・レビュー OK)
+- [x] 1.4 GitHub Issue #180 から branch `180-pwa-service-worker-precache` を作成し、Draft PR を起こす (→ Draft PR #183)
 
 ## 2. 依存追加と設定
 
-- [ ] 2.1 `frontend/package.json` に `@serwist/next` を追加（dev/runtime の必要な分割で）
-- [ ] 2.2 `frontend/next.config.ts` を `withSerwist` でラップする（disable: NODE_ENV === "development"）
-- [ ] 2.3 `frontend/src/sw.ts` を新規作成し、precache manifest 取り込み + runtime caching ルールを定義する
-- [ ] 2.4 SW を `/sw.js` として配信する出力先を `next.config.ts` で設定する
-- [ ] 2.5 `frontend/src/app/layout.tsx` に SW registration コンポーネントを追加（本番のみ register、`scope: "/"` 明示）
+- [x] 2.1 `frontend/package.json` に `@serwist/next` を追加（dev/runtime の必要な分割で） (→ `@serwist/next@9.5.11` + `serwist@9.5.11` devDependencies)
+- [x] 2.2 `frontend/next.config.ts` を `withSerwist` でラップする（disable: NODE_ENV === "development"） (→ `withSerwistInit` + disable + scope:"/" + additionalPrecacheEntries)
+- [x] 2.3 `frontend/src/sw.ts` を新規作成し、precache manifest 取り込み + runtime caching ルールを定義する (→ Serwist class + NetworkOnly/CacheFirst/SWR routes)
+- [x] 2.4 SW を `/sw.js` として配信する出力先を `next.config.ts` で設定する (→ swDest:"public/sw.js"。build script を `next build --webpack` に切替)
+- [x] 2.5 `frontend/src/app/layout.tsx` に SW registration コンポーネントを追加（本番のみ register、`scope: "/"` 明示） (→ `<ServiceWorkerRegister />` client component)
 
 ## 3. ランタイムキャッシュ戦略の実装
 
-- [ ] 3.1 sw.ts に NetworkOnly を `/api/*` および Lambda Function URL ホスト宛てに適用する
-- [ ] 3.2 sw.ts に CacheFirst を `/_next/static/*`, `/icon-*.png`, `/favicon.ico`, `/manifest.webmanifest` に適用する
-- [ ] 3.3 sw.ts に StaleWhileRevalidate を `destination === "document"` に適用する
-- [ ] 3.4 `skipWaiting` および `clients.claim` を SW lifecycle に組み込む
+- [x] 3.1 sw.ts に NetworkOnly を `/api/*` および Lambda Function URL ホスト宛てに適用する (→ `/^\/api\//` RegExpRoute + `NEXT_PUBLIC_API_BASE_URL` host RegExp)
+- [x] 3.2 sw.ts に CacheFirst を `/_next/static/*`, `/icon-*.png`, `/favicon.ico`, `/manifest.webmanifest` に適用する (→ `staticAssetRoute` CacheFirst + Expiration plugin)
+- [x] 3.3 sw.ts に StaleWhileRevalidate を `destination === "document"` に適用する (→ `documentRoute` Route + StaleWhileRevalidate)
+- [x] 3.4 `skipWaiting` および `clients.claim` を SW lifecycle に組み込む (→ `Serwist` 構築時 `skipWaiting: true` + `clientsClaim: true`)
 
 ## 4. テスト実装（TDD: Red → Green → Refactor）
 
