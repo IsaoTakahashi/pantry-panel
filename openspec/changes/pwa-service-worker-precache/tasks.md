@@ -22,16 +22,16 @@
 
 ## 4. テスト実装（TDD: Red → Green → Refactor）
 
-- [ ] 4.1 実装 sub-agent (`superpowers:subagent-driven-development`) を起動し、`superpowers:test-driven-development` で以下の検証を回す
-- [ ] 4.2 spec scenario 「本番で /sw.js が配信される」「開発モードでは /sw.js を返さない」を確認するビルド成果物検査テスト or E2E を追加
-- [ ] 4.3 spec scenario 「pre-cache 対象に shell HTML と静的アセットが含まれる」を `@serwist/next` の build 後 manifest 検査で確認するテストを追加
-- [ ] 4.4 SW 専用 E2E (`e2e/service-worker.spec.ts`) を新規作成し、`serviceWorkers: "allow"` で起動して install 後の CacheStorage を検査する
-- [ ] 4.5 SW 専用 E2E に「shell HTML の SWR 挙動」「API の NetworkOnly 挙動」のシナリオを追加
-- [ ] 4.6 SW 専用 E2E に「新バージョン配信時の skipWaiting / clients.claim」シナリオを追加
+- [x] 4.1 実装 sub-agent (`superpowers:subagent-driven-development`) を起動し、`superpowers:test-driven-development` で以下の検証を回す (→ 実装 sub-agent で TDD 実施: unit test を RED → impl で GREEN)
+- [x] 4.2 spec scenario 「本番で /sw.js が配信される」「開発モードでは /sw.js を返さない」を確認するビルド成果物検査テスト or E2E を追加 (→ `src/sw.config.test.ts` S-3 unit + `e2e/service-worker.spec.ts` S-1 e2e)
+- [x] 4.3 spec scenario 「pre-cache 対象に shell HTML と静的アセットが含まれる」を `@serwist/next` の build 後 manifest 検査で確認するテストを追加 (→ `src/sw.precache.test.ts` S-4 unit, self-builds in beforeAll)
+- [x] 4.4 SW 専用 E2E (`e2e/service-worker.spec.ts`) を新規作成し、`serviceWorkers: "allow"` で起動して install 後の CacheStorage を検査する (→ `sw` project: `serviceWorkers:"allow"` + port 3001 production build。S-1/S-2/S-5)
+- [x] 4.5 SW 専用 E2E に「shell HTML の SWR 挙動」「API の NetworkOnly 挙動」のシナリオを追加 (→ S-6 API NetworkOnly + S-7 CacheFirst + S-8 SWR shell)
+- [x] 4.6 SW 専用 E2E に「新バージョン配信時の skipWaiting / clients.claim」シナリオを追加 (→ S-9/S-10 を unit (`sw.config.test.ts`) でガード。実切替 E2E はコスト対効果から見送り＝proposal の判定と一致)
 
 ## 5. 既存 E2E への影響対策
 
-- [ ] 5.1 `frontend/playwright.config.ts` の `mock` / `preview` project に `use.serviceWorkers: "block"` を追加
+- [x] 5.1 `frontend/playwright.config.ts` の `mock` / `preview` project に `use.serviceWorkers: "block"` を追加 (→ 加えて `sw` project を追加し SW spec をそちらに隔離)
 - [ ] 5.2 既存 E2E スイートを `npm run test:e2e` で実行し、green を確認
 
 ## 6. ローカル検証

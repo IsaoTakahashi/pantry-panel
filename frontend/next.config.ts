@@ -8,13 +8,18 @@ const withSerwist = withSerwistInit({
   scope: "/",
   register: false,
   reloadOnOnline: true,
-  // Next.js serves these from app/ rather than public/, so they are not picked
-  // up by the default glob. Explicitly include shell HTML + dynamic assets so
-  // PWA cold starts can render the shell without any network fetch.
+  // Setting additionalPrecacheEntries overrides the default public/ glob in
+  // @serwist/next 9.x. So we list every asset we want pre-cached explicitly:
+  //   - Shell HTML (/stock-items) + manifest + favicon are served from app/
+  //   - icon-{192,512}.png + icon.svg live in public/ but must be re-listed
+  //     here because the auto-glob is disabled once we add any entries.
   additionalPrecacheEntries: [
     { url: "/stock-items", revision: null },
     { url: "/manifest.webmanifest", revision: null },
     { url: "/favicon.ico", revision: null },
+    { url: "/icon-192.png", revision: null },
+    { url: "/icon-512.png", revision: null },
+    { url: "/icon.svg", revision: null },
   ],
 });
 
