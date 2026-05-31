@@ -42,8 +42,8 @@
 
 ## 7. CI と本番デプロイ
 
-- [ ] 7.1 全コミットを push し `gh pr checks --watch` で CI 全 green を確認
-- [ ] 7.2 コードレビュー sub-agent で変更差分をレビュー → ユーザーが最終確認
+- [x] 7.1 全コミットを push し `gh pr checks --watch` で CI 全 green を確認 (→ PR #183 で frontend / backend / e2e / e2e-preview / Vercel 全 pass)
+- [x] 7.2 コードレビュー sub-agent で変更差分をレビュー → ユーザーが最終確認 (→ APPROVE WITH NITS。Should fix 4 + Suggestions 4 全件適用済)
 - [ ] 7.3 PR マージ前に `opsx:archive` で specs を同期しアーカイブする（同じブランチ）
 - [ ] 7.4 main マージ → Vercel 自動デプロイの完了を確認
 
