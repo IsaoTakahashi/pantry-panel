@@ -100,31 +100,83 @@ test.describe("Service Worker", () => {
     expect(cachedApi).toBeNull();
   });
 
-  test("S-8: shell HTML (/health) は SWR でキャッシュに保存される", async ({
+  test("S-8: shell HTML は SWR (キャッシュ即返 + 裏で更新) で配信される", async ({
     page,
   }) => {
-    // 1st visit: SW intercepts and caches the document via StaleWhileRevalidate.
+    // Use a dedicated stable URL so we can serve deterministic bodies. The
+    // exact path does not need to exist server-side because page.route
+    // intercepts every request — including SW-initiated fetches when
+    // serviceWorkers: "allow" — before they hit the network.
+    const SHELL_URL = "/swr-shell-fixture";
+    const v1Body =
+      '<!doctype html><html><body><main id="m">swr-marker-v1</main></body></html>';
+    const v2Body =
+      '<!doctype html><html><body><main id="m">swr-marker-v2</main></body></html>';
+
+    // Prime the SW first via a real same-origin navigation so it is
+    // controlling subsequent fetches by the time we navigate to the fixture.
     await page.goto("/health");
     await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
+      while (!navigator.serviceWorker.controller) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
     });
-    // 2nd visit triggers the SWR cycle on the same URL.
-    await page.goto("/health");
 
-    // Allow the background revalidate to settle, then assert the response
-    // body is now in CacheStorage. Both first-visit cache write and SWR
-    // refresh must end with a cached response.
-    const cachedBody = await page.evaluate(async () => {
+    // Phase 1: serve v1. The SW has no cache for SHELL_URL yet, so SWR falls
+    // through to network, caches v1, and returns v1.
+    let currentBody = v1Body;
+    await page.route(`**${SHELL_URL}`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        body: currentBody,
+      });
+    });
+
+    await page.goto(SHELL_URL);
+    await expect(page.locator("#m")).toHaveText("swr-marker-v1");
+
+    // Wait for the v1 response to be persisted in CacheStorage.
+    const cachedV1 = await page.evaluate(async (url) => {
       const deadline = Date.now() + 10_000;
       while (Date.now() < deadline) {
-        const match = await caches.match("/health");
+        const match = await caches.match(url);
         if (match) return await match.text();
-        await new Promise((r) => setTimeout(r, 250));
+        await new Promise((r) => setTimeout(r, 100));
       }
       return null;
-    });
-    expect(cachedBody).not.toBeNull();
-    expect(cachedBody?.length ?? 0).toBeGreaterThan(0);
+    }, SHELL_URL);
+    expect(cachedV1).not.toBeNull();
+    expect(cachedV1).toContain("swr-marker-v1");
+
+    // Phase 2: flip the network to serve v2. SWR must return the cached v1
+    // immediately on the next navigation while it fetches v2 in the
+    // background, and the cache must then transition to v2.
+    currentBody = v2Body;
+
+    await page.goto(SHELL_URL);
+    // Immediate render must be the cached v1 (proves cache-first leg of SWR;
+    // a plain CacheFirst would also pass this, but the v2 transition below
+    // would then fail because CacheFirst never revalidates).
+    await expect(page.locator("#m")).toHaveText("swr-marker-v1");
+
+    // Background revalidation must replace the cached body with v2.
+    const cachedV2 = await page.evaluate(async (url) => {
+      const deadline = Date.now() + 10_000;
+      while (Date.now() < deadline) {
+        const match = await caches.match(url);
+        if (match) {
+          const text = await match.text();
+          if (text.includes("swr-marker-v2")) return text;
+        }
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      const fallback = await caches.match(url);
+      return fallback ? await fallback.text() : null;
+    }, SHELL_URL);
+    expect(cachedV2).not.toBeNull();
+    expect(cachedV2).toContain("swr-marker-v2");
   });
 
   test("S-7: 静的アセット (_next/static/*) は CacheFirst でネットワーク非依存", async ({
