@@ -1,11 +1,13 @@
 /// <reference lib="webworker" />
-import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
+import type {
+  PrecacheEntry,
+  RuntimeCaching,
+  SerwistGlobalConfig,
+} from "serwist";
 import {
   CacheFirst,
   ExpirationPlugin,
   NetworkOnly,
-  RegExpRoute,
-  Route,
   Serwist,
   StaleWhileRevalidate,
 } from "serwist";
@@ -20,43 +22,58 @@ declare const self: ServiceWorkerGlobalScope & {
   __SW_MANIFEST: (PrecacheEntry | string)[] | undefined;
 };
 
+// Escape every regex metacharacter so any Lambda hostname (dashes, digits,
+// dots, etc.) embeds safely into the host-anchored matcher below.
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 let apiHostMatcher: RegExp | null = null;
 if (apiBaseUrl) {
   try {
-    const host = new URL(apiBaseUrl).host.replace(/[.]/g, "\\.");
+    const host = escapeRegExp(new URL(apiBaseUrl).host);
     apiHostMatcher = new RegExp(`^https?://${host}/.*`, "i");
   } catch {
     apiHostMatcher = null;
   }
 }
 
-const apiPathRoute = new RegExpRoute(/^\/api\//, new NetworkOnly());
-
-const staticAssetRoute = new RegExpRoute(
-  /^\/(?:_next\/static\/|icon-[^/]*\.png$|favicon\.ico$|manifest\.webmanifest$)/,
-  new CacheFirst({
-    cacheName: "pantry-static-assets",
-    plugins: [
-      new ExpirationPlugin({
-        maxEntries: 128,
-        maxAgeSeconds: 30 * 24 * 60 * 60,
-      }),
-    ],
-  }),
-);
-
-const documentRoute = new Route(
-  ({ request }) => request.destination === "document",
-  new StaleWhileRevalidate({
-    cacheName: "pantry-document-pages",
-  }),
-);
-
-const runtimeRoutes: Route[] = [apiPathRoute, staticAssetRoute, documentRoute];
+const runtimeCaching: RuntimeCaching[] = [
+  {
+    matcher: /^\/api\//,
+    handler: new NetworkOnly(),
+    method: "GET",
+  },
+  {
+    matcher:
+      /^\/(?:_next\/static\/|icon-[^/]*\.png$|favicon\.ico$|manifest\.webmanifest$)/,
+    handler: new CacheFirst({
+      cacheName: "pantry-static-assets",
+      plugins: [
+        new ExpirationPlugin({
+          maxEntries: 128,
+          maxAgeSeconds: 30 * 24 * 60 * 60,
+        }),
+      ],
+    }),
+    method: "GET",
+  },
+  {
+    matcher: ({ request }) => request.destination === "document",
+    handler: new StaleWhileRevalidate({
+      cacheName: "pantry-document-pages",
+    }),
+    method: "GET",
+  },
+];
 
 if (apiHostMatcher) {
-  runtimeRoutes.unshift(new RegExpRoute(apiHostMatcher, new NetworkOnly()));
+  runtimeCaching.unshift({
+    matcher: apiHostMatcher,
+    handler: new NetworkOnly(),
+    method: "GET",
+  });
 }
 
 const serwist = new Serwist({
@@ -64,11 +81,7 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: false,
-  runtimeCaching: runtimeRoutes.map((route) => ({
-    matcher: route.match,
-    handler: route.handler,
-    method: "GET",
-  })),
+  runtimeCaching,
 });
 
 serwist.addEventListeners();

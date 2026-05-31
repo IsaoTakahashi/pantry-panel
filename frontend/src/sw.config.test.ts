@@ -43,10 +43,10 @@ describe("Service Worker source guards", () => {
 
   describe("S-6 guard: /api/* uses NetworkOnly", () => {
     it("sw.ts routes /api/ paths through NetworkOnly", () => {
-      // Match a RegExpRoute on /api/ paired with a NetworkOnly handler.
-      // Allow some flexibility (whitespace, comments) between the regex and "NetworkOnly()".
+      // Allow some flexibility (whitespace, comments) between the matcher
+      // regex and the NetworkOnly handler declaration on the next field.
       const apiRule =
-        /RegExpRoute\(\s*\/\^\\\/api\\\/\/[^,)]*,\s*new\s+NetworkOnly\s*\(\s*\)\s*\)/;
+        /matcher:\s*\/\^\\\/api\\\/\/[\s\S]{0,200}?handler:\s*new\s+NetworkOnly\s*\(\s*\)/;
       expect(swSource).toMatch(apiRule);
     });
 
@@ -113,6 +113,18 @@ describe("Service Worker source guards", () => {
       );
       expect(previewBlockMatch).not.toBeNull();
       expect(previewBlockMatch?.[0]).toMatch(/serviceWorkers:\s*["']block["']/);
+    });
+
+    it("playwright.config.ts sw project sets serviceWorkers: 'allow'", () => {
+      // The SW-dedicated project (last in the projects array) must opt back
+      // in to service workers so the spec can actually exercise them. The
+      // proposal explicitly calls this out: "SW 専用 spec は
+      // `serviceWorkers: \"allow\"` の独立 project".
+      const swBlockMatch = playwrightConfigSource.match(
+        /name:\s*["']sw["'][\s\S]*?\}\s*,?\s*\]/,
+      );
+      expect(swBlockMatch).not.toBeNull();
+      expect(swBlockMatch?.[0]).toMatch(/serviceWorkers:\s*["']allow["']/);
     });
   });
 
