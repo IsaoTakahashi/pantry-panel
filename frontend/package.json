@@ -13,6 +13,7 @@
     "test:learning": "vitest run --config vitest.learning.config.ts",
     "test:e2e": "playwright test --project=mock",
     "test:e2e:preview": "playwright test --project=preview",
+    "test:e2e:sw": "RUN_SW_E2E=1 playwright test --project=sw",
     "setup:e2e": "node --experimental-strip-types e2e/scripts/create-test-group.ts"
   },
   "dependencies": {
