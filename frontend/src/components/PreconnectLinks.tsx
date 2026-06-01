@@ -4,16 +4,16 @@ interface Props {
 }
 
 export function PreconnectLinks({ apiUrl, supabaseUrl }: Props) {
+  const api = apiUrl?.trim();
+  const supabase = supabaseUrl?.trim();
   return (
     <>
-      {apiUrl && (
-        <link rel="preconnect" href={apiUrl} crossOrigin="anonymous" />
+      {api && <link rel="preconnect" href={api} crossOrigin="anonymous" />}
+      {api && <link rel="dns-prefetch" href={api} />}
+      {supabase && (
+        <link rel="preconnect" href={supabase} crossOrigin="anonymous" />
       )}
-      {apiUrl && <link rel="dns-prefetch" href={apiUrl} />}
-      {supabaseUrl && (
-        <link rel="preconnect" href={supabaseUrl} crossOrigin="anonymous" />
-      )}
-      {supabaseUrl && <link rel="dns-prefetch" href={supabaseUrl} />}
+      {supabase && <link rel="dns-prefetch" href={supabase} />}
     </>
   );
 }

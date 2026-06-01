@@ -67,9 +67,24 @@ describe("PreconnectLinks", () => {
     });
   });
 
+  describe("Supabase URL のみ設定されている場合", () => {
+    it("Supabase の 2 タグのみ出力され API のタグは含まれない", () => {
+      render(<PreconnectLinks supabaseUrl="https://example.supabase.co" />);
+      const links = getHintLinks();
+      expect(links).toHaveLength(2);
+      const hrefs = Array.from(links).map((l) => l.getAttribute("href"));
+      expect(hrefs.every((h) => h?.includes("supabase.co"))).toBe(true);
+    });
+  });
+
   describe("環境変数が未設定の場合", () => {
     it("リソースヒントタグが出力されない", () => {
       render(<PreconnectLinks />);
+      expect(getHintLinks()).toHaveLength(0);
+    });
+
+    it("空白のみの URL はリソースヒントを出力しない", () => {
+      render(<PreconnectLinks apiUrl="   " supabaseUrl="  " />);
       expect(getHintLinks()).toHaveLength(0);
     });
   });
