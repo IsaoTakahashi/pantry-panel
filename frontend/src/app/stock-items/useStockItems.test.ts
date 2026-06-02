@@ -122,7 +122,7 @@ describe("useStockItems", () => {
       expect(result.current.items).toHaveLength(3);
     });
 
-    it("handleCreate が API エラーで error をセットする", async () => {
+    it("handleCreate が API エラーを caller に re-throw する（ページレベル error はセットしない）", async () => {
       vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
       vi.mocked(createStockItem).mockRejectedValue(
         new Error("商品の追加に失敗しました"),
@@ -132,10 +132,13 @@ describe("useStockItems", () => {
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       await act(async () => {
-        await result.current.handleCreate("塩", "調味料", false, null, null);
+        await expect(
+          result.current.handleCreate("塩", "調味料", false, null, null),
+        ).rejects.toThrow("商品の追加に失敗しました");
       });
 
-      expect(result.current.error).toBe("商品の追加に失敗しました");
+      // ページレベルエラー state は変更されない。モーダル側がエラーを表示する責務を持つ
+      expect(result.current.error).toBeNull();
       expect(result.current.items).toEqual(mockItems);
     });
   });
