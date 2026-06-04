@@ -52,7 +52,9 @@ func TestMain(m *testing.M) {
 		"../db/migrations/004_add_sorted_at_to_stock_items.sql",
 		"../db/migrations/005_add_groups.sql",
 		"../db/migrations/006_add_group_id_to_stock_items.sql",
+		"../db/migrations/008_stock_items_group_id_not_null.sql",
 		"../db/migrations/009_add_source_url_to_stock_items.sql",
+		"../db/migrations/011_fix_stock_items_name_unique_scope.sql",
 	} {
 		sqlBytes, err := os.ReadFile(migration)
 		if err != nil {
@@ -363,6 +365,22 @@ func TestDelete_NotFound(t *testing.T) {
 
 	err := repo.Delete(context.Background(), uuid.New(), groupID)
 	assert.Error(t, err, "should return error when deleting non-existent item")
+}
+
+func TestCreate_SameNameDifferentGroup(t *testing.T) {
+	pool, groupAID := setupTestDB(t)
+	repo := NewPgStockItemRepository(pool)
+
+	_, err := repo.Create(context.Background(), groupAID, "醤油", "調味料", nil, nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	var groupBID uuid.UUID
+	err = pool.QueryRow(ctx, "INSERT INTO groups (name) VALUES ('グループB') RETURNING id").Scan(&groupBID)
+	require.NoError(t, err)
+
+	_, err = repo.Create(ctx, groupBID, "醤油", "調味料", nil, nil)
+	require.NoError(t, err, "same name in a different group should be allowed")
 }
 
 func TestList_OtherGroupItemsNotVisible(t *testing.T) {

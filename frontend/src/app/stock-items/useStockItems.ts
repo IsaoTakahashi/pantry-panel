@@ -105,26 +105,21 @@ export function useStockItems(
     imageUrl: string | null,
     sourceUrl: string | null,
   ): Promise<void> => {
-    try {
-      const created = await createStockItem(
-        { name, category, wantToBuy, sourceUrl: sourceUrl ?? undefined },
+    const created = await createStockItem(
+      { name, category, wantToBuy, sourceUrl: sourceUrl ?? undefined },
+      accessToken,
+      activeGroupId,
+    );
+    if (imageUrl) {
+      await updateStockItem(
+        created.id,
+        { imageUrl },
         accessToken,
         activeGroupId,
       );
-      if (imageUrl) {
-        await updateStockItem(
-          created.id,
-          { imageUrl },
-          accessToken,
-          activeGroupId,
-        );
-      }
-      const data = await fetchStockItems(accessToken, activeGroupId);
-      setItems(data);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "操作に失敗しました");
     }
+    const data = await fetchStockItems(accessToken, activeGroupId);
+    setItems(data);
   };
 
   const handleSave = async (name: string, category: string): Promise<void> => {
