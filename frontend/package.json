@@ -17,11 +17,11 @@
     "setup:e2e": "node --experimental-strip-types e2e/scripts/create-test-group.ts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.106.2",
+    "@supabase/supabase-js": "^2.107.0",
     "framer-motion": "^12.40.0",
-    "next": "16.2.6",
-    "react": "19.2.6",
-    "react-dom": "19.2.6",
+    "next": "16.2.7",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "react-icons": "^5.6.0"
   },
   "devDependencies": {
@@ -42,6 +42,6 @@
     "tailwindcss": "^4",
     "to-ico": "^1.1.5",
     "typescript": "^5",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.8"
   }
 }
