@@ -16,7 +16,7 @@
       "automerge": true
     },
     {
-      "matchManagers": ["npm", "gomod", "dockerfile"],
+      "matchManagers": ["npm", "gomod", "dockerfile", "github-actions"],
       "minimumReleaseAge": "3 days",
       "internalChecksFilter": "strict"
     }
