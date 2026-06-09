@@ -78,7 +78,8 @@ jobs:
           E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
-          E2E_TEST_GROUP_ID: ${{ secrets.E2E_TEST_GROUP_ID }}
+          # E2E_TEST_GROUP_ID は渡さず global-setup で run ごとに新規 group を作る。
+          # 並走 PR 同士のテストデータ衝突を避けるため。
 
       - name: Write test summary
         if: always()

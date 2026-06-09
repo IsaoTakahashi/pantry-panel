@@ -8,8 +8,22 @@ async function globalTeardown() {
   const supabaseAnonKey = process.env.E2E_SUPABASE_ANON_KEY;
   const testEmail = process.env.E2E_TEST_EMAIL;
   const testPassword = process.env.E2E_TEST_PASSWORD;
-  const testGroupId = process.env.E2E_TEST_GROUP_ID;
   const backendUrl = process.env.PREVIEW_BACKEND_URL || "http://localhost:8080";
+
+  // 動的作成された group の ID は global-setup が .auth/group.json に書き出す。
+  // env 指定（ローカル開発の固定 ID）でも setup が同じファイルに書く。
+  // ephemeral フラグは将来 DELETE /api/groups/:id が実装されたとき、
+  // 動的作成 group のみ削除するために setup 側で永続化している。
+  const groupFile = path.join(process.cwd(), ".auth", "group.json");
+  let testGroupId: string | undefined;
+  if (fs.existsSync(groupFile)) {
+    const parsed = JSON.parse(fs.readFileSync(groupFile, "utf8")) as {
+      id: string;
+    };
+    testGroupId = parsed.id;
+  } else {
+    testGroupId = process.env.E2E_TEST_GROUP_ID;
+  }
 
   if (
     !supabaseUrl ||
