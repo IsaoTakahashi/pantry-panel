@@ -16,7 +16,7 @@
       "automerge": true
     },
     {
-      "matchManagers": ["npm"],
+      "matchManagers": ["npm", "gomod", "dockerfile"],
       "minimumReleaseAge": "3 days",
       "internalChecksFilter": "strict"
     }
