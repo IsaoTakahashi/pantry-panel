@@ -7,9 +7,9 @@ import type {
 import {
   CacheFirst,
   ExpirationPlugin,
+  NetworkFirst,
   NetworkOnly,
   Serwist,
-  StaleWhileRevalidate,
 } from "serwist";
 
 declare global {
@@ -61,7 +61,7 @@ const runtimeCaching: RuntimeCaching[] = [
   },
   {
     matcher: ({ request }) => request.destination === "document",
-    handler: new StaleWhileRevalidate({
+    handler: new NetworkFirst({
       cacheName: "pantry-document-pages",
     }),
     method: "GET",

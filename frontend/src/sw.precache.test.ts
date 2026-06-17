@@ -35,8 +35,11 @@ describe("Service Worker pre-cache manifest", () => {
     swContent = fs.readFileSync(SW_OUTPUT, "utf-8");
   }, 240_000);
 
-  it("contains /stock-items shell HTML entry", () => {
-    expect(swContent).toMatch(/['"]\/stock-items['"]/);
+  it("does NOT contain /stock-items shell HTML entry", () => {
+    // The shell HTML is intentionally NOT pre-cached. document navigations
+    // are served via NetworkFirst (see sw.ts), so a frozen /stock-items entry
+    // referencing stale chunk hashes can no longer persist across deploys.
+    expect(swContent).not.toMatch(/['"]\/stock-items['"]/);
   });
 
   it("contains at least one /_next/static/chunks/ entry", () => {
@@ -60,11 +63,14 @@ describe("Service Worker pre-cache manifest", () => {
     expect(swContent).toMatch(/['"]\/manifest\.webmanifest['"]/);
   });
 
-  // Drift guard: the PWA's start_url MUST be in additionalPrecacheEntries
-  // so the shell HTML is available offline. If someone renames the start_url
-  // in manifest.ts without updating next.config.ts (or vice versa), this
-  // test fails fast instead of regressing the cold-launch optimisation.
-  it("manifest.ts start_url is listed in next.config.ts additionalPrecacheEntries", () => {
+  // Drift guard (inverted): the PWA's start_url shell HTML MUST NOT be in
+  // additionalPrecacheEntries. Pre-caching the start_url HTML with
+  // `revision: null` freezes a copy referencing first-visit chunk hashes that
+  // 404 after a deploy. document navigations are served via NetworkFirst
+  // instead. If someone re-adds the start_url to additionalPrecacheEntries
+  // (regressing this fix), this test fails fast. start_url itself stays
+  // /stock-items (manifest.ts is unchanged).
+  it("manifest.ts start_url is NOT listed in next.config.ts additionalPrecacheEntries", () => {
     const manifestSource = fs.readFileSync(MANIFEST_SOURCE, "utf-8");
     const nextConfigSource = fs.readFileSync(NEXT_CONFIG, "utf-8");
 
@@ -76,6 +82,6 @@ describe("Service Worker pre-cache manifest", () => {
     if (!startUrl) return;
     const escaped = startUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const precacheEntry = new RegExp(`url:\\s*["']${escaped}["']`);
-    expect(nextConfigSource).toMatch(precacheEntry);
+    expect(nextConfigSource).not.toMatch(precacheEntry);
   });
 });

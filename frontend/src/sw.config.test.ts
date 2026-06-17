@@ -67,10 +67,10 @@ describe("Service Worker source guards", () => {
     });
   });
 
-  describe("S-8 guard: document destination uses StaleWhileRevalidate", () => {
-    it("sw.ts has a route that matches request.destination === 'document' with SWR", () => {
+  describe("S-8 guard: document destination uses NetworkFirst", () => {
+    it("sw.ts has a route that matches request.destination === 'document' with NetworkFirst", () => {
       expect(swSource).toMatch(/request\.destination\s*===\s*["']document["']/);
-      expect(swSource).toMatch(/new\s+StaleWhileRevalidate/);
+      expect(swSource).toMatch(/new\s+NetworkFirst/);
     });
   });
 

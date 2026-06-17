@@ -132,3 +132,15 @@ proposal.md の「ユーザーシナリオとテスト設計」セクション�
 - **tasks.md チェックリスト追加基準:** モーダルやアニメーションを含む変更の tasks.md には以下のタスクを加える
   - `- [ ] 既存E2Eテストのモーダル操作後のlocatorに not.toBeAttached() 待機が必要かを確認する`
   - `- [ ] ローカルで E2E テストを実行してpassすることを確認する（dev server 起動後に npx playwright test）`
+
+### 2026-06-17: SW ランタイム戦略変更は既存 sw project E2E を更新する（新規 spec を足さない）
+
+- **対象シナリオ:** service-worker.spec.ts S-8（shell HTML のキャッシュ戦略）
+- **変更前:** S-8 は StaleWhileRevalidate 挙動（合成 v1 HTML を植え、再訪で植えた v1 が即描画される）をアサート
+- **変更後:** NetworkFirst 挙動（オンライン再訪で植えた stale ではなくネットワークの実 HTML が描画され、キャッシュも実 HTML で上書きされる）をアサートするよう**既存テストを更新**。新規 spec ファイルは追加しない
+- **理由:** SW のランタイムキャッシュ戦略はブラウザ実 SW を介さないと検証できず（判断ツリー Q1=Yes / 外部API不要なので Mock=`sw` project, `serviceWorkers: "allow"`）、かつ既存 S-8 を放置すると旧 SWR 挙動を緑のままアサートし続けてしまう。戦略を変える PR では該当 E2E の**更新が必須**
+- **一般化した基準:**
+  1. `sw.ts` のランタイムキャッシュ戦略（document/static/api の handler）や `next.config.ts` の pre-cache 内容を変更したら、`service-worker.spec.ts` の該当シナリオを**新仕様に書き換える**（net-new spec は足さない）
+  2. SW E2E は `npm run test:e2e:sw`（`sw` project, 本番ビルド, port 3001）で opt-in 実行し pass を確認する。`mock`/`preview` project は SW を block するため SW 挙動の検証には使えない
+  3. E2E アサートは「新戦略でしか通らない」discriminator になっているか（旧戦略では落ちるか）を確認する
+  4. ChunkLoadError 自己回復のような副作用ロジックは実ブラウザ再現が高コスト/flaky なため、mock したグローバル（`caches`/`serviceWorker`/`sessionStorage`/`location.reload`）への unit で担保し E2E を増やさない
