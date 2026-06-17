@@ -28,4 +28,4 @@
 - [x] 5.1 `cd frontend && npm run lint && npx tsc --noEmit && npx vitest run` が緑（289/289 pass, tsc clean, biome clean）
 - [x] 5.2 SW 変更のため `npm run test:e2e:sw`（sw project, 本番ビルド）で pass 確認（6/6 pass, S-8 含む）
 - [x] 5.3 コードレビュー sub-agent が差分をレビュー（spec + quality 各タスク + 統合レビュー: Ready）→ ユーザー最終確認
-- [ ] 5.4 commit のたびに push し `gh pr checks --watch` で PR 上の CI 緑を確認
+- [x] 5.4 commit のたびに push し `gh pr checks --watch` で PR 上の CI 緑を確認（PR #213 全 green）
