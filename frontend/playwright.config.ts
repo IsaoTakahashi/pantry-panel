@@ -50,6 +50,10 @@ export default defineConfig({
       name: "preview",
       retries: 1,
       use: {
+        // Emulate prefers-reduced-motion so framer-motion (via MotionConfig
+        // reducedMotion="user") disables transform/layout animations, which
+        // otherwise destabilize locator/click resolution.
+        contextOptions: { reducedMotion: "reduce" },
         storageState: ".auth/user.json",
         baseURL: process.env.PREVIEW_URL,
         extraHTTPHeaders: process.env.VERCEL_BYPASS_TOKEN
@@ -63,6 +67,8 @@ export default defineConfig({
       name: "mock",
       retries: 1,
       use: {
+        // See preview project: disable animations via reduced-motion emulation.
+        contextOptions: { reducedMotion: "reduce" },
         storageState: ".auth/user.json",
         baseURL: "http://localhost:3000",
         serviceWorkers: "block",
