@@ -12,7 +12,7 @@ import { expect, test } from "@playwright/test";
  *   - S-5: install 後に CacheStorage が pre-cache 対象で満たされる
  *   - S-6: /api/* レスポンスはキャッシュされない（NetworkOnly）
  *   - S-7: 静的アセットはキャッシュから即返る（CacheFirst）
- *   - S-8: shell HTML はキャッシュ即返 + 裏で更新される（SWR） — see note
+ *   - S-8: shell HTML はオンライン時に最新を取得しキャッシュを更新する（NetworkFirst） — see note
  *
  * S-9 / S-10 (skipWaiting + clientsClaim) are covered by source-inspection
  * unit tests in src/sw.config.test.ts; observing actual SW-generation
@@ -100,19 +100,20 @@ test.describe("Service Worker", () => {
     expect(cachedApi).toBeNull();
   });
 
-  test("S-8: shell HTML は SWR (キャッシュ即返 + 裏で更新) で配信される", async ({
+  test("S-8: shell HTML は NetworkFirst (オンライン時に最新取得 + キャッシュ更新) で配信される", async ({
     page,
   }) => {
-    // Plant a known body into the SWR document cache, then navigate. SWR
-    // must (a) return the planted body instantly (cache-first leg) and
-    // (b) overwrite the cache with the real network body in the background
-    // (revalidate leg). page.route is not usable here because Playwright
-    // does not intercept SW-initiated fetches in this configuration —
-    // direct cache manipulation discriminates SWR vs CacheFirst cleanly:
-    //   - CacheFirst: passes (a), fails (b) — never revalidates.
-    //   - NetworkOnly/First: fails (a) — would render the real /health.
-    //   - StaleWhileRevalidate: passes both.
-    const V1_MARKER = "swr-marker-v1";
+    // Plant a known stale body into the document cache, then navigate online.
+    // NetworkFirst must (a) ignore the planted stale body and render the real
+    // network /health, and (b) overwrite the cache with that network response.
+    // page.route is not usable here because Playwright does not intercept
+    // SW-initiated fetches in this configuration — direct cache manipulation
+    // discriminates NetworkFirst vs the alternatives cleanly:
+    //   - CacheFirst: renders the planted v1 — never hits the network.
+    //   - StaleWhileRevalidate: renders the planted v1 instantly (then updates).
+    //   - NetworkFirst (this): renders the real /health (no #m marker) and
+    //     overwrites the cache with the network body (no V1_MARKER).
+    const V1_MARKER = "stale-marker-v1";
     const DOC_CACHE = "pantry-document-pages"; // must match sw.ts cacheName.
 
     // 1) Register & wait for the SW to control the page.
@@ -124,8 +125,8 @@ test.describe("Service Worker", () => {
       }
     });
 
-    // 2) Plant a synthetic v1 response into the SWR cache for /health. The
-    //    cache key must be the full URL string (Serwist's default), not
+    // 2) Plant a synthetic stale response into the document cache for /health.
+    //    The cache key must be the full URL string (Serwist's default), not
     //    just the path.
     await page.evaluate(
       async ([cacheName, marker]) => {
@@ -142,12 +143,13 @@ test.describe("Service Worker", () => {
       [DOC_CACHE, V1_MARKER] as const,
     );
 
-    // 3) Cache-first leg: navigation must render the planted v1 instantly.
+    // 3) Network leg: navigation must render the real /health from the
+    //    network, NOT the planted stale body. The real page has no #m marker.
     await page.goto("/health");
-    await expect(page.locator("#m")).toHaveText(V1_MARKER);
+    await expect(page.locator("#m")).toHaveCount(0);
 
-    // 4) Revalidate leg: SW's background fetch must overwrite the cache
-    //    with the real /health response (which does NOT contain V1_MARKER).
+    // 4) Cache-update leg: NetworkFirst must overwrite the cache with the
+    //    real /health response (which does NOT contain V1_MARKER).
     const cachedAfter = await page.evaluate(
       async ([cacheName, marker]) => {
         const url = new URL("/health", location.origin).toString();

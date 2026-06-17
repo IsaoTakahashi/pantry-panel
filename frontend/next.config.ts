@@ -12,11 +12,15 @@ const withSerwist = withSerwistInit({
   reloadOnOnline: true,
   // Setting additionalPrecacheEntries overrides the default public/ glob in
   // @serwist/next 9.x. So we list every asset we want pre-cached explicitly:
-  //   - Shell HTML (/stock-items) + manifest + favicon are served from app/
+  //   - manifest + favicon are served from app/
   //   - icon-{192,512}.png + icon.svg live in public/ but must be re-listed
   //     here because the auto-glob is disabled once we add any entries.
+  // NOTE: the shell HTML (/stock-items) is intentionally NOT pre-cached.
+  //   Pre-caching it with `revision: null` freezes a copy that references the
+  //   first-visit `_next/static/chunks/*` hashes; after a deploy those chunks
+  //   404 and the lazy Suspense import never resolves (skeleton hangs).
+  //   document navigations are served at runtime via NetworkFirst (see sw.ts).
   additionalPrecacheEntries: [
-    { url: "/stock-items", revision: null },
     { url: "/manifest.webmanifest", revision: null },
     { url: "/favicon.ico", revision: null },
     { url: "/icon-192.png", revision: null },
