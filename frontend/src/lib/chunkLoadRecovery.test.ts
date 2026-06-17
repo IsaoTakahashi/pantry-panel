@@ -40,7 +40,11 @@ describe("isChunkLoadError", () => {
 describe("recoverFromChunkLoadError", () => {
   function makeDeps() {
     const store = new Map<string, string>();
+    const unregister1 = vi.fn().mockResolvedValue(true);
+    const unregister2 = vi.fn().mockResolvedValue(true);
     return {
+      unregister1,
+      unregister2,
       caches: {
         keys: vi.fn().mockResolvedValue(["c1", "c2"]),
         delete: vi.fn().mockResolvedValue(true),
@@ -49,8 +53,8 @@ describe("recoverFromChunkLoadError", () => {
         getRegistrations: vi
           .fn()
           .mockResolvedValue([
-            { unregister: vi.fn().mockResolvedValue(true) },
-            { unregister: vi.fn().mockResolvedValue(true) },
+            { unregister: unregister1 },
+            { unregister: unregister2 },
           ]),
       } as unknown as ServiceWorkerContainer,
       sessionStorage: {
@@ -69,6 +73,8 @@ describe("recoverFromChunkLoadError", () => {
     expect(deps.caches.delete).toHaveBeenCalledWith("c1");
     expect(deps.caches.delete).toHaveBeenCalledWith("c2");
     expect(deps.serviceWorker.getRegistrations).toHaveBeenCalledTimes(1);
+    expect(deps.unregister1).toHaveBeenCalledTimes(1);
+    expect(deps.unregister2).toHaveBeenCalledTimes(1);
     expect(deps.sessionStorage.getItem(RECOVERY_GUARD_KEY)).toBe("1");
     expect(deps.reload).toHaveBeenCalledTimes(1);
   });
