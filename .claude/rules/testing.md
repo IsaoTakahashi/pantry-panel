@@ -144,3 +144,15 @@ proposal.md の「ユーザーシナリオとテスト設計」セクション�
   2. SW E2E は `npm run test:e2e:sw`（`sw` project, 本番ビルド, port 3001）で opt-in 実行し pass を確認する。`mock`/`preview` project は SW を block するため SW 挙動の検証には使えない
   3. E2E アサートは「新戦略でしか通らない」discriminator になっているか（旧戦略では落ちるか）を確認する
   4. ChunkLoadError 自己回復のような副作用ロジックは実ブラウザ再現が高コスト/flaky なため、mock したグローバル（`caches`/`serviceWorker`/`sessionStorage`/`location.reload`）への unit で担保し E2E を増やさない
+
+### 2026-06-18: AnimatePresence 由来の E2E flaky はテスト環境で reducedMotion により無効化する（アサート whack-a-mole より優先）
+
+- **対象シナリオ:** filter.spec.ts F-3（買いたいものだけフィルター）ほか filter/modal の AnimatePresence 干渉クラス全般
+- **変更前:** flaky が出るたびに該当アサートへ `not.toBeAttached()` 待機を個別追加（whack-a-mole）
+- **変更後:** アプリを `<MotionConfig reducedMotion="user">` で包み、Playwright の `mock`/`preview` project に `contextOptions: { reducedMotion: "reduce" }` を設定して、テスト環境で framer-motion の transform/layout アニメをまとめて無効化する
+- **理由:** flaky の真因は exit fade のレースではなく、`layout`/`popLayout` の **transform/layout churn でカード位置が動き locator/click が moving target になる**こと（`toBeVisible` は opacity を見ず、解消は AnimatePresence の unmount で起きる）。reducedMotion="user" は本番では prefers-reduced-motion を尊重する a11y 改善になり、テスト専用フラグを増やさない
+- **一般化した基準:**
+  1. framer-motion の `layout`/`AnimatePresence`/transform アニメ起因の E2E flaky は、まず**テスト環境での reducedMotion 無効化**で対処する（個別アサート待機の追加は補助）
+  2. `reducedMotion` は @playwright/test では top-level `use` ではなく **`contextOptions: { reducedMotion: "reduce" }`** に置く。`sw` project には付けない
+  3. reducedMotion は transform/layout を無効化するが **opacity exit は残る**ため、unmount を待つ既存の `not.toBeAttached()` 待機は引き続き load-bearing。除去しない
+  4. flaky fix は「1回 green」では不十分。ローカル `--repeat-each` が不可なら CI の該当ジョブを複数回再実行して連続 green を確認する
