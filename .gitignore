@@ -6,6 +6,10 @@
 # Serena MCP (local state)
 .serena/
 
+# Performance captures (may contain auth tokens/session data — never commit)
+measurement/
+*.har
+
 # Next.js
 .next/
 out/

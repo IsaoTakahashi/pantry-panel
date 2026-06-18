@@ -42,8 +42,8 @@ vi.mock("@/contexts/AuthContext", () => ({
     // biome-ignore lint/suspicious/noExplicitAny: minimal mock; full Session type not needed in tests
     session: { access_token: "test-token" } as any,
     user: null,
-    group: null,
-    groups: [],
+    group: { groupId: "group-1", name: "我が家", role: "owner" },
+    groups: [{ groupId: "group-1", name: "我が家", role: "owner" }],
     loading: false,
     signInWithGoogle: vi.fn(),
     signOut: mockSignOut,
@@ -151,7 +151,7 @@ describe("StockItemsPage", () => {
       expect(deleteStockItem).toHaveBeenCalledWith(
         "1",
         "test-token",
-        undefined,
+        "group-1",
       );
       expect(screen.queryByText("醤油")).not.toBeInTheDocument();
     });
@@ -210,7 +210,7 @@ describe("StockItemsPage", () => {
           category: "調味料",
         },
         "test-token",
-        undefined,
+        "group-1",
       );
       expect(screen.getByText("濃口醤油")).toBeInTheDocument();
     });
@@ -241,7 +241,7 @@ describe("StockItemsPage", () => {
         "1",
         { wantToBuy: true },
         "test-token",
-        undefined,
+        "group-1",
       );
     });
 
@@ -382,7 +382,7 @@ describe("StockItemsPage", () => {
         "1",
         { wantToBuy: true },
         "test-token",
-        undefined,
+        "group-1",
       );
     });
   });
@@ -516,7 +516,7 @@ describe("StockItemsPage", () => {
         "1",
         expect.not.objectContaining({ sortedAt: expect.anything() }),
         "test-token",
-        undefined,
+        "group-1",
       );
     });
   });
@@ -547,7 +547,7 @@ describe("StockItemsPage", () => {
         "2",
         expect.not.objectContaining({ sortedAt: expect.anything() }),
         "test-token",
-        undefined,
+        "group-1",
       );
     });
   });

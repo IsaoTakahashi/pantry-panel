@@ -79,7 +79,11 @@ export function useStockItems(
   );
 
   useEffect(() => {
-    if (authLoading) return;
+    // アクティブグループが未確定のうちは fetch しない。起動時に authLoading が
+    // groups 取得完了より先に false になっても、activeGroupId=undefined での
+    // 無駄な fetch を防ぎ、グループ確定後に 1 回だけ取得する。グループ未所属の
+    // ユーザーは AuthGuard が /no-group へ遷移させるため、ここで取得しなくてよい。
+    if (authLoading || !activeGroupId) return;
     setLoading(true);
     setError(null);
     fetchStockItems(accessToken, activeGroupId)
