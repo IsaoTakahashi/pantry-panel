@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { GroupInfo } from "@/types/group";
 import { AuthProvider, useAuth } from "./AuthContext";
 
 // Supabase client のモック
@@ -230,6 +231,53 @@ describe("AuthContext", () => {
 
     // dedup ガードがあっても refreshGroup は強制再取得する
     expect(fetchMyGroups).toHaveBeenCalledTimes(2);
+  });
+
+  it("起動時、永続セッション復元中は groups 解決まで loading=true を維持する（早期 no-group 取りこぼし防止）", async () => {
+    // getSession は永続セッションを返す（null ではない）。これが本リグレッションの肝。
+    const session = { access_token: "tok", user: { id: "u1" } };
+    mockGetSession.mockResolvedValue({ data: { session } });
+
+    // fetchMyGroups を手動制御の deferred にして、解決前に loading を観測する。
+    let resolveGroups: (gs: GroupInfo[]) => void = () => {};
+    vi.mocked(fetchMyGroups).mockReturnValue(
+      new Promise<GroupInfo[]>((resolve) => {
+        resolveGroups = resolve;
+      }),
+    );
+
+    let stateCallback: (event: string, session: unknown) => void = () => {};
+    mockOnAuthStateChange.mockImplementation((cb) => {
+      stateCallback = cb;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+
+    renderWithAuth();
+
+    // getSession が解決し loadGroups が起動するのを待つ。
+    await waitFor(() => expect(fetchMyGroups).toHaveBeenCalledTimes(1));
+
+    // INITIAL_SESSION が fetch 進行中に発火（同一トークン → dedup される）。
+    // 修正前はここで onAuthStateChange の無条件 setLoading(false) が走り、
+    // group=null のまま loading が false になって AuthGuard が誤って /no-group へ飛ばす。
+    act(() => {
+      stateCallback("INITIAL_SESSION", session);
+    });
+
+    // groups 未解決の間は loading=true を維持していること（= no-group 表示を出さない）。
+    expect(screen.getByText("loading")).toBeInTheDocument();
+    expect(
+      screen.queryByText("authenticated:no-group"),
+    ).not.toBeInTheDocument();
+
+    // groups が解決したら通常通り表示される。
+    await act(async () => {
+      resolveGroups([{ groupId: "g1", name: "我が家", role: "owner" }]);
+    });
+    await waitFor(() =>
+      expect(screen.getByText("authenticated:我が家")).toBeInTheDocument(),
+    );
+    expect(fetchMyGroups).toHaveBeenCalledTimes(1);
   });
 
   it("localStorage に保存された active group id を復元する", async () => {

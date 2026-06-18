@@ -71,6 +71,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loadedTokenRef.current = accessToken;
       const gs = await fetchMyGroups(accessToken).catch(() => []);
       applyGroups(gs);
+      // groups が確定してから loading を解除する。dedup の早期 return より後に
+      // あるため、同一トークンの重複呼び出しは loading を倒さない（実 fetch のみ）。
+      setLoading(false);
     },
     [applyGroups],
   );
@@ -85,7 +88,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       if (s) {
-        loadGroups(s.access_token).finally(() => setLoading(false));
+        // loadGroups が applyGroups 後に loading を解除する。
+        loadGroups(s.access_token);
       } else {
         setLoading(false);
       }
@@ -98,16 +102,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = client.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
       if (s) {
+        setSession(s);
+        setUser(s.user ?? null);
+        // セッションありの場合は loadGroups が applyGroups 後に loading を解除する。
+        // ここで無条件に setLoading(false) すると group=null のまま loading が
+        // 倒れ、AuthGuard が起動時の group 取得待ち中に誤って /no-group へ飛ばす。
         loadGroups(s.access_token);
       } else {
+        setSession(null);
+        setUser(null);
         loadedTokenRef.current = null;
         setGroups([]);
         setGroup(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
     return () => subscription.unsubscribe();
   }, [loadGroups]);
