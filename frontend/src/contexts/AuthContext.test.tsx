@@ -43,6 +43,18 @@ function TestConsumer() {
   );
 }
 
+type AuthContextHandle = { refreshGroup: () => Promise<void> };
+
+function RefreshCapture({
+  onReady,
+}: {
+  onReady: (handle: AuthContextHandle) => void;
+}) {
+  const { refreshGroup } = useAuth();
+  onReady({ refreshGroup });
+  return null;
+}
+
 function renderWithAuth() {
   return render(
     <AuthProvider>
@@ -152,6 +164,72 @@ describe("AuthContext", () => {
     );
 
     expect(localStorage.getItem("pantry-panel:active-group-id")).toBe("g2");
+  });
+
+  it("初期ロードで getSession と INITIAL_SESSION が同じトークンを返しても groups 取得は 1 回だけ", async () => {
+    const session = { access_token: "tok", user: { id: "u1" } };
+    mockGetSession.mockResolvedValue({ data: { session } });
+    let stateCallback: (event: string, session: unknown) => void = () => {};
+    mockOnAuthStateChange.mockImplementation((cb) => {
+      stateCallback = cb;
+      return { data: { subscription: { unsubscribe: vi.fn() } } };
+    });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "owner" },
+    ]);
+
+    renderWithAuth();
+    await waitFor(() =>
+      expect(screen.getByText("authenticated:我が家")).toBeInTheDocument(),
+    );
+
+    // onAuthStateChange が起動時に発する一連のイベント（INITIAL_SESSION →
+    // SIGNED_IN → TOKEN_REFRESHED）は同じトークンを運ぶ。getSession 経路と
+    // 合わせても fetchMyGroups は 1 回だけであるべき。
+    act(() => {
+      stateCallback("INITIAL_SESSION", session);
+      stateCallback("SIGNED_IN", session);
+      stateCallback("TOKEN_REFRESHED", session);
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText("authenticated:我が家")).toBeInTheDocument(),
+    );
+    expect(fetchMyGroups).toHaveBeenCalledTimes(1);
+  });
+
+  it("Supabase 未設定でも loading=false になる", async () => {
+    vi.mocked(getSupabaseClient).mockReturnValue(null);
+    renderWithAuth();
+    // loading フォールバックが消えて中身が描画されること
+    await waitFor(() =>
+      expect(screen.queryByText("loading")).not.toBeInTheDocument(),
+    );
+    expect(fetchMyGroups).not.toHaveBeenCalled();
+  });
+
+  it("refreshGroup は同じトークンでも groups を再取得する", async () => {
+    const session = { access_token: "tok", user: { id: "u1" } };
+    mockGetSession.mockResolvedValue({ data: { session } });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "owner" },
+    ]);
+
+    let captured: AuthContextHandle | null = null;
+    render(
+      <AuthProvider>
+        <RefreshCapture onReady={(h) => (captured = h)} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(fetchMyGroups).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await captured?.refreshGroup();
+    });
+
+    // dedup ガードがあっても refreshGroup は強制再取得する
+    expect(fetchMyGroups).toHaveBeenCalledTimes(2);
   });
 
   it("localStorage に保存された active group id を復元する", async () => {

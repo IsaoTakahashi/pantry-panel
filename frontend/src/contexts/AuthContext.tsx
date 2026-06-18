@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { fetchMyGroups } from "@/lib/authApi";
@@ -44,6 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [group, setGroup] = useState<GroupInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  // 直近に groups を取得したアクセストークン。起動時に getSession と
+  // onAuthStateChange(INITIAL_SESSION/SIGNED_IN/TOKEN_REFRESHED) が同じ
+  // トークンで重複発火しても /api/groups/me を 1 回に抑えるためのガード。
+  const loadedTokenRef = useRef<string | null>(null);
 
   const applyGroups = useCallback((gs: GroupInfo[]) => {
     setGroups(gs);
@@ -59,7 +64,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadGroups = useCallback(
-    async (accessToken: string) => {
+    async (accessToken: string, options?: { force?: boolean }) => {
+      // ガードは await の前に同期的に立てる。getSession と
+      // onAuthStateChange がほぼ同時に発火しても二重 fetch しないため。
+      if (!options?.force && loadedTokenRef.current === accessToken) return;
+      loadedTokenRef.current = accessToken;
       const gs = await fetchMyGroups(accessToken).catch(() => []);
       applyGroups(gs);
     },
@@ -94,9 +103,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (s) {
         loadGroups(s.access_token);
       } else {
+        loadedTokenRef.current = null;
         setGroups([]);
         setGroup(null);
       }
+      setLoading(false);
     });
     return () => subscription.unsubscribe();
   }, [loadGroups]);
@@ -120,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const client = getSupabaseClient();
     if (!client) return;
     await client.auth.signOut();
+    loadedTokenRef.current = null;
     setSession(null);
     setUser(null);
     setGroups([]);
@@ -131,7 +143,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshGroup = useCallback(async () => {
     if (!session) return;
-    await loadGroups(session.access_token);
+    // 同じトークンでもグループの作成/改名後は強制再取得する。
+    await loadGroups(session.access_token, { force: true });
   }, [session, loadGroups]);
 
   const switchGroup = useCallback(
