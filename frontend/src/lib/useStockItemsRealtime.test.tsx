@@ -50,16 +50,50 @@ describe("useStockItemRealtime", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
-  it("SUBSCRIBED ステータスで onChange が呼ばれる（再接続修復）", () => {
+  it("SUBSCRIBED ステータスでは onChange を呼ばない（初期 fetch は useStockItems が担う）", () => {
     const onChange = vi.fn();
     renderHook(() => useStockItemsRealtime(onChange));
 
-    const statusCallback = mockChannel.subscribe.mock.calls[0][0] as (
-      s: string,
-    ) => void;
-    statusCallback("SUBSCRIBED");
+    const statusCallback = mockChannel.subscribe.mock.calls[0][0] as
+      | ((s: string) => void)
+      | undefined;
+    statusCallback?.("SUBSCRIBED");
 
-    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("onChange の identity が変わっても再 subscribe しない（チャンネルは 1 度だけ）", () => {
+    const onChangeA = vi.fn();
+    const onChangeB = vi.fn();
+    const { rerender } = renderHook(({ cb }) => useStockItemsRealtime(cb), {
+      initialProps: { cb: onChangeA },
+    });
+
+    expect(mockClient.channel).toHaveBeenCalledTimes(1);
+    expect(mockChannel.subscribe).toHaveBeenCalledTimes(1);
+
+    rerender({ cb: onChangeB });
+
+    // 再 subscribe / チャンネル再生成は起きない
+    expect(mockClient.channel).toHaveBeenCalledTimes(1);
+    expect(mockChannel.subscribe).toHaveBeenCalledTimes(1);
+    expect(mockClient.removeChannel).not.toHaveBeenCalled();
+  });
+
+  it("postgres_changes ハンドラは最新の onChange を呼ぶ", () => {
+    const onChangeA = vi.fn();
+    const onChangeB = vi.fn();
+    const { rerender } = renderHook(({ cb }) => useStockItemsRealtime(cb), {
+      initialProps: { cb: onChangeA },
+    });
+
+    rerender({ cb: onChangeB });
+
+    const onCallback = mockChannel.on.mock.calls[0][2] as () => void;
+    onCallback();
+
+    expect(onChangeA).not.toHaveBeenCalled();
+    expect(onChangeB).toHaveBeenCalledTimes(1);
   });
 
   it("アンマウント時に removeChannel が呼ばれる", () => {
