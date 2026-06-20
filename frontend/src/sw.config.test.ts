@@ -74,6 +74,22 @@ describe("Service Worker source guards", () => {
     });
   });
 
+  describe("S-8 guard: navigation preload + document network timeout", () => {
+    it("sw.ts enables navigationPreload on the Serwist constructor", () => {
+      // navigationPreload lets the browser start the document fetch in parallel
+      // with SW boot, removing the white-screen-on-relaunch serialization.
+      expect(swSource).toMatch(/navigationPreload:\s*true/);
+    });
+
+    it("sw.ts gives the document NetworkFirst handler a networkTimeoutSeconds fallback", () => {
+      // The document NetworkFirst handler must fall back to cache on a slow
+      // network instead of hanging on the navigation fetch.
+      const documentHandler =
+        /request\.destination\s*===\s*["']document["'][\s\S]{0,400}?new\s+NetworkFirst\(\{[\s\S]{0,400}?networkTimeoutSeconds:\s*3/;
+      expect(swSource).toMatch(documentHandler);
+    });
+  });
+
   describe("S-9: SW skipWaiting", () => {
     it("sw.ts (or @serwist/next config) sets skipWaiting: true", () => {
       expect(swSource).toMatch(/skipWaiting:\s*true/);
