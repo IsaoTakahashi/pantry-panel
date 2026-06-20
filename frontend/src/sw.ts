@@ -63,6 +63,11 @@ const runtimeCaching: RuntimeCaching[] = [
     matcher: ({ request }) => request.destination === "document",
     handler: new NetworkFirst({
       cacheName: "pantry-document-pages",
+      // Fall back to the cached document if the network is slow. Paired with
+      // navigationPreload below, the browser starts the document fetch in
+      // parallel with SW boot; this timeout bounds the worst-case wait before
+      // serving the last-known-good shell from cache.
+      networkTimeoutSeconds: 3,
     }),
     method: "GET",
   },
@@ -80,7 +85,12 @@ const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
-  navigationPreload: false,
+  // Let the browser kick off the navigation (document) fetch in parallel with
+  // SW boot instead of waiting for the worker to evaluate before fetching.
+  // This removes the SW-boot serialization that caused a 2-3s white screen on
+  // every PWA relaunch. Serwist calls enableNavigationPreload() for this flag,
+  // and the NetworkFirst strategy automatically consumes event.preloadResponse.
+  navigationPreload: true,
   runtimeCaching,
 });
 
