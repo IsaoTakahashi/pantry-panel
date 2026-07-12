@@ -27,7 +27,7 @@ FROM alpine:3
 RUN apk add --no-cache ca-certificates tzdata
 
 # Lambda Web Adapter (no-op for local docker run; activates only on AWS Lambda)
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.0.1 /lambda-adapter /opt/extensions/lambda-adapter
 
 # Run as non-root
 RUN addgroup -S app && adduser -S app -G app
