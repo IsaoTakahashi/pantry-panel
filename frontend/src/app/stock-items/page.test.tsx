@@ -490,6 +490,78 @@ describe("StockItemsPage", () => {
     );
   });
 
+  it("フィルターを設定した状態で商品作成に成功すると検索・買いたいだけ・カテゴリの全フィルターがリセットされる", async () => {
+    // Scenario: S-1, S-2, S-3
+    const { fetchStockItems, createStockItem } = await import("@/lib/api");
+    const newItem = {
+      id: "3",
+      name: "みりん",
+      category: "調味料",
+      imageUrl: null,
+      sourceUrl: null,
+      wantToBuy: false,
+      createdAt: "2026-01-03T00:00:00Z",
+      updatedAt: "2026-01-03T00:00:00Z",
+      sortedAt: "2026-01-03T00:00:00Z",
+    };
+    vi.mocked(fetchStockItems)
+      .mockResolvedValueOnce(mockItems)
+      .mockResolvedValueOnce([...mockItems, newItem]);
+    vi.mocked(createStockItem).mockResolvedValue(newItem);
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByRole("searchbox"), "醤油");
+    await user.click(screen.getByRole("button", { name: "買いたいものだけ" }));
+    await user.selectOptions(screen.getByLabelText("カテゴリ"), "調味料");
+
+    await user.click(screen.getByRole("button", { name: "商品を追加" }));
+    await user.click(screen.getByRole("button", { name: "追加" }));
+
+    await waitFor(() => {
+      expect(createStockItem).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("searchbox")).toHaveValue("");
+    expect(
+      screen.getByRole("button", { name: "買いたいものだけ" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByLabelText("カテゴリ")).toHaveValue("");
+  });
+
+  it("商品作成が失敗した場合はフィルターが維持されモーダルが開いたままになる", async () => {
+    // Scenario: S-4
+    const { fetchStockItems, createStockItem } = await import("@/lib/api");
+    vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+    vi.mocked(createStockItem).mockRejectedValue(new Error("HTTP 409"));
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByRole("searchbox"), "醤油");
+    await user.click(screen.getByRole("button", { name: "商品を追加" }));
+    await user.click(screen.getByRole("button", { name: "追加" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("その商品は登録済みです")).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toHaveValue("醤油");
+  });
+
   it("商品名を編集して保存したとき updateStockItem の引数に sortedAt が含まれない", async () => {
     // Scenario: D-3
     const { fetchStockItems, updateStockItem } = await import("@/lib/api");
