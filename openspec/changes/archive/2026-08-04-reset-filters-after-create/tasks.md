@@ -24,4 +24,4 @@
 
 ## 5. Archive
 
-- [ ] 5.1 PR マージ前に `opsx:archive` を実行し、proposal.md のシナリオを `openspec/specs/stock-items-list/spec.md` へ昇格する
+- [x] 5.1 PR マージ前に `opsx:archive` を実行し、proposal.md のシナリオを `openspec/specs/stock-items-list/spec.md` へ昇格する
