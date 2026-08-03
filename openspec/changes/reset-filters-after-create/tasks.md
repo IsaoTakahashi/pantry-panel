@@ -19,8 +19,8 @@
 
 ## 4. Review
 
-- [ ] 4.1 コードレビュー sub-agent で差分をレビューする
-- [ ] 4.2 `gh pr checks --watch` で CI の結果を確認する
+- [x] 4.1 コードレビュー sub-agent で差分をレビューする
+- [x] 4.2 `gh pr checks --watch` で CI の結果を確認する
 
 ## 5. Archive
 
