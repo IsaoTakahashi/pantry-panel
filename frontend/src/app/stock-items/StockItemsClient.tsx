@@ -86,6 +86,17 @@ export default function StockItemsClient() {
 
   const Card = viewMode === "simple" ? ItemCardSimple : ItemCard;
 
+  const handleCreateAndResetFilter = async (
+    name: string,
+    category: string,
+    wantToBuy: boolean,
+    imageUrl: string | null,
+    sourceUrl: string | null,
+  ) => {
+    await handleCreate(name, category, wantToBuy, imageUrl, sourceUrl);
+    setFilter({ searchText: "", wantToBuyOnly: false, category: null });
+  };
+
   if (authLoading) return <StockItemsSkeleton />;
 
   return (
@@ -179,7 +190,7 @@ export default function StockItemsClient() {
                 initialImageUrl={prefill.imageUrl}
                 initialSourceUrl={prefill.sourceUrl}
                 onClose={handleCloseCreateModal}
-                onCreate={handleCreate}
+                onCreate={handleCreateAndResetFilter}
               />
               <UrlRegistrationModal
                 isOpen={urlModalOpen}
