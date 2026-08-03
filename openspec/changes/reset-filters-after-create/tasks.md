@@ -12,7 +12,7 @@
 ## 3. Verification
 
 - [x] 3.1 `cd frontend && npx vitest run` で既存テストに regression がないことを確認する
-- [ ] 3.2 commit のたびに push し、PR 上の CI を最新状態に保つ
+- [x] 3.2 commit のたびに push し、PR 上の CI を最新状態に保つ
 
 ## 4. Review
 
