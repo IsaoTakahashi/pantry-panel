@@ -525,8 +525,6 @@ describe("StockItemsPage", () => {
 
     await waitFor(() => {
       expect(createStockItem).toHaveBeenCalled();
-    });
-    await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
@@ -560,6 +558,64 @@ describe("StockItemsPage", () => {
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("searchbox")).toHaveValue("醤油");
+  });
+
+  it("URL登録フロー経由で商品作成に成功した場合もフィルターがリセットされる", async () => {
+    // Scenario: S-5
+    const { fetchStockItems, createStockItem, extractFromUrlStream } =
+      await import("@/lib/api");
+    const newItem = {
+      id: "3",
+      name: "みりん",
+      category: "調味料",
+      imageUrl: null,
+      sourceUrl: "https://example.com/product",
+      wantToBuy: false,
+      createdAt: "2026-01-03T00:00:00Z",
+      updatedAt: "2026-01-03T00:00:00Z",
+      sortedAt: "2026-01-03T00:00:00Z",
+    };
+    vi.mocked(fetchStockItems)
+      .mockResolvedValueOnce(mockItems)
+      .mockResolvedValueOnce([...mockItems, newItem]);
+    vi.mocked(createStockItem).mockResolvedValue(newItem);
+    vi.mocked(extractFromUrlStream).mockImplementation(
+      async (_url, _onProgress, onDone) => {
+        onDone({ name: "みりん", imageUrl: null });
+      },
+    );
+
+    const user = userEvent.setup();
+    render(<StockItemsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("醤油")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: "買いたいものだけ" }));
+    await user.click(screen.getByRole("button", { name: "URLから追加" }));
+
+    const urlDialog = screen.getByRole("dialog");
+    await user.type(
+      within(urlDialog).getByRole("textbox"),
+      "https://example.com/product",
+    );
+    await user.click(within(urlDialog).getByRole("button", { name: "抽出" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("名前")).toHaveValue("みりん");
+    });
+
+    await user.click(screen.getByRole("button", { name: "追加" }));
+
+    await waitFor(() => {
+      expect(createStockItem).toHaveBeenCalled();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByRole("button", { name: "買いたいものだけ" }),
+    ).toHaveAttribute("aria-pressed", "false");
   });
 
   it("商品名を編集して保存したとき updateStockItem の引数に sortedAt が含まれない", async () => {

@@ -8,6 +8,9 @@
 - [x] 2.2 `page.test.tsx` に失敗するテストを追加する: 商品作成が失敗（409など）した場合はフィルターが維持されることを検証する
 - [x] 2.3 `StockItemsClient.tsx` に `handleCreateAndResetFilter` を実装し、`CreateItemModal` の `onCreate` に差し替える（design.md 参照）
 - [x] 2.4 追加したテストが green になることを確認する
+- [x] 2.5 コードレビューで指摘された S-5（URL登録フロー経由の作成でもフィルターがリセットされる）のテストを追加する
+- [x] 2.6 コードレビューで指摘された `FilterCondition` 初期値の重複を `INITIAL_FILTER` 定数に切り出す
+- [x] 2.7 コードレビューで指摘された新規テストの `waitFor` 分割を既存ファイルの慣習に合わせて統合する
 
 ## 3. Verification
 

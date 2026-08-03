@@ -30,6 +30,12 @@ const UrlRegistrationModal = dynamic(
   { ssr: false },
 );
 
+const INITIAL_FILTER: FilterCondition = {
+  searchText: "",
+  wantToBuyOnly: false,
+  category: null,
+};
+
 export default function StockItemsClient() {
   const {
     session,
@@ -72,11 +78,7 @@ export default function StockItemsClient() {
     setUrlModalOpen,
   } = useStockItems(accessToken, activeGroupId, refreshGroup, authLoading);
 
-  const [filter, setFilter] = useState<FilterCondition>({
-    searchText: "",
-    wantToBuyOnly: false,
-    category: null,
-  });
+  const [filter, setFilter] = useState<FilterCondition>(INITIAL_FILTER);
   const [viewMode, setViewMode] = useState<"normal" | "simple">("normal");
 
   const filteredItems = useMemo(
@@ -94,7 +96,7 @@ export default function StockItemsClient() {
     sourceUrl: string | null,
   ) => {
     await handleCreate(name, category, wantToBuy, imageUrl, sourceUrl);
-    setFilter({ searchText: "", wantToBuyOnly: false, category: null });
+    setFilter(INITIAL_FILTER);
   };
 
   if (authLoading) return <StockItemsSkeleton />;
