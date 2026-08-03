@@ -30,6 +30,12 @@ const UrlRegistrationModal = dynamic(
   { ssr: false },
 );
 
+const INITIAL_FILTER: FilterCondition = {
+  searchText: "",
+  wantToBuyOnly: false,
+  category: null,
+};
+
 export default function StockItemsClient() {
   const {
     session,
@@ -72,11 +78,7 @@ export default function StockItemsClient() {
     setUrlModalOpen,
   } = useStockItems(accessToken, activeGroupId, refreshGroup, authLoading);
 
-  const [filter, setFilter] = useState<FilterCondition>({
-    searchText: "",
-    wantToBuyOnly: false,
-    category: null,
-  });
+  const [filter, setFilter] = useState<FilterCondition>(INITIAL_FILTER);
   const [viewMode, setViewMode] = useState<"normal" | "simple">("normal");
 
   const filteredItems = useMemo(
@@ -85,6 +87,17 @@ export default function StockItemsClient() {
   );
 
   const Card = viewMode === "simple" ? ItemCardSimple : ItemCard;
+
+  const handleCreateAndResetFilter = async (
+    name: string,
+    category: string,
+    wantToBuy: boolean,
+    imageUrl: string | null,
+    sourceUrl: string | null,
+  ) => {
+    await handleCreate(name, category, wantToBuy, imageUrl, sourceUrl);
+    setFilter(INITIAL_FILTER);
+  };
 
   if (authLoading) return <StockItemsSkeleton />;
 
@@ -179,7 +192,7 @@ export default function StockItemsClient() {
                 initialImageUrl={prefill.imageUrl}
                 initialSourceUrl={prefill.sourceUrl}
                 onClose={handleCloseCreateModal}
-                onCreate={handleCreate}
+                onCreate={handleCreateAndResetFilter}
               />
               <UrlRegistrationModal
                 isOpen={urlModalOpen}
