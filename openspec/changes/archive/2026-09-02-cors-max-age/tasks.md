@@ -10,5 +10,5 @@
 
 ## 2. CI確認
 
-- [ ] 2.1 commit のたびに push し、PR 上の CI が最新状態であることを確認する
-- [ ] 2.2 `gh pr checks --watch` で CI が green になることを確認する
+- [x] 2.1 commit のたびに push し、PR 上の CI が最新状態であることを確認する
+- [x] 2.2 `gh pr checks --watch` で CI が green になることを確認する(全チェックpass。PR #243)

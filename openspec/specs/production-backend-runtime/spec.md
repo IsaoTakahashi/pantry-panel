@@ -97,6 +97,17 @@ Function URL の `--cors` 設定は **空 (`{}`)** にする MUST。Backend の 
 - **WHEN** ブラウザから `Origin: http://localhost:3000` でリクエストを送る
 - **THEN** レスポンスヘッダに `Access-Control-Allow-Origin: http://localhost:3000` が **1 個だけ** 含まれる（重複しない）
 
+### Requirement: preflight レスポンスに Access-Control-Max-Age を設定する
+Backend の Echo CORS ミドルウェアは、preflight (`OPTIONS`) レスポンスに `Access-Control-Max-Age: 7200` ヘッダーを含める SHALL。この値はブラウザが preflight 結果をキャッシュできる期間(秒)を示す。
+
+#### Scenario: preflight リクエストに Access-Control-Max-Age が含まれる
+- **WHEN** クライアントが許可された origin から preflight (`OPTIONS`) リクエストを送信する
+- **THEN** レスポンスの `Access-Control-Max-Age` ヘッダーが `7200` である
+
+#### Scenario: 許可されていない origin からの preflight には CORS ヘッダーが付かない
+- **WHEN** クライアントが `CORS_ALLOWED_ORIGINS` に含まれない origin から preflight リクエストを送信する
+- **THEN** レスポンスに `Access-Control-Allow-Origin` も `Access-Control-Max-Age` も含まれない(既存の origin 許可ロジックは変更されない)
+
 ### Requirement: Lambda は Supabase Supavisor Pooler 経由で接続する
 Lambda は IPv6 outbound 非対応のため、Supabase Direct Connection（IPv6 only）には接続できない MUST。代わりに **Supavisor Session Pooler**（`aws-*-<region>.pooler.supabase.com:5432`、IPv4 対応）を使用する SHALL。
 
