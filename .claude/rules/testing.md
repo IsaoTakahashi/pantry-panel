@@ -156,3 +156,14 @@ proposal.md の「ユーザーシナリオとテスト設計」セクション�
   2. `reducedMotion` は @playwright/test では top-level `use` ではなく **`contextOptions: { reducedMotion: "reduce" }`** に置く。`sw` project には付けない
   3. reducedMotion は transform/layout を無効化するが **opacity exit は残る**ため、unmount を待つ既存の `not.toBeAttached()` 待機は引き続き load-bearing。除去しない
   4. flaky fix は「1回 green」では不十分。ローカル `--repeat-each` が不可なら CI の該当ジョブを複数回再実行して連続 green を確認する
+
+### 2026-09-01: 非同期イベントの競合（race）を扱うロジックは、両方の到着順序を個別にテストする
+
+- **対象シナリオ:** `useStockItems.test.ts`（parallelize-auth-init, Issue #236）の推測フェッチ失敗時の再試行ロジック
+- **変更前:** 「フェッチ失敗 → 確定が後から届く」という1方向の順序のみをテストし、review clean と判断していた
+- **変更後:** 「確定が先に届く → フェッチ失敗が後から処理される」という逆順序のテストも追加。両方が揃って初めて「先行フェッチ失敗時に確定groupIdと一致すれば一度だけ再試行する」ロジックが正しいと言える
+- **理由:** 2つの非同期イベント（推測フェッチの reject と groups 確定の resolve）の到着順序は保証されない。片方の順序だけを discriminator にしたテストは、そのテスト自体は正しく red/green するにもかかわらず、逆順序では同じ silent-empty-state バグを再現してしまう実装を green のまま通してしまった（task review では検出されず、最終ブランチ全体レビューで発覚）
+- **一般化した基準:**
+  1. 2つ以上の非同期イベント（Promise の resolve/reject、React state 更新）の相対タイミングに依存するロジック（cancel フラグ、dedup、リトライ判定など）を追加・変更したら、**あり得る到着順序をすべて列挙し、それぞれに対応するテストケースを書く**。「代表的な1パターンで通った」は不十分
+  2. 到着順序を制御するテストは `deferred()` 相当のヘルパー（resolve/reject を外部から任意タイミングで発火できる Promise）で書く。`waitFor` だけに頼ると、たまたま実装がフラッシュされるタイミングに救われて偽陽性の green になりうる
+  3. task レビュー（変更差分のみを見る）はこの種のクロスタイミングの見落としを検出しにくい。race/timing ロジックを含む変更は、task レビューで Approved でも最終ブランチ全体レビューで再度トレースする価値がある
