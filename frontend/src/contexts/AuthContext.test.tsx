@@ -316,17 +316,21 @@ describe("AuthContext", () => {
     localStorage.setItem("pantry-panel:active-group-id", "cached-g1");
     vi.mocked(getSupabaseClient).mockReturnValue(null);
 
-    let captured: SpeculativeCaptureHandle | null = null;
+    // 最新値だけを上書きする `let captured` だと、useEffect 実装でも act() 内で
+    // 効果が解決済みになり最終値が一致してしまい退行を検出できない。
+    // すべての onReady 呼び出しを記録し、FIRST render の値を検証することで
+    // 「初回レンダーで既に値がある」＝lazy initializer であることを保証する。
+    const calls: SpeculativeCaptureHandle[] = [];
     render(
       <AuthProvider>
-        <SpeculativeCapture onReady={(h) => (captured = h)} />
+        <SpeculativeCapture onReady={(h) => calls.push(h)} />
       </AuthProvider>,
     );
 
-    // render() 直後（await/waitFor なし）で読めることが lazy initializer 実装の根拠。
-    expect(
-      (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
-    ).toBe("cached-g1");
+    // render() 直後（await/waitFor なし）で、かつ最初の呼び出し（calls[0]）が
+    // 既に値を持っていることが lazy initializer 実装の根拠。
+    // useEffect 実装なら calls[0].speculativeGroupId は undefined になるはず。
+    expect(calls[0]?.speculativeGroupId).toBe("cached-g1");
   });
 
   it("signOut は speculativeGroupId を undefined にリセットする", async () => {
