@@ -56,6 +56,23 @@ function RefreshCapture({
   return null;
 }
 
+type SpeculativeCaptureHandle = {
+  speculativeGroupId: string | undefined;
+  groups: GroupInfo[];
+  signOut: () => Promise<void>;
+  switchGroup: (groupId: string) => void;
+};
+
+function SpeculativeCapture({
+  onReady,
+}: {
+  onReady: (handle: SpeculativeCaptureHandle) => void;
+}) {
+  const { speculativeGroupId, groups, signOut, switchGroup } = useAuth();
+  onReady({ speculativeGroupId, groups, signOut, switchGroup });
+  return null;
+}
+
 function renderWithAuth() {
   return render(
     <AuthProvider>
@@ -292,6 +309,92 @@ describe("AuthContext", () => {
     renderWithAuth();
     await waitFor(() =>
       expect(screen.getByText("authenticated:実家")).toBeInTheDocument(),
+    );
+  });
+
+  it("mount 時に localStorage の active group id を speculativeGroupId として同期的に公開する", () => {
+    localStorage.setItem("pantry-panel:active-group-id", "cached-g1");
+    vi.mocked(getSupabaseClient).mockReturnValue(null);
+
+    let captured: SpeculativeCaptureHandle | null = null;
+    render(
+      <AuthProvider>
+        <SpeculativeCapture onReady={(h) => (captured = h)} />
+      </AuthProvider>,
+    );
+
+    // render() 直後（await/waitFor なし）で読めることが lazy initializer 実装の根拠。
+    expect(
+      (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
+    ).toBe("cached-g1");
+  });
+
+  it("signOut は speculativeGroupId を undefined にリセットする", async () => {
+    localStorage.setItem("pantry-panel:active-group-id", "g1");
+    const session = { access_token: "tok", user: { id: "u1" } };
+    mockGetSession.mockResolvedValue({ data: { session } });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "owner" },
+    ]);
+
+    let captured: SpeculativeCaptureHandle | null = null;
+    render(
+      <AuthProvider>
+        <SpeculativeCapture onReady={(h) => (captured = h)} />
+      </AuthProvider>,
+    );
+
+    expect(
+      (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
+    ).toBe("g1");
+    await waitFor(() =>
+      expect((captured as SpeculativeCaptureHandle | null)?.groups.length).toBe(
+        1,
+      ),
+    );
+
+    await act(async () => {
+      await (captured as SpeculativeCaptureHandle | null)?.signOut();
+    });
+
+    expect(
+      (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
+    ).toBeUndefined();
+  });
+
+  it("switchGroup は speculativeGroupId を新しい groupId に更新する", async () => {
+    const session = { access_token: "tok", user: { id: "u1" } };
+    mockGetSession.mockResolvedValue({ data: { session } });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "owner" },
+      { groupId: "g2", name: "実家", role: "member" },
+    ]);
+
+    let captured: SpeculativeCaptureHandle | null = null;
+    render(
+      <AuthProvider>
+        <SpeculativeCapture onReady={(h) => (captured = h)} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect((captured as SpeculativeCaptureHandle | null)?.groups.length).toBe(
+        2,
+      ),
+    );
+    // applyGroups は speculativeGroupId を派生させない（別管理の state）。
+    expect(
+      (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
+    ).toBeUndefined();
+
+    act(() => {
+      (captured as SpeculativeCaptureHandle | null)?.switchGroup("g2");
+    });
+
+    await waitFor(() =>
+      expect(
+        (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
+      ).toBe("g2"),
     );
   });
 });

@@ -22,6 +22,7 @@ function setup(auth: Partial<ReturnType<typeof useAuth>>) {
     user: null,
     groups: [],
     group: null,
+    speculativeGroupId: undefined,
     loading: false,
     signInWithGoogle: vi.fn(),
     signOut: vi.fn(),
