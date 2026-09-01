@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createStockItem,
   deleteStockItem,
@@ -78,13 +78,33 @@ export function useStockItems(
     null,
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: isGroupConfirmed is intentionally excluded from deps — this effect must react only to effectiveGroupId/accessToken changes (Decision 2). wasConfirmedAtFetchStart below still reads the current isGroupConfirmed via closure, captured from whichever render actually triggered this effect run.
+  // レビュー指摘の修正: 推測フェーズのフェッチが失敗し、かつ後から確定した
+  // effectiveGroupId が失敗時と同じ id だった場合、Decision 2（依存配列不変で
+  // 再実行スキップ）と Decision 4（推測フェーズの失敗は error に出さない）が
+  // 組み合わさると、失敗が永久に握りつぶされ items が空のまま何も表示されない
+  // 状態になる（一時的なネットワーク障害でも再試行されない）。この ref は
+  // 「現在の effectiveGroupId に対する直近の推測フェッチが失敗したか」を記録し、
+  // state ではなく ref で持つことで、記録すること自体が再レンダー/再実行の
+  // トリガーにならないようにする。
+  const speculativeFailureRef = useRef<string | undefined>(undefined);
+  // 上記の再試行を main fetch effect に伝える唯一の手段。isGroupConfirmed 自体は
+  // 引き続き依存配列に含めない（Decision 2 を維持し、成功済みの推測フェッチに対する
+  // 不要な再フェッチを起こさないため）。
+  const [retryTick, setRetryTick] = useState(0);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: isGroupConfirmed is intentionally excluded from deps — this effect must react only to effectiveGroupId/accessToken/retryTick changes (Decision 2). wasConfirmedAtFetchStart below still reads the current isGroupConfirmed via closure, captured from whichever render actually triggered this effect run.
   useEffect(() => {
     // effectiveGroupId が無ければ fetch しない（確定値も推測値も無い初回ログイン等）。
     // 値がある場合は確定/推測を問わずただちに fetch する。推測値→確定値のように
     // effectiveGroupId 自体が変化すれば依存配列の変化で自動的に再フェッチされ、
     // 変化しなければ（推測値=確定値）React が自動的に再実行をスキップする。
     if (!effectiveGroupId) return;
+
+    // effectiveGroupId が実際に変わっていたら、古い id に対する失敗記録は無効。
+    // 新しい id の結果でこの後上書きされる。
+    if (speculativeFailureRef.current !== effectiveGroupId) {
+      speculativeFailureRef.current = undefined;
+    }
 
     // このフェッチ実行時点での確定状態を捕捉する。後から確定しても、この実行の
     // catch 処理の挙動は変わらない（次に effectiveGroupId が変わって再実行される
@@ -101,6 +121,9 @@ export function useStockItems(
       .then((data) => {
         if (cancelled) return;
         setItems(data);
+        if (speculativeFailureRef.current === effectiveGroupId) {
+          speculativeFailureRef.current = undefined;
+        }
       })
       .catch((err) => {
         if (cancelled) return;
@@ -109,6 +132,12 @@ export function useStockItems(
         // 実装の都合であり、確定フェッチの結果のみが正となる。
         if (wasConfirmedAtFetchStart) {
           setError(err instanceof Error ? err.message : "操作に失敗しました");
+        } else {
+          // この id に対する確定はまだ来ていない。403 のような「古い id だから
+          // 失敗した」ケースと、単なる一時的なネットワーク障害を実装上区別できない
+          // ため、後で同じ id が確定した際に一度だけ再試行できるよう記録しておく
+          // （下の retry effect 参照）。
+          speculativeFailureRef.current = effectiveGroupId;
         }
       })
       .finally(() => {
@@ -119,7 +148,25 @@ export function useStockItems(
     return () => {
       cancelled = true;
     };
-  }, [accessToken, effectiveGroupId]);
+  }, [accessToken, effectiveGroupId, retryTick]);
+
+  // レビュー指摘の修正: 推測フェーズで失敗した effectiveGroupId が、そのまま同じ id
+  // で確定した場合に限り、一度だけ再フェッチを起こす。main fetch effect は
+  // isGroupConfirmed を依存配列に含めない（Decision 2）ため、id が変わらない
+  // 確定では自動的には再実行されない。ここで retryTick を 1 つ進めることでのみ
+  // 再実行させる。id が一致しなければ（= 通常は effectiveGroupId 自体の変化で
+  // 再フェッチされるケース）何もしない。再試行を積んだ直後に記録をクリアするため、
+  // 再試行自体が失敗しても無限ループにはならない（2 回目は確定済みなので
+  // Decision 4 の抑制は効かず、通常どおり error が可視化されて終端する）。
+  useEffect(() => {
+    if (
+      isGroupConfirmed &&
+      speculativeFailureRef.current === effectiveGroupId
+    ) {
+      speculativeFailureRef.current = undefined;
+      setRetryTick((t) => t + 1);
+    }
+  }, [isGroupConfirmed, effectiveGroupId]);
 
   const handleRealtimeChange = useCallback(() => {
     fetchStockItems(accessToken, effectiveGroupId)

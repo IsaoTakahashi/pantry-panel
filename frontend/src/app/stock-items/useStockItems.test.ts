@@ -248,6 +248,78 @@ describe("useStockItems", () => {
       expect(result.current.error).toBeNull();
       expect(result.current.loading).toBe(false);
     });
+
+    it("推測フェッチが失敗し同じidで確定すると一度だけ再フェッチされ、成功すればitemsが入りerrorはnullのまま", async () => {
+      vi.mocked(fetchStockItems)
+        .mockRejectedValueOnce(new Error("Network error"))
+        .mockResolvedValueOnce(mockItems);
+
+      const { result, rerender } = renderHook(
+        (props: Parameters<typeof useStockItems>) => useStockItems(...props),
+        {
+          initialProps: ["test-token", "group-1", vi.fn(), false] as Parameters<
+            typeof useStockItems
+          >,
+        },
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(fetchStockItems).toHaveBeenCalledTimes(1);
+      // Decision 4: 推測フェーズの失敗は error に出さない
+      expect(result.current.error).toBeNull();
+      expect(result.current.items).toEqual([]);
+
+      // 同じ id で確定する（effectiveGroupId 自体は変化しない）
+      rerender(["test-token", "group-1", vi.fn(), true]);
+
+      await waitFor(() => {
+        expect(fetchStockItems).toHaveBeenCalledTimes(2);
+      });
+      expect(fetchStockItems).toHaveBeenNthCalledWith(
+        2,
+        "test-token",
+        "group-1",
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.items).toEqual(mockItems);
+      expect(result.current.error).toBeNull();
+    });
+
+    it("再試行フェッチも失敗した場合はerrorが可視化され、それ以上の再試行は起きない", async () => {
+      vi.mocked(fetchStockItems)
+        .mockRejectedValueOnce(new Error("Network error"))
+        .mockRejectedValueOnce(new Error("Retry also failed"));
+
+      const { result, rerender } = renderHook(
+        (props: Parameters<typeof useStockItems>) => useStockItems(...props),
+        {
+          initialProps: ["test-token", "group-1", vi.fn(), false] as Parameters<
+            typeof useStockItems
+          >,
+        },
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.error).toBeNull();
+
+      rerender(["test-token", "group-1", vi.fn(), true]);
+
+      await waitFor(() => {
+        expect(fetchStockItems).toHaveBeenCalledTimes(2);
+      });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // 2回目は確定フェッチなので Decision 4 の抑制は効かず、error が可視化される
+      expect(result.current.error).toBe("Retry also failed");
+      expect(result.current.items).toEqual([]);
+
+      // 無限ループしないことの確認: rerender を追加しても3回目は呼ばれない
+      rerender(["test-token", "group-1", vi.fn(), true]);
+      await waitFor(() => {
+        expect(fetchStockItems).toHaveBeenCalledTimes(2);
+      });
+    });
   });
 
   describe("handleCreate", () => {
