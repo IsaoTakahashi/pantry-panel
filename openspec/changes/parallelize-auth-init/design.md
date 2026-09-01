@@ -30,7 +30,7 @@
 
 **決定:** `AuthGuard` は `loading` を待たず、`session` があり `group`（確定）または `speculativeGroupId`（推測）のいずれかがあれば children をレンダーする。`loading` が `false` になった時点で `group` が無ければ（＝キャッシュも確定値も無かった、または脱退済み）初めて `/no-group` へ遷移する。
 
-**理由:** `useStockItems` を早くフェッチさせても、呼び出し元コンポーネントがマウントされていなければ意味がない。直列の実体は AuthGuard のゲートにあるため、ここを変えない限り Issue #236 の効果は得られない。
+**理由:** 当初は「呼び出し元コンポーネントがマウントされていなければ `useStockItems` を早くフェッチさせても意味がない」という前提で AuthGuard のゲートが直列待ちの実体だと考えていたが、実際には `StockItemsClient` 自体は常にマウントされており、直列の実体は Decision 2 で撤廃した `useStockItems` 内の `authLoading` チェックだった（Context 節を参照）。そのためこの変更自体は Issue #236 の効果に対して inert（無害だが必須ではない）である。それでも維持する理由は、`group=null` かつ未確定の間 `AuthGuard` が `null` を返し続けるより、`speculativeGroupId` がある場合は早期に子要素をレンダーする方が将来 AuthGuard 単体の意味論として一貫しており、Decision 5（`speculativeGroupId` の同期）と組み合わせることで実害のない設計になるため。
 
 **検討した代替案:**
 - *AuthGuard は変えず、`stock-items/page.tsx` にフェッチ専用の隠しコンポーネントを追加してAuthGuardの外側でプリフェッチする* → フェッチ結果を `useStockItems` の state に橋渡しする仕組み（context 経由のキャッシュ等）が別途必要になり複雑。AuthGuard 自体を賢くする方が変更が一箇所に閉じる。
