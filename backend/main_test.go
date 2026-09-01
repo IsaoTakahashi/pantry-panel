@@ -1,9 +1,12 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"testing"
 
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -151,4 +154,39 @@ func TestCompileOriginMatcher(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCORSMiddlewareMaxAge(t *testing.T) {
+	matcher, err := compileOriginMatcher([]string{"https://allowed.example.com"})
+	require.NoError(t, err)
+
+	e := echo.New()
+	e.Use(newCORSMiddleware(matcher))
+	e.GET("/health", func(c *echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	})
+
+	t.Run("allowed origin preflight includes Access-Control-Max-Age: 7200", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodOptions, "/health", nil)
+		req.Header.Set(echo.HeaderOrigin, "https://allowed.example.com")
+		req.Header.Set(echo.HeaderAccessControlRequestMethod, http.MethodGet)
+		rec := httptest.NewRecorder()
+
+		e.ServeHTTP(rec, req)
+
+		assert.Equal(t, "https://allowed.example.com", rec.Header().Get(echo.HeaderAccessControlAllowOrigin))
+		assert.Equal(t, "7200", rec.Header().Get(echo.HeaderAccessControlMaxAge))
+	})
+
+	t.Run("disallowed origin preflight has neither Access-Control-Allow-Origin nor Access-Control-Max-Age", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodOptions, "/health", nil)
+		req.Header.Set(echo.HeaderOrigin, "https://evil.example.com")
+		req.Header.Set(echo.HeaderAccessControlRequestMethod, http.MethodGet)
+		rec := httptest.NewRecorder()
+
+		e.ServeHTTP(rec, req)
+
+		assert.Empty(t, rec.Header().Get(echo.HeaderAccessControlAllowOrigin))
+		assert.Empty(t, rec.Header().Get(echo.HeaderAccessControlMaxAge))
+	})
 }

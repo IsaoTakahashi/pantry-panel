@@ -98,14 +98,7 @@ func main() {
 	}
 
 	e := echo.New()
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		UnsafeAllowOriginFunc: func(_ *echo.Context, origin string) (string, bool, error) {
-			if matcher(origin) {
-				return origin, true, nil
-			}
-			return "", false, nil
-		},
-	}))
+	e.Use(newCORSMiddleware(matcher))
 
 	e.Use(middleware.ContextTimeoutWithConfig(middleware.ContextTimeoutConfig{
 		Timeout: 25 * time.Second,
@@ -163,6 +156,22 @@ func parseCORSAllowedOrigins(env string) []string {
 		return []string{"http://localhost:3000"}
 	}
 	return out
+}
+
+// newCORSMiddleware builds the CORS middleware used by the app. MaxAge is set to
+// 7200 seconds (2 hours), the effective cap Chromium-based browsers clamp to, so
+// browsers can cache preflight (OPTIONS) results instead of sending one before
+// every API call. See openspec/changes/cors-max-age/design.md for the rationale.
+func newCORSMiddleware(matcher func(origin string) bool) echo.MiddlewareFunc {
+	return middleware.CORSWithConfig(middleware.CORSConfig{
+		UnsafeAllowOriginFunc: func(_ *echo.Context, origin string) (string, bool, error) {
+			if matcher(origin) {
+				return origin, true, nil
+			}
+			return "", false, nil
+		},
+		MaxAge: 7200,
+	})
 }
 
 func compileOriginMatcher(patterns []string) (func(origin string) bool, error) {
