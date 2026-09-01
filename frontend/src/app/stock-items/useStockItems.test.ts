@@ -249,6 +249,59 @@ describe("useStockItems", () => {
       expect(result.current.loading).toBe(false);
     });
 
+    it("確定フェッチが先に成功した後、別idの古い推測フェッチが遅れて失敗してもerrorに反映されない（cancelledガードが id 切替を検出する）", async () => {
+      // round 2 の修正は catch 内で isGroupConfirmedRef.current（ライブな確定状態）
+      // を読むが、これは「id が変わっていなければ」という前提の上でのみ安全
+      // （id が変わっていれば cleanup で cancelled = true になり catch 本体には
+      // 到達しない）。この前提が壊れていないことを、resolve ではなく reject で
+      // 確認する（上のテストの reject 版）。
+      const speculativeDeferred = deferred<typeof mockItems>();
+      const confirmedDeferred = deferred<typeof mockItems>();
+      const confirmedItems = [mockItems[1]];
+
+      vi.mocked(fetchStockItems)
+        .mockReturnValueOnce(speculativeDeferred.promise)
+        .mockReturnValueOnce(confirmedDeferred.promise);
+
+      const { result, rerender } = renderHook(
+        (props: Parameters<typeof useStockItems>) => useStockItems(...props),
+        {
+          initialProps: [
+            "test-token",
+            "speculative-group",
+            vi.fn(),
+            false,
+          ] as Parameters<typeof useStockItems>,
+        },
+      );
+
+      // 推測フェッチが in-flight のうちに、別の id で確定値へ切り替える
+      rerender(["test-token", "confirmed-group", vi.fn(), true]);
+
+      // 確定フェッチが先に解決する
+      await act(async () => {
+        confirmedDeferred.resolve(confirmedItems);
+        await confirmedDeferred.promise;
+      });
+
+      await waitFor(() => expect(result.current.items).toEqual(confirmedItems));
+      expect(result.current.loading).toBe(false);
+
+      // 古い（別id の）推測フェッチが遅れて失敗する。isGroupConfirmedRef.current は
+      // 既に true だが、この失敗は "speculative-group" に属しており、現在の
+      // effectiveGroupId "confirmed-group" とは別物 ＝ cancelled が true のため
+      // catch 本体（isGroupConfirmedRef の判定含む）には到達しない。
+      await act(async () => {
+        speculativeDeferred.reject(new Error("403 Forbidden"));
+        await speculativeDeferred.promise.catch(() => {});
+      });
+
+      // 古い id の失敗は items/error state に反映されない
+      expect(result.current.items).toEqual(confirmedItems);
+      expect(result.current.error).toBeNull();
+      expect(result.current.loading).toBe(false);
+    });
+
     it("推測フェッチが失敗し同じidで確定すると一度だけ再フェッチされ、成功すればitemsが入りerrorはnullのまま", async () => {
       vi.mocked(fetchStockItems)
         .mockRejectedValueOnce(new Error("Network error"))
@@ -319,6 +372,50 @@ describe("useStockItems", () => {
       await waitFor(() => {
         expect(fetchStockItems).toHaveBeenCalledTimes(2);
       });
+    });
+
+    it("推測フェッチが in-flight のうちに同じidで確定し、その後にフェッチが失敗するとerrorが可視化される（round 2: 確定が先、失敗が後）", async () => {
+      const fetchDeferred = deferred<typeof mockItems>();
+      vi.mocked(fetchStockItems).mockReturnValueOnce(fetchDeferred.promise);
+
+      const { result, rerender } = renderHook(
+        (props: Parameters<typeof useStockItems>) => useStockItems(...props),
+        {
+          initialProps: ["test-token", "group-1", vi.fn(), false] as Parameters<
+            typeof useStockItems
+          >,
+        },
+      );
+
+      expect(fetchStockItems).toHaveBeenCalledTimes(1);
+      expect(result.current.loading).toBe(true);
+
+      // フェッチがまだ pending のうちに、同じ id で確定が先に届く。round 1 の
+      // retry-trigger effect はこの時点で一度だけ実行されるが、
+      // speculativeFailureRef はまだ未設定（失敗前）なので no-op で終わり、
+      // effectiveGroupId/isGroupConfirmed は以後変化しないため、この effect は
+      // 二度と実行されない。
+      rerender(["test-token", "group-1", vi.fn(), true]);
+
+      expect(fetchStockItems).toHaveBeenCalledTimes(1);
+
+      // その後、in-flight だったフェッチが失敗する（一時的なネットワーク障害）。
+      await act(async () => {
+        fetchDeferred.reject(new Error("Network error"));
+        await fetchDeferred.promise.catch(() => {});
+      });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // 失敗時点で isGroupConfirmed は既に true（ライブな ref 経由で検知される）
+      // ため、error が可視化されなければならない。round 1 の
+      // wasConfirmedAtFetchStart スナップショット（フェッチ開始時点では false）
+      // だけに頼ると、この失敗は永久に握りつぶされ items は空のまま何も
+      // 表示されない（本テストが検出する回帰）。
+      expect(result.current.error).toBe("Network error");
+      expect(result.current.items).toEqual([]);
+      // 無限にリトライが積まれていないことも確認する
+      expect(fetchStockItems).toHaveBeenCalledTimes(1);
     });
   });
 

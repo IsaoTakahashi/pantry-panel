@@ -92,7 +92,19 @@ export function useStockItems(
   // 不要な再フェッチを起こさないため）。
   const [retryTick, setRetryTick] = useState(0);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: isGroupConfirmed is intentionally excluded from deps — this effect must react only to effectiveGroupId/accessToken/retryTick changes (Decision 2). wasConfirmedAtFetchStart below still reads the current isGroupConfirmed via closure, captured from whichever render actually triggered this effect run.
+  // レビュー指摘の修正（round 2）: 上記の再試行トリガー effect は自身の依存配列
+  // （[isGroupConfirmed, effectiveGroupId]）が変化した時にしか実行されない。
+  // 「確定が先に来て（そのときはまだ ref が未設定で no-op）、その後にフェッチが
+  // 失敗する」という順序では、失敗が記録された時点でこの effect の依存配列は
+  // もう二度と変化せず、記録された失敗が永久に見過ごされる。これを防ぐため、
+  // catch 処理では effect 開始時点のスナップショット（過去の
+  // wasConfirmedAtFetchStart）ではなく、catch が実際に実行される瞬間の最新の
+  // isGroupConfirmed をこの ref から読む。毎レンダーで直接代入するだけなので
+  // useEffect は不要（"常に最新値を指す ref" の標準パターン）。
+  const isGroupConfirmedRef = useRef(isGroupConfirmed);
+  isGroupConfirmedRef.current = isGroupConfirmed;
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryTick is a deliberate re-run trigger only (bumped by the retry-trigger effect below) — its value is never read in the body, so Biome sees it as "unnecessary", but removing it would break the round-1 retry mechanism (Decision 2: effectiveGroupId alone must not force a re-run when unchanged).
   useEffect(() => {
     // effectiveGroupId が無ければ fetch しない（確定値も推測値も無い初回ログイン等）。
     // 値がある場合は確定/推測を問わずただちに fetch する。推測値→確定値のように
@@ -106,10 +118,6 @@ export function useStockItems(
       speculativeFailureRef.current = undefined;
     }
 
-    // このフェッチ実行時点での確定状態を捕捉する。後から確定しても、この実行の
-    // catch 処理の挙動は変わらない（次に effectiveGroupId が変わって再実行される
-    // まで待つ）。
-    const wasConfirmedAtFetchStart = isGroupConfirmed;
     // 推測フェッチと確定フェッチが短時間に連続発火しうるため、ネットワーク応答が
     // 逆順で返ってきても新しい fetch の結果が古い fetch の結果に上書きされないよう
     // ガードする。
@@ -127,10 +135,18 @@ export function useStockItems(
       })
       .catch((err) => {
         if (cancelled) return;
+        // cancelled が false ということは、この fetch を開始してから
+        // effectiveGroupId が変わっていない（変われば cleanup で cancelled = true
+        // になる）＝ここでの isGroupConfirmedRef.current は「今まさに失敗した、
+        // この同じ id」の確定状態を指す。effect 開始時点のスナップショット
+        // （旧 wasConfirmedAtFetchStart）だと、「確定が先に来て（まだ ref 未設定で
+        // no-op）、その後にフェッチが失敗する」という順序を取りこぼす
+        // （round 2 で判明した抜け）ため、必ず catch 実行時点の最新値を読む。
+        //
         // 推測フェーズ（未確定）のフェッチ失敗はユーザーに見せない。キャッシュされた
         // groupId が古い（脱退済み・別アカウントの残留キャッシュ）ことによる 403 等は
         // 実装の都合であり、確定フェッチの結果のみが正となる。
-        if (wasConfirmedAtFetchStart) {
+        if (isGroupConfirmedRef.current) {
           setError(err instanceof Error ? err.message : "操作に失敗しました");
         } else {
           // この id に対する確定はまだ来ていない。403 のような「古い id だから
