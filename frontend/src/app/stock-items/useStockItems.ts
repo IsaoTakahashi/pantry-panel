@@ -56,9 +56,9 @@ type UseStockItemsReturn = {
 
 export function useStockItems(
   accessToken: string | undefined,
-  activeGroupId: string | undefined,
+  effectiveGroupId: string | undefined,
   refreshGroup: () => Promise<void>,
-  authLoading: boolean,
+  isGroupConfirmed: boolean,
 ): UseStockItemsReturn {
   const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,27 +78,54 @@ export function useStockItems(
     null,
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: isGroupConfirmed is intentionally excluded from deps — this effect must react only to effectiveGroupId/accessToken changes (Decision 2). wasConfirmedAtFetchStart below still reads the current isGroupConfirmed via closure, captured from whichever render actually triggered this effect run.
   useEffect(() => {
-    // アクティブグループが未確定のうちは fetch しない。起動時に authLoading が
-    // groups 取得完了より先に false になっても、activeGroupId=undefined での
-    // 無駄な fetch を防ぎ、グループ確定後に 1 回だけ取得する。グループ未所属の
-    // ユーザーは AuthGuard が /no-group へ遷移させるため、ここで取得しなくてよい。
-    if (authLoading || !activeGroupId) return;
+    // effectiveGroupId が無ければ fetch しない（確定値も推測値も無い初回ログイン等）。
+    // 値がある場合は確定/推測を問わずただちに fetch する。推測値→確定値のように
+    // effectiveGroupId 自体が変化すれば依存配列の変化で自動的に再フェッチされ、
+    // 変化しなければ（推測値=確定値）React が自動的に再実行をスキップする。
+    if (!effectiveGroupId) return;
+
+    // このフェッチ実行時点での確定状態を捕捉する。後から確定しても、この実行の
+    // catch 処理の挙動は変わらない（次に effectiveGroupId が変わって再実行される
+    // まで待つ）。
+    const wasConfirmedAtFetchStart = isGroupConfirmed;
+    // 推測フェッチと確定フェッチが短時間に連続発火しうるため、ネットワーク応答が
+    // 逆順で返ってきても新しい fetch の結果が古い fetch の結果に上書きされないよう
+    // ガードする。
+    let cancelled = false;
+
     setLoading(true);
     setError(null);
-    fetchStockItems(accessToken, activeGroupId)
-      .then((data) => setItems(data))
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "操作に失敗しました"),
-      )
-      .finally(() => setLoading(false));
-  }, [authLoading, accessToken, activeGroupId]);
+    fetchStockItems(accessToken, effectiveGroupId)
+      .then((data) => {
+        if (cancelled) return;
+        setItems(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // 推測フェーズ（未確定）のフェッチ失敗はユーザーに見せない。キャッシュされた
+        // groupId が古い（脱退済み・別アカウントの残留キャッシュ）ことによる 403 等は
+        // 実装の都合であり、確定フェッチの結果のみが正となる。
+        if (wasConfirmedAtFetchStart) {
+          setError(err instanceof Error ? err.message : "操作に失敗しました");
+        }
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, effectiveGroupId]);
 
   const handleRealtimeChange = useCallback(() => {
-    fetchStockItems(accessToken, activeGroupId)
+    fetchStockItems(accessToken, effectiveGroupId)
       .then((data) => setItems(data))
       .catch(() => {});
-  }, [accessToken, activeGroupId]);
+  }, [accessToken, effectiveGroupId]);
 
   useStockItemsRealtime(handleRealtimeChange);
 
@@ -112,17 +139,17 @@ export function useStockItems(
     const created = await createStockItem(
       { name, category, wantToBuy, sourceUrl: sourceUrl ?? undefined },
       accessToken,
-      activeGroupId,
+      effectiveGroupId,
     );
     if (imageUrl) {
       await updateStockItem(
         created.id,
         { imageUrl },
         accessToken,
-        activeGroupId,
+        effectiveGroupId,
       );
     }
-    const data = await fetchStockItems(accessToken, activeGroupId);
+    const data = await fetchStockItems(accessToken, effectiveGroupId);
     setItems(data);
   };
 
@@ -133,9 +160,9 @@ export function useStockItems(
         editingItem.id,
         { name, category },
         accessToken,
-        activeGroupId,
+        effectiveGroupId,
       );
-      const data = await fetchStockItems(accessToken, activeGroupId);
+      const data = await fetchStockItems(accessToken, effectiveGroupId);
       setItems(data);
       setError(null);
     } catch (err) {
@@ -155,9 +182,9 @@ export function useStockItems(
         item.id,
         { wantToBuy: !item.wantToBuy },
         accessToken,
-        activeGroupId,
+        effectiveGroupId,
       );
-      const data = await fetchStockItems(accessToken, activeGroupId);
+      const data = await fetchStockItems(accessToken, effectiveGroupId);
       setItems(data);
       setError(null);
     } catch (err) {
@@ -177,9 +204,13 @@ export function useStockItems(
   const handleConfirmDelete = async (): Promise<void> => {
     if (!confirmDeleteItem) return;
     try {
-      await deleteStockItem(confirmDeleteItem.id, accessToken, activeGroupId);
+      await deleteStockItem(
+        confirmDeleteItem.id,
+        accessToken,
+        effectiveGroupId,
+      );
       setConfirmDeleteItem(null);
-      const data = await fetchStockItems(accessToken, activeGroupId);
+      const data = await fetchStockItems(accessToken, effectiveGroupId);
       setItems(data);
       setError(null);
     } catch (err) {
@@ -207,10 +238,10 @@ export function useStockItems(
         imageEditingItem.id,
         { imageUrl },
         accessToken,
-        activeGroupId,
+        effectiveGroupId,
       );
       setImageEditingItem(null);
-      const data = await fetchStockItems(accessToken, activeGroupId);
+      const data = await fetchStockItems(accessToken, effectiveGroupId);
       setItems(data);
       setError(null);
     } catch (err) {
@@ -222,9 +253,9 @@ export function useStockItems(
     groupId: string,
     name: string,
   ): Promise<void> => {
-    if (!accessToken || !activeGroupId) return;
+    if (!accessToken || !effectiveGroupId) return;
     try {
-      await updateGroupName(groupId, name, accessToken, activeGroupId);
+      await updateGroupName(groupId, name, accessToken, effectiveGroupId);
       await refreshGroup();
       setError(null);
     } catch (err) {
