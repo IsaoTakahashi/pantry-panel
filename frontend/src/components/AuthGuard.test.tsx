@@ -46,7 +46,24 @@ describe("AuthGuard", () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it("loading=true のとき children を表示しない", () => {
+  it("session はあるが group も speculativeGroupId も無く loading=true のとき children を表示しない", () => {
+    vi.mocked(getSupabaseClient).mockReturnValue({} as never);
+    setup({
+      session: { access_token: "tok" } as never,
+      group: null,
+      speculativeGroupId: undefined,
+      loading: true,
+    });
+    render(
+      <AuthGuard>
+        <span>content</span>
+      </AuthGuard>,
+    );
+    expect(screen.queryByText("content")).not.toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("session も group も無く loading=true のとき children を表示しない", () => {
     vi.mocked(getSupabaseClient).mockReturnValue({} as never);
     setup({ loading: true });
     render(
@@ -55,6 +72,54 @@ describe("AuthGuard", () => {
       </AuthGuard>,
     );
     expect(screen.queryByText("content")).not.toBeInTheDocument();
+  });
+
+  it("session と speculativeGroupId があれば group 未確定・loading=true でも children を表示する", () => {
+    vi.mocked(getSupabaseClient).mockReturnValue({} as never);
+    setup({
+      session: { access_token: "tok" } as never,
+      group: null,
+      speculativeGroupId: "g1",
+      loading: true,
+    });
+    render(
+      <AuthGuard>
+        <span>content</span>
+      </AuthGuard>,
+    );
+    expect(screen.getByText("content")).toBeInTheDocument();
+  });
+
+  it("session と speculativeGroupId のみ（loading=true）ではリダイレクトが発生しない", () => {
+    vi.mocked(getSupabaseClient).mockReturnValue({} as never);
+    setup({
+      session: { access_token: "tok" } as never,
+      group: null,
+      speculativeGroupId: "g1",
+      loading: true,
+    });
+    render(
+      <AuthGuard>
+        <span>content</span>
+      </AuthGuard>,
+    );
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("session と確定 group があれば loading=true でも children を表示する", () => {
+    vi.mocked(getSupabaseClient).mockReturnValue({} as never);
+    setup({
+      session: { access_token: "tok" } as never,
+      group: { groupId: "g1", name: "家", role: "owner" },
+      loading: true,
+    });
+    render(
+      <AuthGuard>
+        <span>content</span>
+      </AuthGuard>,
+    );
+    expect(screen.getByText("content")).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it("未認証のとき /login へリダイレクトする", () => {
@@ -71,6 +136,22 @@ describe("AuthGuard", () => {
   it("認証済み・グループ未所属のとき /no-group へリダイレクトする", () => {
     vi.mocked(getSupabaseClient).mockReturnValue({} as never);
     setup({ session: { access_token: "tok" } as never, group: null });
+    render(
+      <AuthGuard>
+        <span>content</span>
+      </AuthGuard>,
+    );
+    expect(mockPush).toHaveBeenCalledWith("/no-group");
+  });
+
+  it("loading=false で speculativeGroupId があっても group 未確定なら /no-group へリダイレクトする", () => {
+    vi.mocked(getSupabaseClient).mockReturnValue({} as never);
+    setup({
+      session: { access_token: "tok" } as never,
+      group: null,
+      speculativeGroupId: "g1",
+      loading: false,
+    });
     render(
       <AuthGuard>
         <span>content</span>
