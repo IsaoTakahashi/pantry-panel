@@ -386,10 +386,12 @@ describe("AuthContext", () => {
         2,
       ),
     );
-    // applyGroups は speculativeGroupId を派生させない（別管理の state）。
+    // applyGroups は確定した active group と speculativeGroupId を同期させる
+    // （Decision 5）。savedId が無いのでフォールバック先の gs[0]（"g1"）が
+    // active になり、speculativeGroupId もそれに合わせて "g1" になる。
     expect(
       (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
-    ).toBeUndefined();
+    ).toBe("g1");
 
     act(() => {
       (captured as SpeculativeCaptureHandle | null)?.switchGroup("g2");

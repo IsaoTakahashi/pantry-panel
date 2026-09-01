@@ -69,6 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         : null;
     const active = gs.find((g) => g.groupId === savedId) ?? gs[0] ?? null;
     setGroup(active);
+    // speculativeGroupId は常に確定状態と同期させる（signOut/switchGroup と同様、
+    // Decision 5）。ここでズレると、group が null になった後の effectiveGroupId
+    // （group が null のとき speculativeGroupId にフォールバックする）が、もう
+    // 存在しない/所属していないグループの id を指し続けてしまう。
+    setSpeculativeGroupId(active?.groupId ?? undefined);
     if (active && typeof window !== "undefined") {
       localStorage.setItem(ACTIVE_GROUP_KEY, active.groupId);
     }

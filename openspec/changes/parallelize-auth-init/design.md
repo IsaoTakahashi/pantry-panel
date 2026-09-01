@@ -6,7 +6,7 @@
 2. `loadGroups(accessToken)` → `GET /api/groups/me`（ネットワーク往復）
 3. `applyGroups` で `group`（確定 `activeGroupId`）が決まり `loading=false`
 
-`frontend/src/components/AuthGuard.tsx` は `loading` が `true` の間 `null` を返し、`StockItemsClient`（および内部の `useStockItems`）は **マウントすらされない**。つまり `useStockItems` の `fetchStockItems` は `GET /api/groups/me` の応答が返るまで開始できず、直列待ちの実体は AuthGuard のレンダーゲートにある。
+`frontend/src/components/AuthGuard.tsx` は `StockItemsClient` が返す JSX の内側でツリーの一部だけをラップしており、`StockItemsClient` 自体や内部の `useStockItems` の呼び出しは `AuthGuard` の状態に関わらず常にマウント・実行される。実際に直列待ちを生んでいたのは `useStockItems` 自身のフェッチ effect 内にあった `authLoading` チェック（Decision 2 で撤廃）であり、`fetchStockItems` は `GET /api/groups/me` の応答を待たされてから開始していた。
 
 `localStorage` の `pantry-panel:active-group-id`（`ACTIVE_GROUP_KEY`）には前回セッションで使っていたグループ ID がキャッシュされている。多くのユーザーは毎回同じグループを使うため、このキャッシュ値は groups 確定前の「推測値」として十分信頼できる。
 

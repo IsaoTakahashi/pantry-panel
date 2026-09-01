@@ -56,6 +56,14 @@ type UseStockItemsReturn = {
 
 export function useStockItems(
   accessToken: string | undefined,
+  // 書き込み系ハンドラ（handleCreate / handleSave / handleToggleWantToBuy /
+  // handleConfirmDelete / handleImageSelect / handleRenameGroup）は全て
+  // effectiveGroupId（未確定の推測値のこともある）を使う。これが安全なのは
+  // 現状 frontend/src/app/stock-items/StockItemsClient.tsx（110行目付近）が
+  // group 未確定の間スケルトンを表示し操作可能な UI を一切レンダーしないため、
+  // 未確定 id で書き込みハンドラが呼ばれること自体が起こり得ないから。
+  // StockItemsClient がそのスケルトンゲートを外す/変更する場合は、この前提が
+  // 崩れないかここを再確認すること。
   effectiveGroupId: string | undefined,
   refreshGroup: () => Promise<void>,
   isGroupConfirmed: boolean,
@@ -106,11 +114,21 @@ export function useStockItems(
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: retryTick is a deliberate re-run trigger only (bumped by the retry-trigger effect below) — its value is never read in the body, so Biome sees it as "unnecessary", but removing it would break the round-1 retry mechanism (Decision 2: effectiveGroupId alone must not force a re-run when unchanged).
   useEffect(() => {
-    // effectiveGroupId が無ければ fetch しない（確定値も推測値も無い初回ログイン等）。
+    // accessToken か effectiveGroupId のどちらかが無ければ fetch しない。
+    // effectiveGroupId は speculativeGroupId の遅延初期化により初回レンダーから
+    // 存在しうるが、session（したがって accessToken）は client.auth.getSession()
+    // の Promise 解決を待つため初回レンダーでは null。ここで accessToken も
+    // ガードしないと、初回の fetchStockItems 呼び出しが Authorization ヘッダ無しで
+    // 発火し、バックエンドの jwtGroupMW に 401 で弾かれる（コールドスタート毎に
+    // 無駄なリクエストが飛ぶ）。getSession() はネットワーク往復のない同期的な
+    // localStorage 読み取りなので、session 解決（ほぼ同一 tick）と
+    // effectiveGroupId 確定の両方が揃い次第すぐ fetch は始まり、
+    // /api/groups/me の応答より十分早い ― このガードを追加しても並列化の効果は
+    // 損なわれない。
     // 値がある場合は確定/推測を問わずただちに fetch する。推測値→確定値のように
     // effectiveGroupId 自体が変化すれば依存配列の変化で自動的に再フェッチされ、
     // 変化しなければ（推測値=確定値）React が自動的に再実行をスキップする。
-    if (!effectiveGroupId) return;
+    if (!accessToken || !effectiveGroupId) return;
 
     // effectiveGroupId が実際に変わっていたら、古い id に対する失敗記録は無効。
     // 新しい id の結果でこの後上書きされる。

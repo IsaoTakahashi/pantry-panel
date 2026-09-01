@@ -5,9 +5,11 @@ import type { GroupInfo } from "@/types/group";
 import { useStockItems } from "./useStockItems";
 
 // Integration test: REAL AuthProvider + REAL useStockItems wired exactly like
-// StockItemsClient (Harness omits AuthGuard, so — unlike production — it can
-// mount before a session exists; see the second scenario's comments). Covers
-// two startup-timing scenarios for this wiring:
+// StockItemsClient (Harness omits AuthGuard; this matches production, where
+// AuthGuard wraps StockItemsClient's returned JSX rather than the component
+// itself, so useStockItems always mounts and runs regardless of AuthGuard —
+// see the second scenario's comments). Covers two startup-timing scenarios
+// for this wiring:
 //   1. The original over-fetch-storm bug (#217): groups still in flight when
 //      the auth event settles must not cause a fetch with an undefined group.
 //   2. The speculative-fetch path (parallelize-auth-init): a localStorage-
@@ -138,18 +140,22 @@ describe("startup stock-items fetch", () => {
       </AuthProvider>,
     );
 
-    // Harness (unlike production, where AuthGuard withholds rendering
-    // StockItemsClient until a session exists) mounts useStockItems
-    // immediately, so the very first fetch fires on the speculative id
-    // before getSession resolves: fetchStockItems(undefined, "g1"). Once
-    // getSession resolves, accessToken changes and the effect re-runs with
-    // the same "g1" — fetchStockItems("tok", "g1") — still before groups
-    // resolve. Both calls demonstrate the speculative id driving the fetch
-    // without waiting for fetchMyGroups (still pending) to confirm it.
+    // useStockItems's fetch effect guards on both accessToken AND
+    // effectiveGroupId being available (it must never fire unauthenticated —
+    // see Finding 1 of the final review), so the very first fetch call only
+    // happens once getSession() resolves. That resolution is a synchronous
+    // localStorage read with no network round trip, so it lands on
+    // essentially the same tick as the speculativeGroupId that was already
+    // available from the very first render (Harness — like production's
+    // StockItemsClient, whose useStockItems call runs regardless of
+    // AuthGuard — mounts useStockItems immediately). The first fetch is
+    // therefore fetchStockItems("tok", "g1"): the cached speculative id,
+    // used in parallel with fetchMyGroups (still pending below) resolving
+    // over the network — never an unauthenticated call.
     await waitFor(() => {
       expect(fetchStockItems).toHaveBeenCalledWith("tok", "g1");
     });
-    expect(fetchStockItems).toHaveBeenCalledWith(undefined, "g1");
+    expect(fetchStockItems).not.toHaveBeenCalledWith(undefined, "g1");
     expect(fetchMyGroups).toHaveBeenCalled();
 
     const callsBeforeConfirmation =
