@@ -49,4 +49,4 @@
 
 - [x] 7.1 commit のたびに push し、PR 上の CI が最新状態であることを確認する
 - [x] 7.2 `gh pr checks --watch` で CI が green になることを確認する
-- [ ] 7.3 本番デプロイ後、Issue #179 と同様の手法(Playwright + curl)で `skeleton → 商品表示` までの時間を再計測し、Issue #236 に効果を記録する(本番デプロイ後の未実施タスクとして残す)
+- [x] 7.3 本番デプロイ後、Issue #179 と同様の手法(Playwright + curl)で `skeleton → 商品表示` までの時間を再計測し、Issue #236 に効果を記録する(2026-09-01 実施、[Issue #236 コメント参照](https://github.com/IsaoTakahashi/pantry-panel/issues/236#issuecomment-5495551433): `GET /api/stock-items` が `GET /api/groups/me` とほぼ同時に発火し並行化を確認)
