@@ -20,6 +20,7 @@ type AuthContextValue = {
   user: User | null;
   groups: GroupInfo[];
   group: GroupInfo | null;
+  speculativeGroupId: string | undefined;
   loading: boolean;
   signInWithGoogle: (redirectTo?: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -32,6 +33,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   groups: [],
   group: null,
+  speculativeGroupId: undefined,
   loading: true,
   signInWithGoogle: async () => {},
   signOut: async () => {},
@@ -44,6 +46,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [group, setGroup] = useState<GroupInfo | null>(null);
+  // localStorage の active group id をマウント時に一度だけ同期的に読む「推測値」。
+  // applyGroups の確定 group とは別管理（groups 確定を待たずに参照できるようにするため）。
+  const [speculativeGroupId, setSpeculativeGroupId] = useState<
+    string | undefined
+  >(() =>
+    typeof window !== "undefined"
+      ? (localStorage.getItem(ACTIVE_GROUP_KEY) ?? undefined)
+      : undefined,
+  );
   const [loading, setLoading] = useState(true);
   // 直近に groups を取得したアクセストークン。起動時に getSession と
   // onAuthStateChange(INITIAL_SESSION/SIGNED_IN/TOKEN_REFRESHED) が同じ
@@ -58,6 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         : null;
     const active = gs.find((g) => g.groupId === savedId) ?? gs[0] ?? null;
     setGroup(active);
+    // speculativeGroupId は常に確定状態と同期させる（signOut/switchGroup と同様、
+    // Decision 5）。ここでズレると、group が null になった後の effectiveGroupId
+    // （group が null のとき speculativeGroupId にフォールバックする）が、もう
+    // 存在しない/所属していないグループの id を指し続けてしまう。
+    setSpeculativeGroupId(active?.groupId ?? undefined);
     if (active && typeof window !== "undefined") {
       localStorage.setItem(ACTIVE_GROUP_KEY, active.groupId);
     }
@@ -145,6 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setGroups([]);
     setGroup(null);
+    setSpeculativeGroupId(undefined);
     if (typeof window !== "undefined") {
       localStorage.removeItem(ACTIVE_GROUP_KEY);
     }
@@ -161,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const target = groups.find((g) => g.groupId === groupId);
       if (!target) return;
       setGroup(target);
+      setSpeculativeGroupId(groupId);
       if (typeof window !== "undefined") {
         localStorage.setItem(ACTIVE_GROUP_KEY, groupId);
       }
@@ -175,6 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         groups,
         group,
+        speculativeGroupId,
         loading,
         signInWithGoogle,
         signOut,

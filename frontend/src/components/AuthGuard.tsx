@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { session, group, loading } = useAuth();
+  const { session, group, speculativeGroupId, loading } = useAuth();
   const router = useRouter();
   const authEnabled = getSupabaseClient() !== null;
 
@@ -22,8 +22,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [authEnabled, loading, session, group, router]);
 
   if (!authEnabled) return <>{children}</>;
-  if (loading) return null;
-  if (!session || !group) return null;
+  if (session && (group || speculativeGroupId)) return <>{children}</>;
 
-  return <>{children}</>;
+  return null;
 }

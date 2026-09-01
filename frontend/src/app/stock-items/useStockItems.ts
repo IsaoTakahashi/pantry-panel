@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   createStockItem,
   deleteStockItem,
@@ -56,9 +56,17 @@ type UseStockItemsReturn = {
 
 export function useStockItems(
   accessToken: string | undefined,
-  activeGroupId: string | undefined,
+  // 書き込み系ハンドラ（handleCreate / handleSave / handleToggleWantToBuy /
+  // handleConfirmDelete / handleImageSelect / handleRenameGroup）は全て
+  // effectiveGroupId（未確定の推測値のこともある）を使う。これが安全なのは
+  // 現状 frontend/src/app/stock-items/StockItemsClient.tsx（110行目付近）が
+  // group 未確定の間スケルトンを表示し操作可能な UI を一切レンダーしないため、
+  // 未確定 id で書き込みハンドラが呼ばれること自体が起こり得ないから。
+  // StockItemsClient がそのスケルトンゲートを外す/変更する場合は、この前提が
+  // 崩れないかここを再確認すること。
+  effectiveGroupId: string | undefined,
   refreshGroup: () => Promise<void>,
-  authLoading: boolean,
+  isGroupConfirmed: boolean,
 ): UseStockItemsReturn {
   const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,27 +86,127 @@ export function useStockItems(
     null,
   );
 
+  // レビュー指摘の修正: 推測フェーズのフェッチが失敗し、かつ後から確定した
+  // effectiveGroupId が失敗時と同じ id だった場合、Decision 2（依存配列不変で
+  // 再実行スキップ）と Decision 4（推測フェーズの失敗は error に出さない）が
+  // 組み合わさると、失敗が永久に握りつぶされ items が空のまま何も表示されない
+  // 状態になる（一時的なネットワーク障害でも再試行されない）。この ref は
+  // 「現在の effectiveGroupId に対する直近の推測フェッチが失敗したか」を記録し、
+  // state ではなく ref で持つことで、記録すること自体が再レンダー/再実行の
+  // トリガーにならないようにする。
+  const speculativeFailureRef = useRef<string | undefined>(undefined);
+  // 上記の再試行を main fetch effect に伝える唯一の手段。isGroupConfirmed 自体は
+  // 引き続き依存配列に含めない（Decision 2 を維持し、成功済みの推測フェッチに対する
+  // 不要な再フェッチを起こさないため）。
+  const [retryTick, setRetryTick] = useState(0);
+
+  // レビュー指摘の修正（round 2）: 上記の再試行トリガー effect は自身の依存配列
+  // （[isGroupConfirmed, effectiveGroupId]）が変化した時にしか実行されない。
+  // 「確定が先に来て（そのときはまだ ref が未設定で no-op）、その後にフェッチが
+  // 失敗する」という順序では、失敗が記録された時点でこの effect の依存配列は
+  // もう二度と変化せず、記録された失敗が永久に見過ごされる。これを防ぐため、
+  // catch 処理では effect 開始時点のスナップショット（過去の
+  // wasConfirmedAtFetchStart）ではなく、catch が実際に実行される瞬間の最新の
+  // isGroupConfirmed をこの ref から読む。毎レンダーで直接代入するだけなので
+  // useEffect は不要（"常に最新値を指す ref" の標準パターン）。
+  const isGroupConfirmedRef = useRef(isGroupConfirmed);
+  isGroupConfirmedRef.current = isGroupConfirmed;
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryTick is a deliberate re-run trigger only (bumped by the retry-trigger effect below) — its value is never read in the body, so Biome sees it as "unnecessary", but removing it would break the round-1 retry mechanism (Decision 2: effectiveGroupId alone must not force a re-run when unchanged).
   useEffect(() => {
-    // アクティブグループが未確定のうちは fetch しない。起動時に authLoading が
-    // groups 取得完了より先に false になっても、activeGroupId=undefined での
-    // 無駄な fetch を防ぎ、グループ確定後に 1 回だけ取得する。グループ未所属の
-    // ユーザーは AuthGuard が /no-group へ遷移させるため、ここで取得しなくてよい。
-    if (authLoading || !activeGroupId) return;
+    // accessToken か effectiveGroupId のどちらかが無ければ fetch しない。
+    // effectiveGroupId は speculativeGroupId の遅延初期化により初回レンダーから
+    // 存在しうるが、session（したがって accessToken）は client.auth.getSession()
+    // の Promise 解決を待つため初回レンダーでは null。ここで accessToken も
+    // ガードしないと、初回の fetchStockItems 呼び出しが Authorization ヘッダ無しで
+    // 発火し、バックエンドの jwtGroupMW に 401 で弾かれる（コールドスタート毎に
+    // 無駄なリクエストが飛ぶ）。getSession() はネットワーク往復のない同期的な
+    // localStorage 読み取りなので、session 解決（ほぼ同一 tick）と
+    // effectiveGroupId 確定の両方が揃い次第すぐ fetch は始まり、
+    // /api/groups/me の応答より十分早い ― このガードを追加しても並列化の効果は
+    // 損なわれない。
+    // 値がある場合は確定/推測を問わずただちに fetch する。推測値→確定値のように
+    // effectiveGroupId 自体が変化すれば依存配列の変化で自動的に再フェッチされ、
+    // 変化しなければ（推測値=確定値）React が自動的に再実行をスキップする。
+    if (!accessToken || !effectiveGroupId) return;
+
+    // effectiveGroupId が実際に変わっていたら、古い id に対する失敗記録は無効。
+    // 新しい id の結果でこの後上書きされる。
+    if (speculativeFailureRef.current !== effectiveGroupId) {
+      speculativeFailureRef.current = undefined;
+    }
+
+    // 推測フェッチと確定フェッチが短時間に連続発火しうるため、ネットワーク応答が
+    // 逆順で返ってきても新しい fetch の結果が古い fetch の結果に上書きされないよう
+    // ガードする。
+    let cancelled = false;
+
     setLoading(true);
     setError(null);
-    fetchStockItems(accessToken, activeGroupId)
-      .then((data) => setItems(data))
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "操作に失敗しました"),
-      )
-      .finally(() => setLoading(false));
-  }, [authLoading, accessToken, activeGroupId]);
+    fetchStockItems(accessToken, effectiveGroupId)
+      .then((data) => {
+        if (cancelled) return;
+        setItems(data);
+        if (speculativeFailureRef.current === effectiveGroupId) {
+          speculativeFailureRef.current = undefined;
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        // cancelled が false ということは、この fetch を開始してから
+        // effectiveGroupId が変わっていない（変われば cleanup で cancelled = true
+        // になる）＝ここでの isGroupConfirmedRef.current は「今まさに失敗した、
+        // この同じ id」の確定状態を指す。effect 開始時点のスナップショット
+        // （旧 wasConfirmedAtFetchStart）だと、「確定が先に来て（まだ ref 未設定で
+        // no-op）、その後にフェッチが失敗する」という順序を取りこぼす
+        // （round 2 で判明した抜け）ため、必ず catch 実行時点の最新値を読む。
+        //
+        // 推測フェーズ（未確定）のフェッチ失敗はユーザーに見せない。キャッシュされた
+        // groupId が古い（脱退済み・別アカウントの残留キャッシュ）ことによる 403 等は
+        // 実装の都合であり、確定フェッチの結果のみが正となる。
+        if (isGroupConfirmedRef.current) {
+          setError(err instanceof Error ? err.message : "操作に失敗しました");
+        } else {
+          // この id に対する確定はまだ来ていない。403 のような「古い id だから
+          // 失敗した」ケースと、単なる一時的なネットワーク障害を実装上区別できない
+          // ため、後で同じ id が確定した際に一度だけ再試行できるよう記録しておく
+          // （下の retry effect 参照）。
+          speculativeFailureRef.current = effectiveGroupId;
+        }
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, effectiveGroupId, retryTick]);
+
+  // レビュー指摘の修正: 推測フェーズで失敗した effectiveGroupId が、そのまま同じ id
+  // で確定した場合に限り、一度だけ再フェッチを起こす。main fetch effect は
+  // isGroupConfirmed を依存配列に含めない（Decision 2）ため、id が変わらない
+  // 確定では自動的には再実行されない。ここで retryTick を 1 つ進めることでのみ
+  // 再実行させる。id が一致しなければ（= 通常は effectiveGroupId 自体の変化で
+  // 再フェッチされるケース）何もしない。再試行を積んだ直後に記録をクリアするため、
+  // 再試行自体が失敗しても無限ループにはならない（2 回目は確定済みなので
+  // Decision 4 の抑制は効かず、通常どおり error が可視化されて終端する）。
+  useEffect(() => {
+    if (
+      isGroupConfirmed &&
+      speculativeFailureRef.current === effectiveGroupId
+    ) {
+      speculativeFailureRef.current = undefined;
+      setRetryTick((t) => t + 1);
+    }
+  }, [isGroupConfirmed, effectiveGroupId]);
 
   const handleRealtimeChange = useCallback(() => {
-    fetchStockItems(accessToken, activeGroupId)
+    fetchStockItems(accessToken, effectiveGroupId)
       .then((data) => setItems(data))
       .catch(() => {});
-  }, [accessToken, activeGroupId]);
+  }, [accessToken, effectiveGroupId]);
 
   useStockItemsRealtime(handleRealtimeChange);
 
@@ -112,17 +220,17 @@ export function useStockItems(
     const created = await createStockItem(
       { name, category, wantToBuy, sourceUrl: sourceUrl ?? undefined },
       accessToken,
-      activeGroupId,
+      effectiveGroupId,
     );
     if (imageUrl) {
       await updateStockItem(
         created.id,
         { imageUrl },
         accessToken,
-        activeGroupId,
+        effectiveGroupId,
       );
     }
-    const data = await fetchStockItems(accessToken, activeGroupId);
+    const data = await fetchStockItems(accessToken, effectiveGroupId);
     setItems(data);
   };
 
@@ -133,9 +241,9 @@ export function useStockItems(
         editingItem.id,
         { name, category },
         accessToken,
-        activeGroupId,
+        effectiveGroupId,
       );
-      const data = await fetchStockItems(accessToken, activeGroupId);
+      const data = await fetchStockItems(accessToken, effectiveGroupId);
       setItems(data);
       setError(null);
     } catch (err) {
@@ -155,9 +263,9 @@ export function useStockItems(
         item.id,
         { wantToBuy: !item.wantToBuy },
         accessToken,
-        activeGroupId,
+        effectiveGroupId,
       );
-      const data = await fetchStockItems(accessToken, activeGroupId);
+      const data = await fetchStockItems(accessToken, effectiveGroupId);
       setItems(data);
       setError(null);
     } catch (err) {
@@ -177,9 +285,13 @@ export function useStockItems(
   const handleConfirmDelete = async (): Promise<void> => {
     if (!confirmDeleteItem) return;
     try {
-      await deleteStockItem(confirmDeleteItem.id, accessToken, activeGroupId);
+      await deleteStockItem(
+        confirmDeleteItem.id,
+        accessToken,
+        effectiveGroupId,
+      );
       setConfirmDeleteItem(null);
-      const data = await fetchStockItems(accessToken, activeGroupId);
+      const data = await fetchStockItems(accessToken, effectiveGroupId);
       setItems(data);
       setError(null);
     } catch (err) {
@@ -207,10 +319,10 @@ export function useStockItems(
         imageEditingItem.id,
         { imageUrl },
         accessToken,
-        activeGroupId,
+        effectiveGroupId,
       );
       setImageEditingItem(null);
-      const data = await fetchStockItems(accessToken, activeGroupId);
+      const data = await fetchStockItems(accessToken, effectiveGroupId);
       setItems(data);
       setError(null);
     } catch (err) {
@@ -222,9 +334,9 @@ export function useStockItems(
     groupId: string,
     name: string,
   ): Promise<void> => {
-    if (!accessToken || !activeGroupId) return;
+    if (!accessToken || !effectiveGroupId) return;
     try {
-      await updateGroupName(groupId, name, accessToken, activeGroupId);
+      await updateGroupName(groupId, name, accessToken, effectiveGroupId);
       await refreshGroup();
       setError(null);
     } catch (err) {

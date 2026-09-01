@@ -56,6 +56,23 @@ function RefreshCapture({
   return null;
 }
 
+type SpeculativeCaptureHandle = {
+  speculativeGroupId: string | undefined;
+  groups: GroupInfo[];
+  signOut: () => Promise<void>;
+  switchGroup: (groupId: string) => void;
+};
+
+function SpeculativeCapture({
+  onReady,
+}: {
+  onReady: (handle: SpeculativeCaptureHandle) => void;
+}) {
+  const { speculativeGroupId, groups, signOut, switchGroup } = useAuth();
+  onReady({ speculativeGroupId, groups, signOut, switchGroup });
+  return null;
+}
+
 function renderWithAuth() {
   return render(
     <AuthProvider>
@@ -292,6 +309,98 @@ describe("AuthContext", () => {
     renderWithAuth();
     await waitFor(() =>
       expect(screen.getByText("authenticated:実家")).toBeInTheDocument(),
+    );
+  });
+
+  it("mount 時に localStorage の active group id を speculativeGroupId として同期的に公開する", () => {
+    localStorage.setItem("pantry-panel:active-group-id", "cached-g1");
+    vi.mocked(getSupabaseClient).mockReturnValue(null);
+
+    // 最新値だけを上書きする `let captured` だと、useEffect 実装でも act() 内で
+    // 効果が解決済みになり最終値が一致してしまい退行を検出できない。
+    // すべての onReady 呼び出しを記録し、FIRST render の値を検証することで
+    // 「初回レンダーで既に値がある」＝lazy initializer であることを保証する。
+    const calls: SpeculativeCaptureHandle[] = [];
+    render(
+      <AuthProvider>
+        <SpeculativeCapture onReady={(h) => calls.push(h)} />
+      </AuthProvider>,
+    );
+
+    // render() 直後（await/waitFor なし）で、かつ最初の呼び出し（calls[0]）が
+    // 既に値を持っていることが lazy initializer 実装の根拠。
+    // useEffect 実装なら calls[0].speculativeGroupId は undefined になるはず。
+    expect(calls[0]?.speculativeGroupId).toBe("cached-g1");
+  });
+
+  it("signOut は speculativeGroupId を undefined にリセットする", async () => {
+    localStorage.setItem("pantry-panel:active-group-id", "g1");
+    const session = { access_token: "tok", user: { id: "u1" } };
+    mockGetSession.mockResolvedValue({ data: { session } });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "owner" },
+    ]);
+
+    let captured: SpeculativeCaptureHandle | null = null;
+    render(
+      <AuthProvider>
+        <SpeculativeCapture onReady={(h) => (captured = h)} />
+      </AuthProvider>,
+    );
+
+    expect(
+      (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
+    ).toBe("g1");
+    await waitFor(() =>
+      expect((captured as SpeculativeCaptureHandle | null)?.groups.length).toBe(
+        1,
+      ),
+    );
+
+    await act(async () => {
+      await (captured as SpeculativeCaptureHandle | null)?.signOut();
+    });
+
+    expect(
+      (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
+    ).toBeUndefined();
+  });
+
+  it("switchGroup は speculativeGroupId を新しい groupId に更新する", async () => {
+    const session = { access_token: "tok", user: { id: "u1" } };
+    mockGetSession.mockResolvedValue({ data: { session } });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "owner" },
+      { groupId: "g2", name: "実家", role: "member" },
+    ]);
+
+    let captured: SpeculativeCaptureHandle | null = null;
+    render(
+      <AuthProvider>
+        <SpeculativeCapture onReady={(h) => (captured = h)} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect((captured as SpeculativeCaptureHandle | null)?.groups.length).toBe(
+        2,
+      ),
+    );
+    // applyGroups は確定した active group と speculativeGroupId を同期させる
+    // （Decision 5）。savedId が無いのでフォールバック先の gs[0]（"g1"）が
+    // active になり、speculativeGroupId もそれに合わせて "g1" になる。
+    expect(
+      (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
+    ).toBe("g1");
+
+    act(() => {
+      (captured as SpeculativeCaptureHandle | null)?.switchGroup("g2");
+    });
+
+    await waitFor(() =>
+      expect(
+        (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
+      ).toBe("g2"),
     );
   });
 });

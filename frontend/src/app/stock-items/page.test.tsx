@@ -44,6 +44,7 @@ vi.mock("@/contexts/AuthContext", () => ({
     user: null,
     group: { groupId: "group-1", name: "我が家", role: "owner" },
     groups: [{ groupId: "group-1", name: "我が家", role: "owner" }],
+    speculativeGroupId: "group-1",
     loading: false,
     signInWithGoogle: vi.fn(),
     signOut: mockSignOut,

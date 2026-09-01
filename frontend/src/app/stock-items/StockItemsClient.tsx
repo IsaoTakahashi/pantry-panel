@@ -45,9 +45,12 @@ export default function StockItemsClient() {
     signOut,
     loading: authLoading,
     refreshGroup,
+    speculativeGroupId,
   } = useAuth();
   const accessToken = session?.access_token;
   const activeGroupId = group?.groupId;
+  const effectiveGroupId = group?.groupId ?? speculativeGroupId;
+  const isGroupConfirmed = group != null;
 
   const {
     items,
@@ -76,7 +79,12 @@ export default function StockItemsClient() {
     handleCloseImageEdit,
     setIsModalOpen,
     setUrlModalOpen,
-  } = useStockItems(accessToken, activeGroupId, refreshGroup, authLoading);
+  } = useStockItems(
+    accessToken,
+    effectiveGroupId,
+    refreshGroup,
+    isGroupConfirmed,
+  );
 
   const [filter, setFilter] = useState<FilterCondition>(INITIAL_FILTER);
   const [viewMode, setViewMode] = useState<"normal" | "simple">("normal");

@@ -39,12 +39,23 @@ const mockItems = [
   },
 ];
 
+// defaultArgs は effectiveGroupId が確定値であるケースを表す（isGroupConfirmed: true）
 const defaultArgs: Parameters<typeof useStockItems> = [
   "test-token",
   "group-1",
   vi.fn(),
-  false,
+  true,
 ];
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -80,7 +91,7 @@ describe("useStockItems", () => {
       expect(result.current.error).toBeNull();
     });
 
-    it("fetchStockItems が失敗すると error がセットされ loading: false になる", async () => {
+    it("確定 groupId でのフェッチが失敗すると error がセットされ loading: false になる", async () => {
       vi.mocked(fetchStockItems).mockRejectedValue(new Error("HTTP 500"));
 
       const { result } = renderHook(() => useStockItems(...defaultArgs));
@@ -93,13 +104,318 @@ describe("useStockItems", () => {
       expect(result.current.items).toEqual([]);
     });
 
-    it("authLoading が true のときは fetchStockItems が呼ばれない", () => {
+    it("effectiveGroupId が未定義のときは fetchStockItems が呼ばれない", () => {
       const { result } = renderHook(() =>
-        useStockItems("test-token", "group-1", vi.fn(), true),
+        useStockItems("test-token", undefined, vi.fn(), false),
       );
 
       expect(fetchStockItems).not.toHaveBeenCalled();
       expect(result.current.loading).toBe(true);
+    });
+  });
+
+  describe("推測 groupId による先行フェッチと確定後の整合", () => {
+    it("推測groupIdでの先行フェッチが確定前に開始される", async () => {
+      vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+
+      const { result } = renderHook(() =>
+        useStockItems("test-token", "speculative-group", vi.fn(), false),
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(fetchStockItems).toHaveBeenCalledWith(
+        "test-token",
+        "speculative-group",
+      );
+      expect(result.current.items).toEqual(mockItems);
+    });
+
+    it("確定値が推測値と一致する場合は再フェッチしない", async () => {
+      vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
+
+      const { result, rerender } = renderHook(
+        (props: Parameters<typeof useStockItems>) => useStockItems(...props),
+        {
+          initialProps: ["test-token", "group-1", vi.fn(), false] as Parameters<
+            typeof useStockItems
+          >,
+        },
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(fetchStockItems).toHaveBeenCalledTimes(1);
+
+      rerender(["test-token", "group-1", vi.fn(), true]);
+
+      // 再フェッチが起きないことを確認（非同期の追加呼び出しが無いことを待って確認）
+      await waitFor(() => {
+        expect(fetchStockItems).toHaveBeenCalledTimes(1);
+      });
+      expect(result.current.items).toEqual(mockItems);
+    });
+
+    it("確定値が推測値と異なる場合は確定値で再フェッチする", async () => {
+      const speculativeItems = [mockItems[0]];
+      const confirmedItems = [mockItems[1]];
+      vi.mocked(fetchStockItems)
+        .mockResolvedValueOnce(speculativeItems)
+        .mockResolvedValueOnce(confirmedItems);
+
+      const { result, rerender } = renderHook(
+        (props: Parameters<typeof useStockItems>) => useStockItems(...props),
+        {
+          initialProps: [
+            "test-token",
+            "speculative-group",
+            vi.fn(),
+            false,
+          ] as Parameters<typeof useStockItems>,
+        },
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.items).toEqual(speculativeItems);
+
+      rerender(["test-token", "confirmed-group", vi.fn(), true]);
+
+      await waitFor(() => {
+        expect(result.current.items).toEqual(confirmedItems);
+      });
+
+      expect(fetchStockItems).toHaveBeenCalledTimes(2);
+      expect(fetchStockItems).toHaveBeenNthCalledWith(
+        2,
+        "test-token",
+        "confirmed-group",
+      );
+    });
+
+    it("推測フェーズのフェッチ失敗はerrorに反映しない", async () => {
+      vi.mocked(fetchStockItems).mockRejectedValue(new Error("403 Forbidden"));
+
+      const { result } = renderHook(() =>
+        useStockItems("test-token", "speculative-group", vi.fn(), false),
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(result.current.error).toBeNull();
+      expect(result.current.items).toEqual([]);
+    });
+
+    it("確定フェッチより先行フェッチの応答が遅れて返っても確定結果が優先される", async () => {
+      const speculativeDeferred = deferred<typeof mockItems>();
+      const confirmedDeferred = deferred<typeof mockItems>();
+      const confirmedItems = [mockItems[1]];
+
+      vi.mocked(fetchStockItems)
+        .mockReturnValueOnce(speculativeDeferred.promise)
+        .mockReturnValueOnce(confirmedDeferred.promise);
+
+      const { result, rerender } = renderHook(
+        (props: Parameters<typeof useStockItems>) => useStockItems(...props),
+        {
+          initialProps: [
+            "test-token",
+            "speculative-group",
+            vi.fn(),
+            false,
+          ] as Parameters<typeof useStockItems>,
+        },
+      );
+
+      // 推測フェッチが in-flight のうちに確定値へ切り替える
+      rerender(["test-token", "confirmed-group", vi.fn(), true]);
+
+      // 確定フェッチが先に解決する
+      await act(async () => {
+        confirmedDeferred.resolve(confirmedItems);
+        await confirmedDeferred.promise;
+      });
+
+      await waitFor(() => expect(result.current.items).toEqual(confirmedItems));
+      expect(result.current.loading).toBe(false);
+
+      // 古い推測フェッチの応答が遅れて返る
+      await act(async () => {
+        speculativeDeferred.resolve([mockItems[0]]);
+        await speculativeDeferred.promise;
+      });
+
+      // 古い応答は items/error state に反映されない
+      expect(result.current.items).toEqual(confirmedItems);
+      expect(result.current.error).toBeNull();
+      expect(result.current.loading).toBe(false);
+    });
+
+    it("確定フェッチが先に成功した後、別idの古い推測フェッチが遅れて失敗してもerrorに反映されない（cancelledガードが id 切替を検出する）", async () => {
+      // round 2 の修正は catch 内で isGroupConfirmedRef.current（ライブな確定状態）
+      // を読むが、これは「id が変わっていなければ」という前提の上でのみ安全
+      // （id が変わっていれば cleanup で cancelled = true になり catch 本体には
+      // 到達しない）。この前提が壊れていないことを、resolve ではなく reject で
+      // 確認する（上のテストの reject 版）。
+      const speculativeDeferred = deferred<typeof mockItems>();
+      const confirmedDeferred = deferred<typeof mockItems>();
+      const confirmedItems = [mockItems[1]];
+
+      vi.mocked(fetchStockItems)
+        .mockReturnValueOnce(speculativeDeferred.promise)
+        .mockReturnValueOnce(confirmedDeferred.promise);
+
+      const { result, rerender } = renderHook(
+        (props: Parameters<typeof useStockItems>) => useStockItems(...props),
+        {
+          initialProps: [
+            "test-token",
+            "speculative-group",
+            vi.fn(),
+            false,
+          ] as Parameters<typeof useStockItems>,
+        },
+      );
+
+      // 推測フェッチが in-flight のうちに、別の id で確定値へ切り替える
+      rerender(["test-token", "confirmed-group", vi.fn(), true]);
+
+      // 確定フェッチが先に解決する
+      await act(async () => {
+        confirmedDeferred.resolve(confirmedItems);
+        await confirmedDeferred.promise;
+      });
+
+      await waitFor(() => expect(result.current.items).toEqual(confirmedItems));
+      expect(result.current.loading).toBe(false);
+
+      // 古い（別id の）推測フェッチが遅れて失敗する。isGroupConfirmedRef.current は
+      // 既に true だが、この失敗は "speculative-group" に属しており、現在の
+      // effectiveGroupId "confirmed-group" とは別物 ＝ cancelled が true のため
+      // catch 本体（isGroupConfirmedRef の判定含む）には到達しない。
+      await act(async () => {
+        speculativeDeferred.reject(new Error("403 Forbidden"));
+        await speculativeDeferred.promise.catch(() => {});
+      });
+
+      // 古い id の失敗は items/error state に反映されない
+      expect(result.current.items).toEqual(confirmedItems);
+      expect(result.current.error).toBeNull();
+      expect(result.current.loading).toBe(false);
+    });
+
+    it("推測フェッチが失敗し同じidで確定すると一度だけ再フェッチされ、成功すればitemsが入りerrorはnullのまま", async () => {
+      vi.mocked(fetchStockItems)
+        .mockRejectedValueOnce(new Error("Network error"))
+        .mockResolvedValueOnce(mockItems);
+
+      const { result, rerender } = renderHook(
+        (props: Parameters<typeof useStockItems>) => useStockItems(...props),
+        {
+          initialProps: ["test-token", "group-1", vi.fn(), false] as Parameters<
+            typeof useStockItems
+          >,
+        },
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(fetchStockItems).toHaveBeenCalledTimes(1);
+      // Decision 4: 推測フェーズの失敗は error に出さない
+      expect(result.current.error).toBeNull();
+      expect(result.current.items).toEqual([]);
+
+      // 同じ id で確定する（effectiveGroupId 自体は変化しない）
+      rerender(["test-token", "group-1", vi.fn(), true]);
+
+      await waitFor(() => {
+        expect(fetchStockItems).toHaveBeenCalledTimes(2);
+      });
+      expect(fetchStockItems).toHaveBeenNthCalledWith(
+        2,
+        "test-token",
+        "group-1",
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.items).toEqual(mockItems);
+      expect(result.current.error).toBeNull();
+    });
+
+    it("再試行フェッチも失敗した場合はerrorが可視化され、それ以上の再試行は起きない", async () => {
+      vi.mocked(fetchStockItems)
+        .mockRejectedValueOnce(new Error("Network error"))
+        .mockRejectedValueOnce(new Error("Retry also failed"));
+
+      const { result, rerender } = renderHook(
+        (props: Parameters<typeof useStockItems>) => useStockItems(...props),
+        {
+          initialProps: ["test-token", "group-1", vi.fn(), false] as Parameters<
+            typeof useStockItems
+          >,
+        },
+      );
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.error).toBeNull();
+
+      rerender(["test-token", "group-1", vi.fn(), true]);
+
+      await waitFor(() => {
+        expect(fetchStockItems).toHaveBeenCalledTimes(2);
+      });
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // 2回目は確定フェッチなので Decision 4 の抑制は効かず、error が可視化される
+      expect(result.current.error).toBe("Retry also failed");
+      expect(result.current.items).toEqual([]);
+
+      // 無限ループしないことの確認: rerender を追加しても3回目は呼ばれない
+      rerender(["test-token", "group-1", vi.fn(), true]);
+      await waitFor(() => {
+        expect(fetchStockItems).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it("推測フェッチが in-flight のうちに同じidで確定し、その後にフェッチが失敗するとerrorが可視化される（round 2: 確定が先、失敗が後）", async () => {
+      const fetchDeferred = deferred<typeof mockItems>();
+      vi.mocked(fetchStockItems).mockReturnValueOnce(fetchDeferred.promise);
+
+      const { result, rerender } = renderHook(
+        (props: Parameters<typeof useStockItems>) => useStockItems(...props),
+        {
+          initialProps: ["test-token", "group-1", vi.fn(), false] as Parameters<
+            typeof useStockItems
+          >,
+        },
+      );
+
+      expect(fetchStockItems).toHaveBeenCalledTimes(1);
+      expect(result.current.loading).toBe(true);
+
+      // フェッチがまだ pending のうちに、同じ id で確定が先に届く。round 1 の
+      // retry-trigger effect はこの時点で一度だけ実行されるが、
+      // speculativeFailureRef はまだ未設定（失敗前）なので no-op で終わり、
+      // effectiveGroupId/isGroupConfirmed は以後変化しないため、この effect は
+      // 二度と実行されない。
+      rerender(["test-token", "group-1", vi.fn(), true]);
+
+      expect(fetchStockItems).toHaveBeenCalledTimes(1);
+
+      // その後、in-flight だったフェッチが失敗する（一時的なネットワーク障害）。
+      await act(async () => {
+        fetchDeferred.reject(new Error("Network error"));
+        await fetchDeferred.promise.catch(() => {});
+      });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      // 失敗時点で isGroupConfirmed は既に true（ライブな ref 経由で検知される）
+      // ため、error が可視化されなければならない。round 1 の
+      // wasConfirmedAtFetchStart スナップショット（フェッチ開始時点では false）
+      // だけに頼ると、この失敗は永久に握りつぶされ items は空のまま何も
+      // 表示されない（本テストが検出する回帰）。
+      expect(result.current.error).toBe("Network error");
+      expect(result.current.items).toEqual([]);
+      // 無限にリトライが積まれていないことも確認する
+      expect(fetchStockItems).toHaveBeenCalledTimes(1);
     });
   });
 
