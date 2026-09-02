@@ -76,6 +76,7 @@ const ConfirmDialog = dynamic(() => import("@/components/ConfirmDialog"), {
 - [Risk] E2E(`testing.md` 2026-06-18 の記載どおり `not.toBeAttached()` 待機が exit animation 完了待ちとして load-bearing)は、features 未解決時に exit アニメが即座に完了する可能性があり、むしろ flaky が減る方向のはずだが未検証 → ローカル `npx playwright test` で既存の modal/filter 系テストが引き続き pass することを確認する(既存ルールどおり必須)
 - [Trade-off] `strict` を付けない選択肢もあったが、regression 検出のメリットがコスト(テスト1ファイルの書き換え)を上回ると判断した
 - [Risk] `LazyMotion` を `MotionProvider`(root layout、全ページ共通)に置くため、webpack が非同期 features チャンクを「全ページから到達可能」と判断してビルド時に共有グラフへ hoist し、結果として `/login` 等 framer-motion を使わないページの読み込みにも影響が漏れる可能性がある → tasks.md 5.1 で `/login` の生成 HTML を実測確認する。もし漏れていたら、`LazyMotion` を root から `/stock-items` のページ/レイアウトコンポーネントの直下(`StockItemsClient.tsx` をラップする形)に移し、`MotionConfig` のみ root に残すフォールバックを取る
+- [Note] `LazyMotion strict` の invariant は framer-motion 内部で `process.env.NODE_ENV !== "production"` の場合のみ発火する dev-only ガードだが、Playwright の `mock` E2E プロジェクトは `npm run dev` に対して実行されるため regression 検出は本番ビルドでは効かず、この E2E プロジェクト経由でのみ有効という点に留意する
 
 ## Migration Plan
 
