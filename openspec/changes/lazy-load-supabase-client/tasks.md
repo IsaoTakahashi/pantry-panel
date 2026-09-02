@@ -46,9 +46,9 @@
 
 ## 8. ローカルE2E確認
 
-- [ ] 8.1 `cd frontend && npm run dev` でローカルサーバーを起動する(バックエンドも `go run .` で起動する)
-- [ ] 8.2 `npx playwright test --project=mock` を実行し、ログイン・ログアウト・グループ切替・realtime-sync 系が引き続き pass することを確認する
-- [ ] 8.3 flakiness 確認のため `--repeat-each=2` で再実行する(`testing.md` の animation-layer 変更に準じた慎重確認。今回は非同期タイミング変更のため同様の基準を適用する)
+- [x] 8.1 `cd frontend && npm run dev` でローカルサーバーを起動する(バックエンドも `go run .` で起動する)
+- [x] 8.2 `npx playwright test --project=mock` を実行し、ログイン・ログアウト・グループ切替・realtime-sync 系が引き続き pass することを確認する
+- [x] 8.3 flakiness 確認のため `--repeat-each=2` で再実行する(`testing.md` の animation-layer 変更に準じた慎重確認。今回は非同期タイミング変更のため同様の基準を適用する)
 
 ## 9. CI確認・archive・merge
 
