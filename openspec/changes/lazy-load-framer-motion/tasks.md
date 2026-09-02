@@ -3,6 +3,12 @@
 - [ ] 1.1 `grep -rn "motion\." frontend/src/` を実行し、`motion.` の使用(コンポーネント使用箇所、import行だけでなく)が `BaseModal.tsx`・`StockItemsClient.tsx`・`MotionProvider.test.tsx` の3ファイル以外に無いことを確認する(`dynamic()` 化された4モーダルの内部実装も対象。`strict` は render 時に `motion.*` があると即クラッシュするため、import 文の grep だけでは不十分)
 - [ ] 1.2 `frontend/src/components/BaseModal.test.tsx`・`frontend/src/components/ConfirmDialog.test.tsx`・`frontend/src/app/stock-items/StockItemsClient` 関連テストの現状のパターン(アニメーション完了を前提にした同期アサートがあるか)を確認する
 
+**確認済みの事実(実装前に把握済み):**
+- 以下 6 ファイルに **バイト単位で同一の** `vi.mock("framer-motion", () => ({ AnimatePresence: ..., motion: { div: ... }, useDragControls: ... }))` ブロックが存在する: `frontend/src/components/BaseModal.test.tsx`, `frontend/src/components/ConfirmDialog.test.tsx`, `frontend/src/components/CreateItemModal.test.tsx`, `frontend/src/components/EditItemModal.test.tsx`, `frontend/src/components/UrlRegistrationModal.test.tsx`, `frontend/src/app/stock-items/page.test.tsx`。いずれも `motion: { div: (props) => <div {...rest}>{children}</div> }` の形で `motion.div` のみをスタブしており、`m` のスタブは無い。`BaseModal.tsx` が `motion` → `m` に変わると、これら6ファイル全てで `m` が `undefined` になり `m.div` の参照でテストが即エラーになる(タイミング起因の flaky ではなく、確実に落ちる)
+- `frontend/src/components/MotionProvider.test.tsx` は上記と異なり **`vi.mock` していない実際の framer-motion** を使い、`reducedMotion="user"` 時の tween スキップ挙動を検証する非モックの統合的テスト。`motion.div` を `m.div` に置き換えた後も、`LazyMotion` の非同期 `features` ロードが `await waitFor(...)` のタイムアウト内に解決される前提で成立する(ローカルの動的 import なのでほぼ即時のはず)
+
+**Task 3.3 はこの6ファイルへの機械的な一括修正として扱う:** 各ファイルの `motion: { div: ... }` キーを `m: { div: ... }`(同じ実装)にリネームする(`motion` キーはどのコンポーネントからも参照されなくなるため削除してよい)。6ファイル同一パターンのため1回のdispatchでまとめて行う
+
 ## 2. framerMotionFeatures モジュールと LazyMotion 導入
 
 - [ ] 2.1 `frontend/src/lib/framerMotionFeatures.ts` を新設し、`domMax` を default export する
@@ -14,7 +20,7 @@
 
 - [ ] 3.1 `BaseModal.tsx` の `import { AnimatePresence, motion, useDragControls } from "framer-motion"` を `import { AnimatePresence, m, useDragControls } from "framer-motion"` に変更する
 - [ ] 3.2 `motion.div` を全て `m.div` に置き換える(scrim・デスクトップダイアログ・モバイルシートの3箇所)
-- [ ] 3.3 `BaseModal.test.tsx` を実行し、アニメーション/features非同期ロードのタイミングに起因する不安定なアサートが無いか確認する。必要なら `waitFor`/`act` を追加する
+- [ ] 3.3 上記「確認済みの事実」記載の6ファイル(`BaseModal.test.tsx`, `ConfirmDialog.test.tsx`, `CreateItemModal.test.tsx`, `EditItemModal.test.tsx`, `UrlRegistrationModal.test.tsx`, `page.test.tsx`)の `vi.mock("framer-motion", ...)` ブロックを `motion: { div: ... }` → `m: { div: ... }` に一括リネームする
 - [ ] 3.4 テストが green になることを確認する
 
 ## 4. StockItemsClient: motion → m、ConfirmDialog の dynamic 化
