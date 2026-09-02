@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const { session, group, speculativeGroupId, loading } = useAuth();
   const router = useRouter();
-  const authEnabled = getSupabaseClient() !== null;
+  const authEnabled = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
 
   useEffect(() => {
     if (!authEnabled || loading) return;
