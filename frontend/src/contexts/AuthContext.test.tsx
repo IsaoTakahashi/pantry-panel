@@ -82,7 +82,7 @@ function renderWithAuth() {
 }
 
 beforeEach(() => {
-  vi.mocked(getSupabaseClient).mockReturnValue(mockClient as never);
+  vi.mocked(getSupabaseClient).mockResolvedValue(mockClient as never);
   mockOnAuthStateChange.mockReturnValue({
     data: { subscription: { unsubscribe: vi.fn() } },
   });
@@ -94,9 +94,23 @@ afterEach(() => {
   localStorage.clear();
 });
 
+// resolve/reject を外部から任意タイミングで発火できる Promise。
+// getSupabaseClient() / getSession() の到着順序を制御するテストで使う
+// (testing.md 2026-09-01 の基準: 到着順序を deferred 相当のヘルパーで書く)。
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+// マイクロタスクキューを確実にフラッシュする(setTimeout はマイクロタスクの後に実行される)。
+const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe("AuthContext", () => {
   it("Supabase 未設定のとき loading=false・session=null で即時完了する", async () => {
-    vi.mocked(getSupabaseClient).mockReturnValue(null);
+    vi.mocked(getSupabaseClient).mockResolvedValue(null);
     renderWithAuth();
     await waitFor(() =>
       expect(screen.getByText("anonymous:no-group")).toBeInTheDocument(),
@@ -217,7 +231,7 @@ describe("AuthContext", () => {
   });
 
   it("Supabase 未設定でも loading=false になる", async () => {
-    vi.mocked(getSupabaseClient).mockReturnValue(null);
+    vi.mocked(getSupabaseClient).mockResolvedValue(null);
     renderWithAuth();
     // loading フォールバックが消えて中身が描画されること
     await waitFor(() =>
@@ -314,7 +328,7 @@ describe("AuthContext", () => {
 
   it("mount 時に localStorage の active group id を speculativeGroupId として同期的に公開する", () => {
     localStorage.setItem("pantry-panel:active-group-id", "cached-g1");
-    vi.mocked(getSupabaseClient).mockReturnValue(null);
+    vi.mocked(getSupabaseClient).mockResolvedValue(null);
 
     // 最新値だけを上書きする `let captured` だと、useEffect 実装でも act() 内で
     // 効果が解決済みになり最終値が一致してしまい退行を検出できない。
@@ -402,5 +416,112 @@ describe("AuthContext", () => {
         (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
       ).toBe("g2"),
     );
+  });
+
+  describe("getSupabaseClient() 非同期化後の到着順序(cancel ガード)", () => {
+    it("getSession effect: unmount が getSupabaseClient resolve より先だと、resolve後もgetSessionを呼ばない", async () => {
+      const clientDeferred = deferred<typeof mockClient | null>();
+      vi.mocked(getSupabaseClient).mockReturnValue(
+        clientDeferred.promise as never,
+      );
+
+      const { unmount } = renderWithAuth();
+      unmount();
+
+      await act(async () => {
+        clientDeferred.resolve(mockClient as never);
+        await flushPromises();
+      });
+
+      expect(mockGetSession).not.toHaveBeenCalled();
+    });
+
+    it("getSession effect: getSupabaseClient resolve が unmount より先だと、getSession resolve後もsetSession/loadGroupsが呼ばれない", async () => {
+      const sessionDeferred = deferred<{
+        data: { session: { access_token: string; user: { id: string } } };
+      }>();
+      mockGetSession.mockReturnValue(sessionDeferred.promise);
+
+      const { unmount } = renderWithAuth();
+      await waitFor(() => expect(mockGetSession).toHaveBeenCalled());
+
+      unmount();
+
+      await act(async () => {
+        sessionDeferred.resolve({
+          data: { session: { access_token: "tok", user: { id: "u1" } } },
+        });
+        await flushPromises();
+      });
+
+      // cancelled ガードが効いていれば、unmount 後に session が届いても
+      // loadGroups(→fetchMyGroups) は呼ばれない。
+      expect(fetchMyGroups).not.toHaveBeenCalled();
+    });
+
+    it("onAuthStateChange effect: unmount が getSupabaseClient resolve より先だと、sub は未確定のまま安全にcleanupされる", async () => {
+      const clientDeferred = deferred<typeof mockClient | null>();
+      vi.mocked(getSupabaseClient).mockReturnValue(
+        clientDeferred.promise as never,
+      );
+
+      const { unmount } = renderWithAuth();
+      expect(() => unmount()).not.toThrow();
+
+      await act(async () => {
+        clientDeferred.resolve(mockClient as never);
+        await flushPromises();
+      });
+
+      // cancelled ガードが効いていれば、unmount 後に client が解決しても
+      // onAuthStateChange 自体を呼ばない(=購読を新設しない)。
+      expect(mockOnAuthStateChange).not.toHaveBeenCalled();
+    });
+
+    it("onAuthStateChange effect: getSupabaseClient resolve が unmount より先だと、unmount時にunsubscribeが呼ばれる", async () => {
+      const unsubscribe = vi.fn();
+      mockOnAuthStateChange.mockReturnValue({
+        data: { subscription: { unsubscribe } },
+      });
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      const { unmount } = renderWithAuth();
+      await waitFor(() => expect(mockOnAuthStateChange).toHaveBeenCalled());
+
+      unmount();
+
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
+    });
+
+    it("StrictMode の2重マウント相当(mount→unmount→remount)でも購読が重複しない", async () => {
+      const unsubscribe1 = vi.fn();
+      const unsubscribe2 = vi.fn();
+      mockOnAuthStateChange
+        .mockReturnValueOnce({
+          data: { subscription: { unsubscribe: unsubscribe1 } },
+        })
+        .mockReturnValueOnce({
+          data: { subscription: { unsubscribe: unsubscribe2 } },
+        });
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+
+      const { unmount } = renderWithAuth();
+      await waitFor(() =>
+        expect(mockOnAuthStateChange).toHaveBeenCalledTimes(1),
+      );
+
+      // StrictMode の開発時2重実行を模した unmount → 再 mount。
+      unmount();
+      expect(unsubscribe1).toHaveBeenCalledTimes(1);
+
+      renderWithAuth();
+      await waitFor(() =>
+        expect(mockOnAuthStateChange).toHaveBeenCalledTimes(2),
+      );
+
+      // 最初の mount 由来の購読は既に unsubscribe 済みであり、
+      // 2回目の mount 由来の購読とは別物として扱われている(重複購読なし)。
+      expect(unsubscribe2).not.toHaveBeenCalled();
+    });
   });
 });
