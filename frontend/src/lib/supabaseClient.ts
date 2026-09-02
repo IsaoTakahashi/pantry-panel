@@ -1,19 +1,21 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-let _client: SupabaseClient | null = null;
-
-export function getSupabaseClient(): SupabaseClient | null {
+function loadClient(): Promise<SupabaseClient | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
   if (!url || !key) {
     console.warn("Supabase env vars not set, realtime disabled");
-    return null;
+    return Promise.resolve(null);
   }
+  return import("@supabase/supabase-js").then(({ createClient }) =>
+    createClient(url, key),
+  );
+}
 
-  if (!_client) {
-    _client = createClient(url, key);
-  }
+// モジュール評価時(＝最初にこのファイルが import された時点)に即座に発火する。
+// 呼び出し元の実際の getSupabaseClient() 呼び出しタイミングを待たない。
+const _clientPromise = loadClient();
 
-  return _client;
+export function getSupabaseClient(): Promise<SupabaseClient | null> {
+  return _clientPromise;
 }
