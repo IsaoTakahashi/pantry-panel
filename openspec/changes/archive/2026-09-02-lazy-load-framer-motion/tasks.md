@@ -46,5 +46,5 @@
 
 - [x] 7.1 commit のたびに push し、PR 上の CI が最新状態であることを確認する
 - [x] 7.2 `gh pr checks --watch` で CI が green になることを確認する
-- [ ] 7.3 マージ前に `opsx:archive` を実施し、specs 同期を feature ブランチ上のコミットに含める
+- [x] 7.3 マージ前に `opsx:archive` を実施し、specs 同期を feature ブランチ上のコミットに含める
 - [ ] 7.4 PR 本文に "Part of #238"(Issue #238 は Supabase Realtime 遅延ロードの別 PR が完了するまでクローズしない)と明記してマージする
