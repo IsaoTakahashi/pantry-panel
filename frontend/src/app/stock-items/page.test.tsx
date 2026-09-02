@@ -30,8 +30,6 @@ vi.mock("framer-motion", () => {
       <>{children}</>
     ),
     m: { div },
-    // TODO(task 4): remove once StockItemsClient.tsx converts motion.div -> m.div
-    motion: { div },
     useDragControls: () => ({ start: vi.fn() }),
   };
 });
