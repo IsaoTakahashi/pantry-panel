@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { describe, expect, it } from "vitest";
 import { MotionProvider } from "./MotionProvider";
 
@@ -31,7 +31,7 @@ describe("MotionProvider", () => {
     setReducedMotion(true);
     render(
       <MotionProvider>
-        <motion.div
+        <m.div
           data-testid="box"
           animate={{ x: 100 }}
           transition={{ duration: 10 }}
