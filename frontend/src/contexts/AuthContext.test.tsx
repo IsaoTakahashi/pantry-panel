@@ -493,7 +493,7 @@ describe("AuthContext", () => {
       expect(unsubscribe).toHaveBeenCalledTimes(1);
     });
 
-    it("StrictMode の2重マウント相当(mount→unmount→remount)でも購読が重複しない", async () => {
+    it("resolve後に mount→unmount→remount しても、各々の購読が正しくunsubscribeされる", async () => {
       const unsubscribe1 = vi.fn();
       const unsubscribe2 = vi.fn();
       mockOnAuthStateChange
@@ -510,7 +510,7 @@ describe("AuthContext", () => {
         expect(mockOnAuthStateChange).toHaveBeenCalledTimes(1),
       );
 
-      // StrictMode の開発時2重実行を模した unmount → 再 mount。
+      // client resolve 後に unmount → 再 mount。
       unmount();
       expect(unsubscribe1).toHaveBeenCalledTimes(1);
 
@@ -522,6 +522,37 @@ describe("AuthContext", () => {
       // 最初の mount 由来の購読は既に unsubscribe 済みであり、
       // 2回目の mount 由来の購読とは別物として扱われている(重複購読なし)。
       expect(unsubscribe2).not.toHaveBeenCalled();
+    });
+
+    it("StrictMode の2重マウント(mount→cleanup→remount が client resolve 前に同期的に起きる)でも購読が重複しない", async () => {
+      // StrictMode の開発時2重実行は、getSupabaseClient() の Promise が
+      // resolve するより前に mount → cleanup → 再 mount が同期的に走る。
+      // この時点では `sub` がまだ未確定のため、`sub?.unsubscribe()` は
+      // 何もできない。二重購読を防いでいるのは純粋に `cancelled` ガード
+      // (`if (cancelled || !client) return;`)だけである、という前提を検証する。
+      const clientDeferred = deferred<typeof mockClient | null>();
+      vi.mocked(getSupabaseClient).mockReturnValue(
+        clientDeferred.promise as never,
+      );
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+      mockOnAuthStateChange.mockImplementation(() => ({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      }));
+
+      // client promise が resolve する前に mount → unmount → remount。
+      const first = renderWithAuth();
+      first.unmount();
+      renderWithAuth();
+
+      await act(async () => {
+        clientDeferred.resolve(mockClient as never);
+        await flushPromises();
+      });
+
+      // 最初の mount は cleanup 時点で cancelled=true になっているため、
+      // resolve 後も onAuthStateChange を呼ばない。生き残った(2回目の)
+      // mount だけが購読する = 重複購読なし。
+      expect(mockOnAuthStateChange).toHaveBeenCalledTimes(1);
     });
   });
 });
