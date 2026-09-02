@@ -1,11 +1,10 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import { MdLink, MdLogout } from "react-icons/md";
 import AuthGuard from "@/components/AuthGuard";
-import ConfirmDialog from "@/components/ConfirmDialog";
 import FilterBar from "@/components/FilterBar";
 import GroupSwitcher from "@/components/GroupSwitcher";
 import ItemCard from "@/components/ItemCard";
@@ -15,6 +14,9 @@ import { type FilterCondition, filterStockItems } from "@/lib/filterStockItems";
 import StockItemsSkeleton from "./StockItemsSkeleton";
 import { useStockItems } from "./useStockItems";
 
+const ConfirmDialog = dynamic(() => import("@/components/ConfirmDialog"), {
+  ssr: false,
+});
 const CreateItemModal = dynamic(() => import("@/components/CreateItemModal"), {
   ssr: false,
 });
@@ -244,13 +246,13 @@ export default function StockItemsClient() {
                   該当する商品がありません
                 </p>
               ) : (
-                <motion.div
+                <m.div
                   layout
                   className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 ${viewMode === "simple" ? "gap-1.5" : "gap-3"}`}
                 >
                   <AnimatePresence mode="popLayout">
                     {filteredItems.map((item) => (
-                      <motion.div
+                      <m.div
                         key={item.id}
                         layout
                         initial={{ opacity: 0, y: -12 }}
@@ -265,10 +267,10 @@ export default function StockItemsClient() {
                           onToggleWantToBuy={handleToggleWantToBuy}
                           onImageEdit={handleOpenImageEdit}
                         />
-                      </motion.div>
+                      </m.div>
                     ))}
                   </AnimatePresence>
-                </motion.div>
+                </m.div>
               )}
             </>
           )}

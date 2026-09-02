@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion, useDragControls } from "framer-motion";
+import { AnimatePresence, m, useDragControls } from "framer-motion";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
@@ -71,7 +71,7 @@ export default function BaseModal({
       {isOpen && (
         <>
           {/* Scrim */}
-          <motion.div
+          <m.div
             className="fixed inset-0 z-50 bg-black/50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -83,7 +83,7 @@ export default function BaseModal({
           {/* Dialog / Sheet */}
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
             {isDesktop ? (
-              <motion.div
+              <m.div
                 role="dialog"
                 aria-modal="true"
                 className="pointer-events-auto bg-white rounded-2xl shadow-2xl w-full max-w-md"
@@ -96,9 +96,9 @@ export default function BaseModal({
                 <div className="px-6 pt-5 pb-0">{header}</div>
                 <div className="h-px bg-slate-100 mt-4" />
                 <div className="px-6 pb-6 pt-4">{children}</div>
-              </motion.div>
+              </m.div>
             ) : (
-              <motion.div
+              <m.div
                 role="dialog"
                 aria-modal="true"
                 className="pointer-events-auto w-full max-w-md bg-white rounded-2xl shadow-xl"
@@ -129,7 +129,7 @@ export default function BaseModal({
                 </div>
                 <div className="px-5 pt-1 pb-0">{header}</div>
                 <div className="px-5 pb-10 pt-3">{children}</div>
-              </motion.div>
+              </m.div>
             )}
           </div>
         </>

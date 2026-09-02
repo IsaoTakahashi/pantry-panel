@@ -1,6 +1,9 @@
 "use client";
 
-import { MotionConfig } from "framer-motion";
+import { LazyMotion, MotionConfig } from "framer-motion";
+
+const loadFeatures = () =>
+  import("@/lib/framerMotionFeatures").then((mod) => mod.default);
 
 /**
  * Wraps the app tree so framer-motion honors the user's
@@ -8,7 +11,18 @@ import { MotionConfig } from "framer-motion";
  * Playwright emulating `reducedMotion: "reduce"`) that request reduced motion
  * get transform/layout animations disabled — an accessibility improvement that
  * also stabilizes E2E locator/click resolution.
+ *
+ * Also wraps the tree in `LazyMotion` so the framer-motion animation engine
+ * (`domMax` features) is loaded asynchronously as a separate chunk instead of
+ * being bundled synchronously. `strict` enforces that only `m.*` components
+ * (not `motion.*`) are used within the tree.
  */
 export function MotionProvider({ children }: { children: React.ReactNode }) {
-  return <MotionConfig reducedMotion="user">{children}</MotionConfig>;
+  return (
+    <MotionConfig reducedMotion="user">
+      <LazyMotion features={loadFeatures} strict>
+        {children}
+      </LazyMotion>
+    </MotionConfig>
+  );
 }
