@@ -4,6 +4,17 @@ import { expect, type Page, test } from "@playwright/test";
 
 const AUTH_FILE = path.join(__dirname, "../.auth/user.json");
 
+// networkidle は Realtime の phx_join ハンドシェイクを捉えない（既に開いている
+// WebSocket 上を流れるため）。実際の購読完了シグナルとして window フラグを待つ。
+async function waitForRealtimeSubscription(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () =>
+      (window as unknown as Record<string, unknown>)
+        .__supabaseRealtimeSubscribed === true,
+    { timeout: 30000 },
+  );
+}
+
 test.describe
   .serial("Realtime sync", () => {
     const itemName = "Realtime Test Item";
@@ -18,7 +29,10 @@ test.describe
 
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
-      await pageB.waitForLoadState("networkidle");
+      await Promise.all([
+        waitForRealtimeSubscription(pageA),
+        waitForRealtimeSubscription(pageB),
+      ]);
 
       // Context A で新規作成
       await pageA.getByRole("button", { name: "商品を追加" }).click();
@@ -48,14 +62,12 @@ test.describe
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
       await Promise.all([
-        pageA.waitForLoadState("networkidle"),
-        pageB.waitForLoadState("networkidle"),
+        waitForRealtimeSubscription(pageA),
+        waitForRealtimeSubscription(pageB),
       ]);
 
       await expect(pageA.getByText(itemName)).toBeVisible();
       await expect(pageB.getByText(itemName)).toBeVisible();
-      // サブスクリプション確立後の初回 onChange() フェッチ完了を待つ
-      await pageB.waitForLoadState("networkidle");
 
       const toggleButton = (page: Page) =>
         page
@@ -98,14 +110,12 @@ test.describe
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
       await Promise.all([
-        pageA.waitForLoadState("networkidle"),
-        pageB.waitForLoadState("networkidle"),
+        waitForRealtimeSubscription(pageA),
+        waitForRealtimeSubscription(pageB),
       ]);
 
       await expect(pageA.getByText(itemName)).toBeVisible();
       await expect(pageB.getByText(itemName)).toBeVisible();
-      // サブスクリプション確立後の初回 onChange() フェッチ完了を待つ
-      await pageB.waitForLoadState("networkidle");
 
       await pageA
         .getByRole("article", {

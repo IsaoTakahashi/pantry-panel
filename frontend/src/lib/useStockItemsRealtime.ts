@@ -31,7 +31,15 @@ export function useStockItemsRealtime(onChange: () => void): void {
           { event: "*", schema: "public", table: "stock_items" },
           () => onChangeRef.current(), // INSERT/UPDATE/DELETE で最新 onChange を呼ぶ
         )
-        .subscribe();
+        .subscribe((status) => {
+          // E2E が実 WebSocket の購読完了を観測する手段が他にないためのフラグ。
+          // 本番挙動には関与しない（onChange は呼ばない = Issue #247 の対象外）。
+          if (cancelled || status !== "SUBSCRIBED") return;
+          if (typeof window === "undefined") return;
+          (
+            window as unknown as Record<string, unknown>
+          ).__supabaseRealtimeSubscribed = true;
+        });
     });
 
     return () => {
@@ -41,6 +49,10 @@ export function useStockItemsRealtime(onChange: () => void): void {
       // resolve 後のガードが subscribe 自体を防ぐ。
       if (client && channel) {
         client.removeChannel(channel);
+      }
+      if (typeof window !== "undefined") {
+        delete (window as unknown as Record<string, unknown>)
+          .__supabaseRealtimeSubscribed;
       }
     };
   }, []);
