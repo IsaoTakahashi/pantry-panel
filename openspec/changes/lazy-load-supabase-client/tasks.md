@@ -42,7 +42,7 @@
 ## 7. ビルド確認・効果検証
 
 - [x] 7.1 `cd frontend && npx next build --webpack` を実行し、`/login` と `/stock-items` の生成 HTML(`.next/server/app/login.html`, `.next/server/app/stock-items.html`)のどちらにも Supabase SDK 由来のチャンクへの同期 `<script>` 参照が無いことを確認する。**ベースライン(2026-09-02実測、PR #244 マージ後)では両ページに `42-*.js`(175KB、`GoTrueClient`+`RealtimeClient` を含む)と `44530001-*.js`(63KB、`GoTrueClient` を含む)の2チャンクが含まれていた。この2チャンク両方について変更後の扱いを明示的に確認・記録する**(両方消えているのが期待結果。`44530001-*` が実は無関係な偶然の文字列一致だった場合はその旨を記録した上でタスク完了として良い)
-- [ ] 7.2 (pre-merge gate) この PR の Vercel Preview URL(`E2E Preview` CI ジョブが用意する)に対して Issue #236 の実測ハーネス(storageState で warm セッションを再現、Playwright でネットワークタイミングを計測)を実行し、その実行内で `GET /api/stock-items` が `GET /api/groups/me` の応答を待たずに開始される構造(`#236` が獲得した性質)が維持されていることを確認する。ローカル(`localhost`)の数値は本番実測値(`groups req@~110ms` 等)と環境が異なり比較不能なため使わない(design.md Risks 参照)。構造が崩れていたら(items が groups 応答後にしか開始されなくなっていたら)タスク未完了として扱い、design.md Risks に記載したフォールバック(`ReactDOM.preinit` 相当の先読み)を検討する
+- [x] 7.2 (pre-merge gate、代替検証で完了扱い) 当初計画は この PR の Vercel Preview URL に対する Issue #236 実測ハーネスの実行だったが、Preview URL が Vercel Deployment Protection(SSO ウォール)で保護されており、ローカルセッションから `VERCEL_BYPASS_TOKEN`(CI 専用 secret)にアクセスできずブロックされた。ユーザーと協議の上、Task 6 の mutation testing による検証(`AuthContext.tsx` を意図的に直列化し `startupFetch.integration.test.tsx` が red になることを実証済み)を pre-merge の代替保証として採用し、本タスクはスキップとする(design.md Risks に判断根拠を記録済み)。post-merge のタスク9.5(本番実測、SSO 保護なし)で実ブラウザでの並行フェッチ構造を最終確認する
 
 ## 8. ローカルE2E確認
 
