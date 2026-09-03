@@ -52,8 +52,8 @@
 
 ## 9. CI確認・archive・merge
 
-- [ ] 9.1 commit のたびに push し、PR 上の CI が最新状態であることを確認する
-- [ ] 9.2 `gh pr checks --watch` で CI が green になることを確認する
+- [x] 9.1 commit のたびに push し、PR 上の CI が最新状態であることを確認する
+- [x] 9.2 `gh pr checks --watch` で CI が green になることを確認する
 - [ ] 9.3 マージ前に `opsx:archive` を実施し、specs 同期を feature ブランチ上のコミットに含める
 - [ ] 9.4 PR 本文に `Closes #238` と明記してマージする(Issue #238 の残り follow-up はこれで完了)
 - [ ] 9.5 (post-merge) 本番デプロイ後、Issue #236 と同様の手法(storageState + Playwright)で warm シナリオを再計測し、記録済みの本番実測値(`groups req@~110ms`, `stock req@~114ms`, `itemsRendered@~230ms`、Issue #236 コメント参照)と比較する。結果を Issue #238 にコメントで記録する
