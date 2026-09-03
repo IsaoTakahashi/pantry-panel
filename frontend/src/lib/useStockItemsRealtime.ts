@@ -29,9 +29,15 @@ export function useStockItemsRealtime(onChange: () => void): void {
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "stock_items" },
-          () => onChangeRef.current(), // INSERT/UPDATE/DELETE で最新 onChange を呼ぶ
+          (payload) => {
+            // TEMP DEBUG (Issue #247 investigation, remove before merge)
+            console.log("[realtime-debug] postgres_changes fired", payload);
+            onChangeRef.current(); // INSERT/UPDATE/DELETE で最新 onChange を呼ぶ
+          },
         )
-        .subscribe((status) => {
+        .subscribe((status, err) => {
+          // TEMP DEBUG (Issue #247 investigation, remove before merge)
+          console.log("[realtime-debug] subscribe status", status, err);
           // E2E が実 WebSocket の購読完了を観測する手段が他にないためのフラグ。
           // 本番挙動には関与しない（onChange は呼ばない = Issue #247 の対象外）。
           if (cancelled || status !== "SUBSCRIBED") return;
