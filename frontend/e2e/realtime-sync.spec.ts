@@ -27,6 +27,10 @@ test.describe
       const pageA = await ctxA.newPage();
       const pageB = await ctxB.newPage();
 
+      // TEMP DEBUG (Issue #247 investigation, remove before merge)
+      pageA.on("console", (msg) => console.log("[pageA console]", msg.text()));
+      pageB.on("console", (msg) => console.log("[pageB console]", msg.text()));
+
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
       await Promise.all([
@@ -43,8 +47,11 @@ test.describe
         .selectOption("調味料");
       await dialog.getByRole("button", { name: "追加", exact: true }).click();
       await expect(pageA.getByText(itemName)).toBeVisible();
+      // TEMP DEBUG: timeout widened to 25s to check if the event is merely
+      // delayed (Realtime cold-start on the job's first subscription) vs.
+      // truly never delivered (Issue #247 investigation, revert before merge)
       await expect(pageB.getByText(itemName)).toBeVisible({
-        timeout: 10000,
+        timeout: 25000,
       });
 
       await ctxA.close();
