@@ -59,10 +59,6 @@ test.describe
       const pageA = await ctxA.newPage();
       const pageB = await ctxB.newPage();
 
-      // TEMP DEBUG (Issue #247 investigation, remove before merge)
-      pageA.on("console", (msg) => console.log("[pageA console]", msg.text()));
-      pageB.on("console", (msg) => console.log("[pageB console]", msg.text()));
-
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
       await Promise.all([
