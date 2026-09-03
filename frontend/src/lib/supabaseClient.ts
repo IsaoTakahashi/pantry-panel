@@ -14,6 +14,9 @@ function loadClient(): Promise<SupabaseClient | null> {
 
 // モジュール評価時(＝最初にこのファイルが import された時点)に即座に発火する。
 // 呼び出し元の実際の getSupabaseClient() 呼び出しタイミングを待たない。
+// あえて .catch() を付けていない: 動的 import が失敗した場合はここで握りつぶさず
+// unhandled rejection として window に伝播させ、frontend/src/lib/chunkLoadRecovery.ts
+// のグローバルリカバリ機構(SW更新+リロード)にチャンクロード失敗として検出させる。
 const _clientPromise = loadClient();
 
 export function getSupabaseClient(): Promise<SupabaseClient | null> {
