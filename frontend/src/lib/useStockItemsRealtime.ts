@@ -31,7 +31,14 @@ export function useStockItemsRealtime(onChange: () => void): void {
           { event: "*", schema: "public", table: "stock_items" },
           () => onChangeRef.current(), // INSERT/UPDATE/DELETE で最新 onChange を呼ぶ
         )
-        .subscribe();
+        .subscribe((status) => {
+          if (cancelled) return;
+          // SUBSCRIBED 到達前に発生した変更は postgres_changes として再送されない
+          // ため、マウント〜購読確立までの間に取りこぼした変更をここで拾う。
+          if (status === "SUBSCRIBED") {
+            onChangeRef.current();
+          }
+        });
     });
 
     return () => {
