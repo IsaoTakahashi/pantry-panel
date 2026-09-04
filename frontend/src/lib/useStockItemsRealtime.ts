@@ -45,14 +45,21 @@ export function useStockItemsRealtime(onChange: () => void): void {
         });
     }
 
-    // getSupabaseClient() は module 評価時に発火済みの Promise の singleton
-    // を返すため、AuthGuard 配下（session 確定 = 既に一度 await 済み）では
-    // ほぼ常に resolve 済み。peekSupabaseClient() でその場合を検出し、
-    // 追加の非同期待ち（.then() の 1 microtask 以上の遅延）なしに同じ tick
-    // で同期的に subscribe する（Issue #247: main ブランチの完全同期な
-    // subscribe とタイミングを揃え、Realtime の SUBSCRIBED 到達前イベント
-    // 取りこぼしリスクを増やさないため）。未解決の稀なケースのみ従来どおり
-    // 非同期で待つ。
+    // このフックは StockItemsClient のトップレベルで無条件に呼ばれる
+    // （AuthGuard の children としてではない）ため、AuthGuard が session
+    // を確定させるより前、ページ初回マウント時点で毎回この effect が発火する
+    // ——「AuthGuard 配下だから getSupabaseClient() は解決済み」という前提は
+    // 成立しない。それでも実測（Issue #247, 2026-09-04 の CI 計測）では
+    // sync パスが大半のケースで発火している。これは動的 import が module
+    // 評価時（≒ページの script 実行開始とほぼ同時）に発火するため、React の
+    // hydration〜初回 effect flush が完了するまでの間にチャンク取得が終わって
+    // いることが多い、という実際のネットワーク/実行タイミングの結果であり、
+    // 保証ではない。peekSupabaseClient() で解決済みなら同じ tick で同期的に
+    // subscribe し（Issue #247: main ブランチの完全同期な subscribe と
+    // タイミングを揃え、SUBSCRIBED 到達前イベント取りこぼしのリスクを下げる）、
+    // 未解決の場合は従来どおり非同期で待つ。async パスに落ちた場合の残存
+    // リスクは Issue #247 に記録済み（83b1413 の SUBSCRIBED-refetch が
+    // セーフティネットとして機能するが、完全な保証ではない）。
     const peeked = peekSupabaseClient();
     if (peeked !== undefined) {
       if (peeked) subscribe(peeked);

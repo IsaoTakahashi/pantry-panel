@@ -35,10 +35,10 @@ export function getSupabaseClient(): Promise<SupabaseClient | null> {
   return _clientPromise;
 }
 
-// 既に解決済みの場合にのみ同期的にクライアントを返す。AuthGuard 配下の
-// ページ（session 確定 = getSupabaseClient() が既に一度 await 済み）から
-// 呼ぶことを想定しており、未解決なら undefined を返す（呼び出し元は
-// getSupabaseClient() の非同期パスにフォールバックする）。
+// 既に解決済みの場合にのみ同期的にクライアントを返す。未解決なら undefined
+// を返す（呼び出し元は getSupabaseClient() の非同期パスにフォールバックする）。
+// 呼び出し元がマウントされる時点で必ず解決済みである保証はない（詳細は
+// useStockItemsRealtime.ts の呼び出し箇所コメント、Issue #247 参照）。
 export function peekSupabaseClient(): SupabaseClient | null | undefined {
   return _resolvedClient;
 }
