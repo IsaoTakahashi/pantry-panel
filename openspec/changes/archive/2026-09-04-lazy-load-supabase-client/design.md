@@ -151,6 +151,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 - [Risk] `startupFetch.integration.test.tsx`(`#236` の並行化保証テスト)の `supabaseClient` モックを Promise 返却に変えるだけでは、非同期化後も実際に discriminator として機能しているか(直列実装に戻しても red になるか)が保証されない → タスクでモック変更後に意図的に直列実装へ戻して red になることを確認する手順を含める
 - [Risk] `AuthGuard.test.tsx` の既存 `@/lib/supabaseClient` モックは `authEnabled` の実装変更後は無関係になる(dead mock) → `vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", ...)` 等に置き換える
 - [Trade-off] SDK を認証/リアルタイムに分離しない(Non-Goal)ため、`/login` のような認証のみ使うページでも RealtimeClient 込みの SDK 全体(175KB)を非同期ロードすることになる。分離の実装コストに見合わないと判断
+- [Trade-off] `useStockItemsRealtime.ts` の `.subscribe()` コールバックで `status === "SUBSCRIBED"` になった際に `onChangeRef.current()`(全件再フェッチ)を1回呼ぶ。`postgres_changes` は `SUBSCRIBED` 到達前の変更を再送しないため、動的 import 化(Decision 1)でマウント〜購読確立の間が広がった分、その間に発生した変更が再送されずに失われる可能性がある。この再フェッチはマウント〜購読確立までに来た変更を無条件に拾うため、この窓を「狭める」のではなく「閉じる」。コストは `useStockItemsRealtime` マウントごとに `GET /api/stock-items` が1回増えること(`#217` の over-fetch 削減、および `d91cabc` が無関係な storm 修正の一環として除去した挙動への部分的な巻き戻し)。一度 `ce2bab2` で適用 → `cd0e45b` で revert されたが、その revert 判定は E2E `.serial` retry のテストハーネス汚染(2026-09-04 の `testing.md` 更新ログ参照)で汚染された偽陰性シグナルに基づいており無効。再フェッチ到達後に残る「`SUBSCRIBED` 応答〜サーバー側 WAL バインディングが実際に有効になるまで」の窓はクライアントから観測・修正不能なため許容する(Issue #247)
 
 ## Migration Plan
 
