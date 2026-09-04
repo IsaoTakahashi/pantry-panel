@@ -53,7 +53,7 @@ function Harness() {
 }
 
 beforeEach(() => {
-  vi.mocked(getSupabaseClient).mockReturnValue(mockClient as never);
+  vi.mocked(getSupabaseClient).mockResolvedValue(mockClient as never);
   vi.mocked(fetchStockItems).mockResolvedValue([]);
 });
 
@@ -95,6 +95,12 @@ describe("startup stock-items fetch", () => {
     await act(async () => {
       await Promise.resolve();
     });
+
+    // Confirm the intended intermediate state was actually reached: the
+    // group fetch is genuinely in flight (not yet resolved), and that alone
+    // must not have produced a fetch with an undefined/unconfirmed group.
+    expect(fetchMyGroups).toHaveBeenCalledTimes(1);
+    expect(fetchStockItems).not.toHaveBeenCalled();
 
     // Now resolve groups — the active group becomes known.
     await act(async () => {

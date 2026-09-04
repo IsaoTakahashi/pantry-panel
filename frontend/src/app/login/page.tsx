@@ -15,7 +15,6 @@ export default function LoginPage() {
     }
   }, [loading, session, router]);
 
-  if (loading) return null;
   if (session) return null;
 
   return (

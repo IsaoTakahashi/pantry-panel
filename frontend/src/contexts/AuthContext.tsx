@@ -95,50 +95,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    const client = getSupabaseClient();
-    if (!client) {
-      setLoading(false);
-      return;
-    }
-    client.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s) {
-        // loadGroups が applyGroups 後に loading を解除する。
-        loadGroups(s.access_token);
-      } else {
+    let cancelled = false;
+    getSupabaseClient().then((client) => {
+      if (cancelled) return;
+      if (!client) {
         setLoading(false);
+        return;
       }
+      client.auth.getSession().then(({ data: { session: s } }) => {
+        if (cancelled) return;
+        setSession(s);
+        setUser(s?.user ?? null);
+        if (s) {
+          // loadGroups が applyGroups 後に loading を解除する。
+          loadGroups(s.access_token);
+        } else {
+          setLoading(false);
+        }
+      });
     });
+    return () => {
+      cancelled = true;
+    };
   }, [loadGroups]);
 
   useEffect(() => {
-    const client = getSupabaseClient();
-    if (!client) return;
-    const {
-      data: { subscription },
-    } = client.auth.onAuthStateChange((_event, s) => {
-      if (s) {
-        setSession(s);
-        setUser(s.user ?? null);
-        // セッションありの場合は loadGroups が applyGroups 後に loading を解除する。
-        // ここで無条件に setLoading(false) すると group=null のまま loading が
-        // 倒れ、AuthGuard が起動時の group 取得待ち中に誤って /no-group へ飛ばす。
-        loadGroups(s.access_token);
-      } else {
-        setSession(null);
-        setUser(null);
-        loadedTokenRef.current = null;
-        setGroups([]);
-        setGroup(null);
-        setLoading(false);
-      }
+    let cancelled = false;
+    let sub: { unsubscribe: () => void } | undefined;
+    getSupabaseClient().then((client) => {
+      if (cancelled || !client) return;
+      sub = client.auth.onAuthStateChange((_event, s) => {
+        if (s) {
+          setSession(s);
+          setUser(s.user ?? null);
+          // セッションありの場合は loadGroups が applyGroups 後に loading を解除する。
+          // ここで無条件に setLoading(false) すると group=null のまま loading が
+          // 倒れ、AuthGuard が起動時の group 取得待ち中に誤って /no-group へ飛ばす。
+          loadGroups(s.access_token);
+        } else {
+          setSession(null);
+          setUser(null);
+          loadedTokenRef.current = null;
+          setGroups([]);
+          setGroup(null);
+          setLoading(false);
+        }
+      }).data.subscription;
     });
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      sub?.unsubscribe();
+    };
   }, [loadGroups]);
 
   const signInWithGoogle = async (redirectTo?: string) => {
-    const client = getSupabaseClient();
+    const client = await getSupabaseClient();
     if (!client) return;
     await client.auth.signInWithOAuth({
       provider: "google",
@@ -153,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    const client = getSupabaseClient();
+    const client = await getSupabaseClient();
     if (!client) return;
     await client.auth.signOut();
     loadedTokenRef.current = null;
