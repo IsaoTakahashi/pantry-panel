@@ -10,17 +10,21 @@ async function globalTeardown() {
   const testPassword = process.env.E2E_TEST_PASSWORD;
   const backendUrl = process.env.PREVIEW_BACKEND_URL || "http://localhost:8080";
 
-  // 動的作成された group の ID は global-setup が .auth/group.json に書き出す。
-  // env 指定（ローカル開発の固定 ID）の場合はこのファイルが存在しないため、
-  // isDynamicGroup で分岐して動的作成 group のみ DELETE /api/groups/:id の対象にする。
+  // global-setup は動的作成 group・固定 E2E_TEST_GROUP_ID group のどちらでも
+  // .auth/group.json を必ず書き出すため、ファイルの有無では区別できない。
+  // 実際の判定材料は書き出された ephemeral フィールド（動的作成なら true、
+  // 固定 ID 使用なら false）であり、これを isDynamicGroup として読み取り、
+  // 動的作成 group のみを DELETE /api/groups/:id の対象にする。
   const groupFile = path.join(process.cwd(), ".auth", "group.json");
-  const isDynamicGroup = fs.existsSync(groupFile);
   let testGroupId: string | undefined;
-  if (isDynamicGroup) {
+  let isDynamicGroup = false;
+  if (fs.existsSync(groupFile)) {
     const parsed = JSON.parse(fs.readFileSync(groupFile, "utf8")) as {
       id: string;
+      ephemeral?: boolean;
     };
     testGroupId = parsed.id;
+    isDynamicGroup = parsed.ephemeral === true; // strict equality: fail closed if the field is missing/malformed
   } else {
     testGroupId = process.env.E2E_TEST_GROUP_ID;
   }
