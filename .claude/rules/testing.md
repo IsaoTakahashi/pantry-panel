@@ -172,7 +172,7 @@ proposal.md の「ユーザーシナリオとテスト設計」セクション�
 
 - **対象シナリオ:** realtime-sync.spec.ts（Supabase Realtime 購読の E2E、Issue #238 / PR #245）
 - **変更前:** Realtime 購読完了の待機に `page.waitForLoadState("networkidle")` を使用（購読完了そのものを待っているわけではなく、購読が HTTP トラフィックの沈静化と同じタイミングで起きることを期待した代理シグナル）
-- **変更後:** `window.__supabaseRealtimeSubscribed` フラグ（channel の `.subscribe()` コールバックが `SUBSCRIBED` を報告した時点で立てる、E2E 専用・本番挙動には関与しない）を `page.waitForFunction` で直接待つ
+- **変更後:** `window.__supabaseRealtimeSubscribed` フラグ（channel の `.subscribe()` コールバックが `SUBSCRIBED` を報告した時点で立てる、フラグ自体は読み取り専用で副作用を持たない）を `page.waitForFunction` で直接待つ。**追記（同日）**: 当初はこの `SUBSCRIBED` コールバックが本番挙動に関与しない前提だったが、その後同じコールバックに再フェッチ（lost-event window を閉じる修正、後述）が追加されたため「本番挙動には関与しない」は現在は成立しない。フラグ自体は今もテスト専用・読み取り専用のままで無害
 - **理由:** `networkidle` は HTTP リクエストの活動量だけを見る。Realtime の `phx_join` ハンドシェイクは既に開いている WebSocket 上を流れるため、`networkidle` は本来これを観測できない。それでも動いていたのは、購読処理がマウント時に同期的に呼ばれていたため、HTTP がまだ沈静化していないタイミングに偶然乗っていただけ。Supabase SDK を動的 import 化した変更（本 PR の主目的）で `.subscribe()` 呼び出しが非同期フックの後ろに移動し、この偶然の一致が崩れて初めて顕在化した（CI で同一アサートが複数回連続失敗するまで誰も気づかなかった）
 - **一般化した基準:**
   1. 「本来観測したいイベントを直接見ていない wait」は、たとえ現状動いていても **副作用に依存した proxy** であることを疑う。特に `networkidle` / 固定 `sleep` / 無関係な要素の出現待ちなどで非同期処理の完了を代用している箇所は、その処理のタイミングを変える変更（同期→非同期化、fetch のバンドル分割・遅延読み込みなど）が入るたびに再検証する

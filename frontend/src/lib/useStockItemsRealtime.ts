@@ -34,7 +34,8 @@ export function useStockItemsRealtime(onChange: () => void): void {
         .subscribe((status) => {
           if (cancelled || status !== "SUBSCRIBED") return;
           // postgres_changes は SUBSCRIBED 到達前の変更を再送しないため、
-          // マウント〜購読確立までの間に取りこぼした変更をここで一度だけ拾う。
+          // マウント〜購読確立（再接続時は切断〜再購読）までの間に取りこぼした
+          // 変更をここで拾う。SUBSCRIBED は再接続のたびに再度発火しうる。
           onChangeRef.current();
           // E2E が実 WebSocket の購読完了を観測する手段が他にないためのフラグ。
           if (typeof window === "undefined") return;
