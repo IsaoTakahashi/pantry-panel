@@ -157,3 +157,64 @@ func TestAcceptInvitation(t *testing.T) {
 		assert.ErrorIs(t, err, ErrInvitationExpired)
 	})
 }
+
+func TestDeleteGroup(t *testing.T) {
+	t.Run("success_empty_group", func(t *testing.T) {
+		repo := setupGroupTestDB(t)
+		ownerID := uuid.New()
+		group, err := repo.CreateGroup(context.Background(), "我が家", ownerID)
+		require.NoError(t, err)
+		inv, err := repo.CreateInvitation(context.Background(), group.ID, ownerID, 7*24*time.Hour)
+		require.NoError(t, err)
+
+		err = repo.DeleteGroup(context.Background(), group.ID)
+		require.NoError(t, err)
+
+		var groupCount int
+		require.NoError(t, testPool.QueryRow(context.Background(),
+			"SELECT COUNT(*) FROM groups WHERE id = $1", group.ID).Scan(&groupCount))
+		assert.Equal(t, 0, groupCount)
+
+		var memberCount int
+		require.NoError(t, testPool.QueryRow(context.Background(),
+			"SELECT COUNT(*) FROM group_members WHERE group_id = $1", group.ID).Scan(&memberCount))
+		assert.Equal(t, 0, memberCount)
+
+		var invitationCount int
+		require.NoError(t, testPool.QueryRow(context.Background(),
+			"SELECT COUNT(*) FROM invitations WHERE token = $1", inv.Token).Scan(&invitationCount))
+		assert.Equal(t, 0, invitationCount)
+	})
+
+	t.Run("success_with_stock_items", func(t *testing.T) {
+		repo := setupGroupTestDB(t)
+		ownerID := uuid.New()
+		group, err := repo.CreateGroup(context.Background(), "我が家", ownerID)
+		require.NoError(t, err)
+
+		_, err = testPool.Exec(context.Background(),
+			"INSERT INTO stock_items (name, category, want_to_buy, group_id, sorted_at) VALUES ($1, $2, $3, $4, NOW())",
+			"牛乳", "食品", false, group.ID)
+		require.NoError(t, err)
+
+		err = repo.DeleteGroup(context.Background(), group.ID)
+		require.NoError(t, err)
+
+		var itemCount int
+		require.NoError(t, testPool.QueryRow(context.Background(),
+			"SELECT COUNT(*) FROM stock_items WHERE group_id = $1", group.ID).Scan(&itemCount))
+		assert.Equal(t, 0, itemCount)
+
+		var groupCount int
+		require.NoError(t, testPool.QueryRow(context.Background(),
+			"SELECT COUNT(*) FROM groups WHERE id = $1", group.ID).Scan(&groupCount))
+		assert.Equal(t, 0, groupCount)
+	})
+
+	t.Run("not_found", func(t *testing.T) {
+		repo := setupGroupTestDB(t)
+
+		err := repo.DeleteGroup(context.Background(), uuid.New())
+		assert.ErrorIs(t, err, ErrNotFound)
+	})
+}

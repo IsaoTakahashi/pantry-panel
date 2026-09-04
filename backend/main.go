@@ -109,6 +109,7 @@ func main() {
 	e.POST("/api/groups", groupHandler.CreateGroup, jwtOnlyMW)
 	e.GET("/api/groups/me", groupHandler.GetMyGroups, jwtOnlyMW)
 	e.PATCH("/api/groups/:id", groupHandler.UpdateGroup, jwtGroupMW)
+	e.DELETE("/api/groups/:id", groupHandler.DeleteGroup, jwtGroupMW)
 	e.POST("/api/invitations", groupHandler.CreateInvitation, jwtGroupMW)
 	e.POST("/api/invitations/:token/accept", groupHandler.AcceptInvitation, jwtOnlyMW)
 

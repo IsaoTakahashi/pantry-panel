@@ -24,6 +24,7 @@ type mockGroupRepo struct {
 	createInvitationFn func(ctx context.Context, groupID, createdBy uuid.UUID, ttl time.Duration) (*repository.Invitation, error)
 	findInvitationFn   func(ctx context.Context, token uuid.UUID) (*repository.Invitation, error)
 	acceptInvitationFn func(ctx context.Context, token, userID uuid.UUID) error
+	deleteGroupFn      func(ctx context.Context, groupID uuid.UUID) error
 }
 
 func (m *mockGroupRepo) FindMembershipsByUserID(ctx context.Context, userID uuid.UUID) ([]repository.GroupMembership, error) {
@@ -47,12 +48,16 @@ func (m *mockGroupRepo) FindInvitation(ctx context.Context, token uuid.UUID) (*r
 func (m *mockGroupRepo) AcceptInvitation(ctx context.Context, token, userID uuid.UUID) error {
 	return m.acceptInvitationFn(ctx, token, userID)
 }
+func (m *mockGroupRepo) DeleteGroup(ctx context.Context, groupID uuid.UUID) error {
+	return m.deleteGroupFn(ctx, groupID)
+}
 
 func setupGroupRouter(h *GroupHandler) *echo.Echo {
 	e := echo.New()
 	e.POST("/api/groups", h.CreateGroup)
 	e.GET("/api/groups/me", h.GetMyGroups)
 	e.PATCH("/api/groups/:id", h.UpdateGroup)
+	e.DELETE("/api/groups/:id", h.DeleteGroup)
 	e.POST("/api/invitations", h.CreateInvitation)
 	e.POST("/api/invitations/:token/accept", h.AcceptInvitation)
 	return e
@@ -200,6 +205,85 @@ func TestUpdateGroup(t *testing.T) {
 		require.NoError(t, h.UpdateGroup(c))
 
 		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+}
+
+func TestDeleteGroup(t *testing.T) {
+	t.Run("owner_success", func(t *testing.T) {
+		groupID := uuid.New()
+		called := false
+		mock := &mockGroupRepo{
+			deleteGroupFn: func(_ context.Context, gID uuid.UUID) error {
+				called = true
+				assert.Equal(t, groupID, gID)
+				return nil
+			},
+		}
+		h := NewGroupHandler(mock)
+		e := setupGroupRouter(h)
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/groups/"+groupID.String(), nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: groupID.String()}})
+		middleware.SetAuthInfo(c, &middleware.AuthInfo{UserID: uuid.New(), GroupID: groupID, Role: "owner"})
+		require.NoError(t, h.DeleteGroup(c))
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.True(t, called)
+	})
+
+	t.Run("member_forbidden", func(t *testing.T) {
+		groupID := uuid.New()
+		mock := &mockGroupRepo{}
+		h := NewGroupHandler(mock)
+		e := setupGroupRouter(h)
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/groups/"+groupID.String(), nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: groupID.String()}})
+		middleware.SetAuthInfo(c, &middleware.AuthInfo{UserID: uuid.New(), GroupID: groupID, Role: "member"})
+		require.NoError(t, h.DeleteGroup(c))
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	t.Run("wrong_group_forbidden", func(t *testing.T) {
+		groupID := uuid.New()
+		otherGroupID := uuid.New()
+		mock := &mockGroupRepo{}
+		h := NewGroupHandler(mock)
+		e := setupGroupRouter(h)
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/groups/"+otherGroupID.String(), nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: otherGroupID.String()}})
+		middleware.SetAuthInfo(c, &middleware.AuthInfo{UserID: uuid.New(), GroupID: groupID, Role: "owner"})
+		require.NoError(t, h.DeleteGroup(c))
+
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	t.Run("not_found", func(t *testing.T) {
+		groupID := uuid.New()
+		mock := &mockGroupRepo{
+			deleteGroupFn: func(_ context.Context, _ uuid.UUID) error {
+				return repository.ErrNotFound
+			},
+		}
+		h := NewGroupHandler(mock)
+		e := setupGroupRouter(h)
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/groups/"+groupID.String(), nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPathValues(echo.PathValues{{Name: "id", Value: groupID.String()}})
+		middleware.SetAuthInfo(c, &middleware.AuthInfo{UserID: uuid.New(), GroupID: groupID, Role: "owner"})
+		require.NoError(t, h.DeleteGroup(c))
+
+		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
 }
 

@@ -177,3 +177,26 @@ func (r *PgGroupRepository) AcceptInvitation(ctx context.Context, token, userID 
 
 	return tx.Commit(ctx)
 }
+
+func (r *PgGroupRepository) DeleteGroup(ctx context.Context, groupID uuid.UUID) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	_, err = tx.Exec(ctx, "DELETE FROM stock_items WHERE group_id = $1", groupID)
+	if err != nil {
+		return err
+	}
+
+	tag, err := tx.Exec(ctx, "DELETE FROM groups WHERE id = $1", groupID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+
+	return tx.Commit(ctx)
+}

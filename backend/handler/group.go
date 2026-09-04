@@ -100,6 +100,34 @@ func (h *GroupHandler) UpdateGroup(c *echo.Context) error {
 	return c.JSON(http.StatusOK, group)
 }
 
+// DeleteGroup handles DELETE /api/groups/:id.
+func (h *GroupHandler) DeleteGroup(c *echo.Context) error {
+	authInfo, ok := middleware.GetAuthInfo(c)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, apierror.ErrorResponse{Message: "Unauthorized"})
+	}
+
+	groupID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, apierror.ErrorResponse{Message: "Invalid group ID"})
+	}
+
+	if groupID != authInfo.GroupID {
+		return c.JSON(http.StatusForbidden, apierror.ErrorResponse{Message: "Forbidden"})
+	}
+	if authInfo.Role != "owner" {
+		return c.JSON(http.StatusForbidden, apierror.ErrorResponse{Message: "Forbidden"})
+	}
+
+	if err := h.repo.DeleteGroup(c.Request().Context(), groupID); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return c.JSON(http.StatusNotFound, apierror.ErrorResponse{Message: "Group not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, apierror.ErrorResponse{Message: "Internal Server Error"})
+	}
+	return c.NoContent(http.StatusOK)
+}
+
 // CreateInvitation handles POST /api/invitations.
 func (h *GroupHandler) CreateInvitation(c *echo.Context) error {
 	authInfo, ok := middleware.GetAuthInfo(c)

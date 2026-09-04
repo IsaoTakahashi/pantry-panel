@@ -10,17 +10,21 @@ async function globalTeardown() {
   const testPassword = process.env.E2E_TEST_PASSWORD;
   const backendUrl = process.env.PREVIEW_BACKEND_URL || "http://localhost:8080";
 
-  // 動的作成された group の ID は global-setup が .auth/group.json に書き出す。
-  // env 指定（ローカル開発の固定 ID）でも setup が同じファイルに書く。
-  // ephemeral フラグは将来 DELETE /api/groups/:id が実装されたとき、
-  // 動的作成 group のみ削除するために setup 側で永続化している。
+  // global-setup は動的作成 group・固定 E2E_TEST_GROUP_ID group のどちらでも
+  // .auth/group.json を必ず書き出すため、ファイルの有無では区別できない。
+  // 実際の判定材料は書き出された ephemeral フィールド（動的作成なら true、
+  // 固定 ID 使用なら false）であり、これを isDynamicGroup として読み取り、
+  // 動的作成 group のみを DELETE /api/groups/:id の対象にする。
   const groupFile = path.join(process.cwd(), ".auth", "group.json");
   let testGroupId: string | undefined;
+  let isDynamicGroup = false;
   if (fs.existsSync(groupFile)) {
     const parsed = JSON.parse(fs.readFileSync(groupFile, "utf8")) as {
       id: string;
+      ephemeral?: boolean;
     };
     testGroupId = parsed.id;
+    isDynamicGroup = parsed.ephemeral === true; // strict equality: fail closed if the field is missing/malformed
   } else {
     testGroupId = process.env.E2E_TEST_GROUP_ID;
   }
@@ -81,6 +85,26 @@ async function globalTeardown() {
       method: "DELETE",
       headers,
     });
+  }
+
+  if (isDynamicGroup) {
+    try {
+      const deleteGroupResp = await fetch(
+        `${backendUrl}/api/groups/${testGroupId}`,
+        {
+          method: "DELETE",
+          headers,
+        },
+      );
+      if (!deleteGroupResp.ok) {
+        console.warn(
+          "globalTeardown: DELETE /api/groups/:id failed:",
+          deleteGroupResp.status,
+        );
+      }
+    } catch (err) {
+      console.warn("globalTeardown: DELETE /api/groups/:id threw:", err);
+    }
   }
 
   try {
