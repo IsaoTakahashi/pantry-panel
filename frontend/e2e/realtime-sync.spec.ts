@@ -91,7 +91,13 @@ async function deleteLeftoverItem(itemName: string): Promise<void> {
   };
 
   const listResp = await fetch(`${backendUrl}/api/stock-items`, { headers });
-  if (!listResp.ok) return;
+  if (!listResp.ok) {
+    console.warn(
+      "realtime-sync cleanup: GET /api/stock-items failed:",
+      listResp.status,
+    );
+    return;
+  }
 
   const items: { id: string; name: string; wantToBuy: boolean }[] =
     await listResp.json();
@@ -106,10 +112,19 @@ async function deleteLeftoverItem(itemName: string): Promise<void> {
       body: JSON.stringify({ wantToBuy: false }),
     });
   }
-  await fetch(`${backendUrl}/api/stock-items/${leftover.id}`, {
-    method: "DELETE",
-    headers,
-  });
+  const deleteResp = await fetch(
+    `${backendUrl}/api/stock-items/${leftover.id}`,
+    {
+      method: "DELETE",
+      headers,
+    },
+  );
+  if (!deleteResp.ok) {
+    console.warn(
+      "realtime-sync cleanup: DELETE /api/stock-items/:id failed:",
+      deleteResp.status,
+    );
+  }
 }
 
 test.describe
