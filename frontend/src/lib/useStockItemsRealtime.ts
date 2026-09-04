@@ -54,15 +54,6 @@ export function useStockItemsRealtime(onChange: () => void): void {
     // 取りこぼしリスクを増やさないため）。未解決の稀なケースのみ従来どおり
     // 非同期で待つ。
     const peeked = peekSupabaseClient();
-    // TEMP DEBUG (Issue #247 investigation, remove before merge)
-    if (typeof window !== "undefined") {
-      (window as unknown as Record<string, unknown>).__realtimeSubscribePath =
-        peeked !== undefined ? "sync" : "async";
-      console.log(
-        "[peek-debug] subscribe path:",
-        peeked !== undefined ? "sync" : "async",
-      );
-    }
     if (peeked !== undefined) {
       if (peeked) subscribe(peeked);
     } else {
