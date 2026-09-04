@@ -24,8 +24,8 @@
 
 ## 4. 動作確認
 
-- [ ] 4.1 `cd backend && go test ./...` が green になることを確認する
-- [ ] 4.2 `cd backend && golangci-lint run` が clean であることを確認する
-- [ ] 4.3 ローカルで `npm run test:e2e`（または `npx playwright test --project=mock`）を実行し、teardown がエラーなく完了することを確認する
-- [ ] 4.4 CI（`ci.yml` の backend job、`e2e.yml`、`e2e-preview.yml`）が green になることを確認する
-- [ ] 4.5 (手動、一度だけ) `e2e-preview.yml` を1回実行した前後で、Supabase 上の `group_members`/`groups` 件数が増加していないことを確認する（proposal.md のテスト設計セクション参照）
+- [x] 4.1 `cd backend && go test ./...` が green になることを確認する
+- [x] 4.2 `cd backend && golangci-lint run` が clean であることを確認する
+- [x] 4.3 CI の `e2e`（mock project）が green になったことで代替確認（teardown がエラーなく完了している）。本PRはUI変更を含まないためローカル実行は省略
+- [x] 4.4 CI（`ci.yml` の backend job、`e2e.yml`、`e2e-preview.yml`）が green になることを確認する(e2e-preview は Issue #247 の既知の間欠的問題により複数回 rerun が必要だったが、最終的に green)
+- [x] 4.5 (手動、一度だけ) 実際の CI run（33878959662）が作成した ephemeral group（`cea94a8c-...`）が teardown 完了後に DB から消えていることを直接クエリで確認した。あわせて Preview backend の `DELETE /api/groups/:id` を手動 curl でも直接検証(200 OK)。今回の調査開始時点で溜まっていた本PR以前のバックログ(45件、主に別Issueの調査由来)はユーザー承認のもと一度だけクリーンアップ済み
