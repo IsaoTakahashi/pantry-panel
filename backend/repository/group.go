@@ -53,4 +53,9 @@ type GroupRepository interface {
 	// AcceptInvitation は招待を承認してユーザーをグループに追加する。
 	// 既にメンバーなら冪等（エラーなし）。期限切れなら ErrInvitationExpired を返す。
 	AcceptInvitation(ctx context.Context, token, userID uuid.UUID) error
+
+	// DeleteGroup はグループとその配下の stock_items を削除する。
+	// group_members / invitations は groups への ON DELETE CASCADE で自動的に削除される。
+	// 見つからなければ ErrNotFound を返す。
+	DeleteGroup(ctx context.Context, groupID uuid.UUID) error
 }

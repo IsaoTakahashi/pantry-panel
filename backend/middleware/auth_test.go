@@ -59,6 +59,7 @@ func (m *mockGroupRepo) FindInvitation(_ context.Context, _ uuid.UUID) (*reposit
 	return nil, nil
 }
 func (m *mockGroupRepo) AcceptInvitation(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (m *mockGroupRepo) DeleteGroup(_ context.Context, _ uuid.UUID) error         { return nil }
 
 func setupMiddlewareTest(cfg middleware.JWTAuthConfig) (*echo.Echo, *httptest.ResponseRecorder) {
 	e := echo.New()

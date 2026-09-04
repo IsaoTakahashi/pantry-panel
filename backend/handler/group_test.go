@@ -47,6 +47,7 @@ func (m *mockGroupRepo) FindInvitation(ctx context.Context, token uuid.UUID) (*r
 func (m *mockGroupRepo) AcceptInvitation(ctx context.Context, token, userID uuid.UUID) error {
 	return m.acceptInvitationFn(ctx, token, userID)
 }
+func (m *mockGroupRepo) DeleteGroup(_ context.Context, _ uuid.UUID) error { return nil }
 
 func setupGroupRouter(h *GroupHandler) *echo.Echo {
 	e := echo.New()
