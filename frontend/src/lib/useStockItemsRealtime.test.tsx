@@ -66,7 +66,7 @@ describe("useStockItemRealtime", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
-  it("SUBSCRIBED ステータスでは onChange を呼ばない（初期 fetch は useStockItems が担う）", async () => {
+  it("SUBSCRIBED ステータスになると onChange が呼ばれる（マウント〜購読確立間の取りこぼし救済）", async () => {
     const onChange = vi.fn();
     renderHook(() => useStockItemsRealtime(onChange));
 
@@ -77,6 +77,49 @@ describe("useStockItemRealtime", () => {
     const statusCallback = mockChannel.subscribe.mock.calls[0][0] as
       | ((s: string) => void)
       | undefined;
+    statusCallback?.("SUBSCRIBED");
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("SUBSCRIBED ステータスになると E2E 観測用フラグが立つ（onChange とは独立）", async () => {
+    const onChange = vi.fn();
+    renderHook(() => useStockItemsRealtime(onChange));
+
+    await waitFor(() => {
+      expect(mockChannel.subscribe).toHaveBeenCalled();
+    });
+
+    const statusCallback = mockChannel.subscribe.mock.calls[0][0] as
+      | ((s: string) => void)
+      | undefined;
+    expect(
+      (window as unknown as Record<string, unknown>)
+        .__supabaseRealtimeSubscribed,
+    ).toBeUndefined();
+
+    statusCallback?.("SUBSCRIBED");
+
+    expect(
+      (window as unknown as Record<string, unknown>)
+        .__supabaseRealtimeSubscribed,
+    ).toBe(true);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolve より先に unmount した場合、後から SUBSCRIBED が来ても onChange を呼ばない（cancelled ガード）", async () => {
+    const onChange = vi.fn();
+    const { unmount } = renderHook(() => useStockItemsRealtime(onChange));
+
+    await waitFor(() => {
+      expect(mockChannel.subscribe).toHaveBeenCalled();
+    });
+
+    const statusCallback = mockChannel.subscribe.mock.calls[0][0] as
+      | ((s: string) => void)
+      | undefined;
+
+    unmount();
     statusCallback?.("SUBSCRIBED");
 
     expect(onChange).not.toHaveBeenCalled();

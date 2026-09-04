@@ -32,9 +32,11 @@ export function useStockItemsRealtime(onChange: () => void): void {
           () => onChangeRef.current(), // INSERT/UPDATE/DELETE で最新 onChange を呼ぶ
         )
         .subscribe((status) => {
-          // E2E が実 WebSocket の購読完了を観測する手段が他にないためのフラグ。
-          // 本番挙動には関与しない（onChange は呼ばない = Issue #247 の対象外）。
           if (cancelled || status !== "SUBSCRIBED") return;
+          // postgres_changes は SUBSCRIBED 到達前の変更を再送しないため、
+          // マウント〜購読確立までの間に取りこぼした変更をここで一度だけ拾う。
+          onChangeRef.current();
+          // E2E が実 WebSocket の購読完了を観測する手段が他にないためのフラグ。
           if (typeof window === "undefined") return;
           (
             window as unknown as Record<string, unknown>
