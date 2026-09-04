@@ -1,6 +1,6 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useRef } from "react";
-import { getSupabaseClient } from "./supabaseClient";
+import { getSupabaseClient, peekSupabaseClient } from "./supabaseClient";
 
 export function useStockItemsRealtime(onChange: () => void): void {
   // 常に最新の onChange を参照するための ref。これによりチャンネルを
@@ -18,11 +18,11 @@ export function useStockItemsRealtime(onChange: () => void): void {
     let client: SupabaseClient | null = null;
     let channel: RealtimeChannel | undefined;
 
-    // getSupabaseClient() の呼び出し自体は同期的に行う（Task 2 でモジュール
-    // 評価時に既に発火済みの Promise を受け取るだけなので、ここでの呼び出し
-    // タイミングを遅らせる必要はない）。
-    getSupabaseClient().then((c) => {
-      if (cancelled || !c) return;
+    // 同期パス・非同期パスの両方から呼ぶ共通の subscribe 処理。cancelled
+    // ガードと SUBSCRIBED-refetch（Issue #247 対応）を 1 箇所にまとめ、
+    // 2 経路が個別に書かれて挙動が drift するのを防ぐ。
+    function subscribe(c: SupabaseClient) {
+      if (cancelled) return;
       client = c;
       channel = c
         .channel("stock-items-realtime")
@@ -43,7 +43,24 @@ export function useStockItemsRealtime(onChange: () => void): void {
             window as unknown as Record<string, unknown>
           ).__supabaseRealtimeSubscribed = true;
         });
-    });
+    }
+
+    // getSupabaseClient() は module 評価時に発火済みの Promise の singleton
+    // を返すため、AuthGuard 配下（session 確定 = 既に一度 await 済み）では
+    // ほぼ常に resolve 済み。peekSupabaseClient() でその場合を検出し、
+    // 追加の非同期待ち（.then() の 1 microtask 以上の遅延）なしに同じ tick
+    // で同期的に subscribe する（Issue #247: main ブランチの完全同期な
+    // subscribe とタイミングを揃え、Realtime の SUBSCRIBED 到達前イベント
+    // 取りこぼしリスクを増やさないため）。未解決の稀なケースのみ従来どおり
+    // 非同期で待つ。
+    const peeked = peekSupabaseClient();
+    if (peeked !== undefined) {
+      if (peeked) subscribe(peeked);
+    } else {
+      getSupabaseClient().then((c) => {
+        if (c) subscribe(c);
+      });
+    }
 
     return () => {
       cancelled = true;

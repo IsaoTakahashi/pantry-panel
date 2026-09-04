@@ -1,5 +1,6 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { peekSupabaseClient } from "./supabaseClient";
 import { useStockItemsRealtime } from "./useStockItemsRealtime";
 
 const { mockChannel, mockClient } = vi.hoisted(() => {
@@ -16,6 +17,9 @@ const { mockChannel, mockClient } = vi.hoisted(() => {
 
 vi.mock("./supabaseClient", () => ({
   getSupabaseClient: vi.fn().mockResolvedValue(mockClient),
+  // デフォルトは「未解決」(undefined) をシミュレート。sync-path のテストは
+  // 個別に mockReturnValueOnce / mockReturnValue で上書きする。
+  peekSupabaseClient: vi.fn().mockReturnValue(undefined),
 }));
 
 // resolve/reject を外部から任意タイミングで発火できる Promise ヘルパー。
@@ -34,6 +38,10 @@ describe("useStockItemRealtime", () => {
     mockChannel.on.mockReturnThis();
     mockChannel.subscribe.mockReturnThis();
     mockClient.channel.mockReturnValue(mockChannel);
+    // clearAllMocks() は呼び出し履歴のみリセットし、前のテストが
+    // mockReturnValue で上書きした戻り値実装は引き継がれてしまうため、
+    // ここで明示的にデフォルト（未解決 = undefined）へ戻す。
+    vi.mocked(peekSupabaseClient).mockReturnValue(undefined);
   });
 
   it("マウント時に postgres_changes を subscribe する", async () => {
@@ -49,6 +57,37 @@ describe("useStockItemRealtime", () => {
       expect.any(Function),
     );
     expect(mockChannel.subscribe).toHaveBeenCalled();
+  });
+
+  it("peekSupabaseClient が resolve 済みクライアントを返すとき、waitFor/await なしで同期的に subscribe する", () => {
+    // getSupabaseClient() が既に一度 resolve 済み（AuthGuard 配下の通常ケース）
+    // をシミュレートする。
+    vi.mocked(peekSupabaseClient).mockReturnValue(mockClient as never);
+
+    const onChange = vi.fn();
+    renderHook(() => useStockItemsRealtime(onChange));
+
+    // await / waitFor を一切挟まず、effect と同じ tick で呼ばれていることを
+    // 確認する。これが同期パスの discriminator（非同期フォールバックのみだと
+    // ここでまだ subscribe されておらず red になる）。
+    expect(mockClient.channel).toHaveBeenCalledWith("stock-items-realtime");
+    expect(mockChannel.on).toHaveBeenCalledWith(
+      "postgres_changes",
+      expect.objectContaining({ schema: "public", table: "stock_items" }),
+      expect.any(Function),
+    );
+    expect(mockChannel.subscribe).toHaveBeenCalled();
+  });
+
+  it("peekSupabaseClient が解決済み無効値（null）を返すとき、subscribe しない", () => {
+    // env 未設定などで getSupabaseClient() が既に null に resolve 済みの
+    // ケース。同期パスの null ガード（if (peeked) ...）を通ることを確認する。
+    vi.mocked(peekSupabaseClient).mockReturnValue(null);
+
+    const onChange = vi.fn();
+    renderHook(() => useStockItemsRealtime(onChange));
+
+    expect(mockClient.channel).not.toHaveBeenCalled();
   });
 
   it("on コールバックが呼ばれると onChange が呼ばれる", async () => {
