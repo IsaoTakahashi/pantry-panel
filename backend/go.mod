@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/MicahParks/keyfunc/v3 v3.8.1
-	github.com/anthropics/anthropic-sdk-go v1.66.0
+	github.com/anthropics/anthropic-sdk-go v1.69.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
