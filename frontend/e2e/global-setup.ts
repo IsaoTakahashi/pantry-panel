@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { createChunks, stringToBase64URL } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 
 async function globalSetup() {
@@ -55,19 +56,41 @@ async function globalSetup() {
     console.log(`globalSetup: created ephemeral test group ${testGroupId}`);
   }
 
-  // Supabase JS v2 のローカルストレージキー: sb-{project-ref}-auth-token
+  // @supabase/ssr のセッション cookie キー: sb-{project-ref}-auth-token
+  // (localStorage 時代と同じキーだが、格納先が cookie に変わっている)
   const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
-  const sessionKey = `sb-${projectRef}-auth-token`;
+  const cookieKey = `sb-${projectRef}-auth-token`;
   const origin = new URL(process.env.PREVIEW_URL || "http://localhost:3000")
     .origin;
+  const originUrl = new URL(origin);
+
+  // @supabase/ssr のデフォルト cookieEncoding ("base64url") に合わせてエンコードする。
+  // このアプリの createBrowserClient/createServerClient はどちらも cookieEncoding を
+  // 指定していないためデフォルトが使われる（frontend/src/lib/supabaseClient.ts,
+  // frontend/src/lib/supabaseServerClient.ts で確認済み）。
+  const encodedValue = `base64-${stringToBase64URL(JSON.stringify(data.session))}`;
+  // MAX_CHUNK_SIZE を超える場合は sb-{ref}-auth-token.0 / .1 / ... に分割される。
+  // 分割アルゴリズムは自前実装せず @supabase/ssr の実装をそのまま使う。
+  const chunks = createChunks(cookieKey, encodedValue);
+
+  const secure = originUrl.protocol === "https:";
+  const expires = Math.floor(Date.now() / 1000) + 400 * 24 * 60 * 60;
 
   const storageState = {
-    cookies: [],
+    cookies: chunks.map((chunk) => ({
+      name: chunk.name,
+      value: chunk.value,
+      domain: originUrl.hostname,
+      path: "/",
+      expires,
+      httpOnly: false,
+      secure,
+      sameSite: "Lax" as const,
+    })),
     origins: [
       {
         origin,
         localStorage: [
-          { name: sessionKey, value: JSON.stringify(data.session) },
           { name: "pantry-panel:active-group-id", value: testGroupId },
         ],
       },
