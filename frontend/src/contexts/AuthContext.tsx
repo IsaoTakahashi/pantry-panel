@@ -1,6 +1,7 @@
 "use client";
 
 import type { Session, User } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // onAuthStateChange(INITIAL_SESSION/SIGNED_IN/TOKEN_REFRESHED) が同じ
   // トークンで重複発火しても /api/groups/me を 1 回に抑えるためのガード。
   const loadedTokenRef = useRef<string | null>(null);
+  const router = useRouter();
 
   const applyGroups = useCallback((gs: GroupInfo[]) => {
     setGroups(gs);
@@ -174,6 +176,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") {
       localStorage.removeItem(ACTIVE_GROUP_KEY);
     }
+    // signOut() はユーザーの明示的な操作であり、middleware が拾える「保護ルートへの
+    // ナビゲーション」を伴わないため、ここで明示的に /login へ遷移させる
+    // （middleware は未ログイン状態でのナビゲーション発生時のみ /login へ飛ばす。
+    // signOut 自体はナビゲーションを起こさないため、放置すると保護ルート上に
+    // session=null のまま留まり、AuthGuard が children を描画しない空白画面になる）。
+    router.push("/login");
   };
 
   const refreshGroup = useCallback(async () => {

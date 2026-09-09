@@ -33,6 +33,12 @@ vi.mock("@/lib/supabaseClient", () => ({
 vi.mock("@/lib/authApi");
 vi.mock("@/lib/api");
 vi.mock("@/lib/useStockItemsRealtime");
+// AuthContext's signOut() now calls next/navigation's useRouter() (K-4 fix);
+// this suite never signs out, but AuthProvider still calls useRouter() on
+// every render, which throws outside a real Next.js app router context.
+vi.mock("next/navigation", () => ({
+  useRouter: vi.fn(() => ({ push: vi.fn() })),
+}));
 
 import { fetchStockItems } from "@/lib/api";
 import { fetchMyGroups } from "@/lib/authApi";

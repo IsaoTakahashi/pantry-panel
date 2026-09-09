@@ -25,8 +25,15 @@ vi.mock("@/lib/authApi", () => ({
   fetchMyGroups: vi.fn(),
 }));
 
+// signOut() が /login へ遷移させる (K-4 リグレッション対応)。AuthGuard.test.tsx と
+// 同じパターンで next/navigation の useRouter をモックする。
+vi.mock("next/navigation", () => ({ useRouter: vi.fn() }));
+
+import { useRouter } from "next/navigation";
 import { fetchMyGroups } from "@/lib/authApi";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+
+const mockPush = vi.fn();
 
 function TestConsumer() {
   const { session, group, groups, loading, switchGroup } = useAuth();
@@ -100,6 +107,7 @@ beforeEach(() => {
   mockOnAuthStateChange.mockReturnValue({
     data: { subscription: { unsubscribe: vi.fn() } },
   });
+  vi.mocked(useRouter).mockReturnValue({ push: mockPush } as never);
   localStorage.clear();
 });
 
@@ -392,6 +400,38 @@ describe("AuthContext", () => {
     expect(
       (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
     ).toBeUndefined();
+  });
+
+  // K-4 リグレッション対応: middleware は「未ログイン状態でのナビゲーション」しか
+  // 拾えないため、signOut() 自体がナビゲーションを発生させないと保護ルート上に
+  // session=null のまま留まってしまう (frontend/e2e/stock-items.spec.ts K-4)。
+  it("signOut は /login へ遷移させる", async () => {
+    const session = { access_token: "tok", user: { id: "u1" } };
+    mockGetSession.mockResolvedValue({ data: { session } });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "owner" },
+    ]);
+
+    let captured: SpeculativeCaptureHandle | null = null;
+    render(
+      <AuthProvider>
+        <SpeculativeCapture onReady={(h) => (captured = h)} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect((captured as SpeculativeCaptureHandle | null)?.groups.length).toBe(
+        1,
+      ),
+    );
+
+    expect(mockPush).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await (captured as SpeculativeCaptureHandle | null)?.signOut();
+    });
+
+    expect(mockPush).toHaveBeenCalledWith("/login");
   });
 
   it("switchGroup は speculativeGroupId を新しい groupId に更新する", async () => {
