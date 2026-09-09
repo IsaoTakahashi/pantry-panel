@@ -60,15 +60,21 @@ export async function GET(request: NextRequest) {
     request.url,
   );
 
-  if (!code) {
-    return NextResponse.redirect(new URL(LOGIN_ERROR_PATH, request.url));
-  }
-
   const cookieStore = await cookies();
   // setAll() が渡す Cache-Control 等の header を保管しておき、レスポンスにも
   // 適用する（supabaseServerClient.ts の JSDoc 参照）。認証 cookie を含む
   // レスポンスが CDN・リバースプロキシにキャッシュされることを防ぐ。
   let cacheHeaders: Record<string, string> = {};
+
+  if (!code) {
+    const errorResponse = NextResponse.redirect(
+      new URL(LOGIN_ERROR_PATH, request.url),
+    );
+    for (const [key, value] of Object.entries(cacheHeaders)) {
+      errorResponse.headers.set(key, value);
+    }
+    return errorResponse;
+  }
 
   const supabase = createSupabaseServerClient({
     getAll() {
@@ -88,13 +94,25 @@ export async function GET(request: NextRequest) {
   // Supabase env vars が未設定の場合は他の箇所と同じ convention（フロント側の
   // 動作確認等でも起こりうるため、失敗パスと同じ /login へ寄せる）。
   if (!supabase) {
-    return NextResponse.redirect(new URL(LOGIN_ERROR_PATH, request.url));
+    const errorResponse = NextResponse.redirect(
+      new URL(LOGIN_ERROR_PATH, request.url),
+    );
+    for (const [key, value] of Object.entries(cacheHeaders)) {
+      errorResponse.headers.set(key, value);
+    }
+    return errorResponse;
   }
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    return NextResponse.redirect(new URL(LOGIN_ERROR_PATH, request.url));
+    const errorResponse = NextResponse.redirect(
+      new URL(LOGIN_ERROR_PATH, request.url),
+    );
+    for (const [key, value] of Object.entries(cacheHeaders)) {
+      errorResponse.headers.set(key, value);
+    }
+    return errorResponse;
   }
 
   const redirectResponse = NextResponse.redirect(nextUrl);

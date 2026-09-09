@@ -60,6 +60,12 @@ Non-Goals にある通り、「サーバーから初期セッションを props 
 - [Risk]（テスト設計で発見）`@supabase/ssr` はセッション cookie を単一値ではなく複数チャンク（`sb-{project-ref}-auth-token.0`, `.1` ...）に分割して保存する場合があり、`global-setup.ts` で `storageState.cookies` を手で組み立てる実装難度が現行の単一 localStorage キーより上がる可能性がある → 実装が困難な場合は上記と同様に early escalation する
 - [Important]（テスト設計で発見）既存 `AuthGuard.test.tsx` には「未認証のとき `/login` へリダイレクトする」テストが存在し、これは本 change の MODIFIED 要件（`AuthGuard` は未ログインリダイレクトを行わない MUST NOT）と直接矛盾する。単純削除ではなく、逆方向のアサーション（`session: null` で render しても `mockPush` に `/login` が渡らないこと）に置き換える。tasks.md に明示タスクとして含める
 
+## Post-Implementation Findings（最終ブランチレビューで発見、Phase A の範囲では実害なしと判断し merge をブロックしない。Phase B 着手前にフォローアップとして対応を推奨）
+
+- [Risk] middleware の fail open は「セッション状態を確定できない場合（retryable）」と「トークンが確定的に無効と判定された場合」を区別しない。今日時点では `/stock-items` がクライアント側シェルで実データは backend が JWT を独立検証するため実害はないが、Phase B でサーバー側から直接データを返す経路を追加する前に、この区別の実装（`ssr-session-auth` spec 参照）とサーバー側データ経路の独立検証を徹底することを推奨する
+- [Risk] `session` がクライアント側で受動的に（ページ遷移を伴わず）null になるケース（別タブでのサインアウト、リフレッシュトークン失効等）で `AuthGuard` が空白ページを表示したまま止まる。影響範囲は `AuthGuard` を使う `StockItemsClient.tsx` のみ（`/invite`・`/no-group` は自己回復する）。明示的な `signOut()` 呼び出し経由のケースは対応済み（Task 9）だが、受動的なセッション喪失は未対応。フォールバックUI（「セッションが切れました→ログインする」等、リダイレクトではなく表示の変更）の追加を推奨
+- [Trade-off] middleware は認証済みリクエストごとに `getClaims()` を呼ぶため、（署名鍵が非対称鍵の場合は）JWKS 取得のキャッシュ次第でコストが変わり、対称鍵（レガシー HS256）の場合は認証済みリクエストごとに実質フルの `getUser()` ラウンドトリップが発生しうる。RSC のプリフェッチも同様に middleware を通るため、想定より多くのリクエストがこのコストを払う可能性がある。初期表示パフォーマンス改善の取り組み（project_initial_load_perf 参照）と関連するため、実測の上で必要なら鍵のモジュールキャッシュ等を検討する
+
 ## Migration Plan
 
 - DB スキーマ変更なし

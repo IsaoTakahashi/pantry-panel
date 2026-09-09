@@ -108,9 +108,24 @@ describe("GET /auth/callback", () => {
     );
   });
 
-  it("S-3: exchangeCodeForSession が失敗したらエラー付きで /login へリダイレクトする", async () => {
-    exchangeCodeForSessionMock.mockResolvedValue({
-      error: { message: "invalid grant" },
+  it("S-3: exchangeCodeForSession が失敗したらエラー付きで /login へリダイレクトし、setAll で書き込まれた cookie に対して Cache-Control ヘッダを適用する", async () => {
+    exchangeCodeForSessionMock.mockImplementation(async () => {
+      // 失敗時でも setAll が呼ばれる場合がある
+      // 例: 不正なセッションをクリアする際に setAll が呼ばれた後、エラーを返す
+      capturedCookieMethods?.setAll?.(
+        [
+          {
+            name: "sb-access-token",
+            value: "",
+            options: { path: "/" },
+          },
+        ],
+        {
+          "Cache-Control":
+            "private, no-cache, no-store, must-revalidate, max-age=0",
+        },
+      );
+      return { error: { message: "invalid grant" } };
     });
 
     const { GET } = await import("./route");
@@ -119,8 +134,11 @@ describe("GET /auth/callback", () => {
     expect(res.headers.get("location")).toBe(
       "https://example.com/login?error=auth_callback_failed",
     );
-    // 失敗時に cookie を書き込んではいけない
-    expect(cookieSetMock).not.toHaveBeenCalled();
+    // setAll で書き込まれた cookie に対して Cache-Control ヘッダが適用されていること
+    expect(cookieSetMock).toHaveBeenCalledWith("sb-access-token", "", {
+      path: "/",
+    });
+    expect(res.headers.get("Cache-Control")).toContain("no-store");
   });
 
   it("code パラメータが無い場合もエラー付きで /login へリダイレクトする", async () => {
