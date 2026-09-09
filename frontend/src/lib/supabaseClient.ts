@@ -7,8 +7,8 @@ function loadClient(): Promise<SupabaseClient | null> {
     console.warn("Supabase env vars not set, realtime disabled");
     return Promise.resolve(null);
   }
-  return import("@supabase/supabase-js").then(({ createClient }) =>
-    createClient(url, key),
+  return import("@supabase/ssr").then(({ createBrowserClient }) =>
+    createBrowserClient(url, key),
   );
 }
 
