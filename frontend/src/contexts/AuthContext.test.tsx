@@ -46,6 +46,20 @@ function TestConsumer() {
 
 type AuthContextHandle = { refreshGroup: () => Promise<void> };
 
+type SignInCaptureHandle = {
+  signInWithGoogle: (next?: string) => Promise<void>;
+};
+
+function SignInCapture({
+  onReady,
+}: {
+  onReady: (handle: SignInCaptureHandle) => void;
+}) {
+  const { signInWithGoogle } = useAuth();
+  onReady({ signInWithGoogle });
+  return null;
+}
+
 function RefreshCapture({
   onReady,
 }: {
@@ -416,6 +430,69 @@ describe("AuthContext", () => {
         (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
       ).toBe("g2"),
     );
+  });
+
+  describe("signInWithGoogle", () => {
+    const originalLocation = window.location;
+
+    beforeEach(() => {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { ...originalLocation, origin: "https://app.example.com" },
+      });
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+    });
+
+    afterEach(() => {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+      });
+    });
+
+    it("next 省略時は /stock-items を最終目的地として /auth/callback へ redirectTo する", async () => {
+      let captured: SignInCaptureHandle | null = null;
+      render(
+        <AuthProvider>
+          <SignInCapture onReady={(h) => (captured = h)} />
+        </AuthProvider>,
+      );
+
+      await act(async () => {
+        await (captured as SignInCaptureHandle | null)?.signInWithGoogle();
+      });
+
+      expect(mockSignInWithOAuth).toHaveBeenCalledWith({
+        provider: "google",
+        options: {
+          redirectTo:
+            "https://app.example.com/auth/callback?next=%2Fstock-items",
+        },
+      });
+    });
+
+    it("next 指定時はその値を最終目的地として /auth/callback へ redirectTo する", async () => {
+      let captured: SignInCaptureHandle | null = null;
+      render(
+        <AuthProvider>
+          <SignInCapture onReady={(h) => (captured = h)} />
+        </AuthProvider>,
+      );
+
+      await act(async () => {
+        await (captured as SignInCaptureHandle | null)?.signInWithGoogle(
+          "/join?token=abc",
+        );
+      });
+
+      expect(mockSignInWithOAuth).toHaveBeenCalledWith({
+        provider: "google",
+        options: {
+          redirectTo:
+            "https://app.example.com/auth/callback?next=%2Fjoin%3Ftoken%3Dabc",
+        },
+      });
+    });
   });
 
   describe("getSupabaseClient() 非同期化後の到着順序(cancel ガード)", () => {

@@ -22,7 +22,7 @@ type AuthContextValue = {
   group: GroupInfo | null;
   speculativeGroupId: string | undefined;
   loading: boolean;
-  signInWithGoogle: (redirectTo?: string) => Promise<void>;
+  signInWithGoogle: (next?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshGroup: () => Promise<void>;
   switchGroup: (groupId: string) => void;
@@ -148,17 +148,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loadGroups]);
 
-  const signInWithGoogle = async (redirectTo?: string) => {
+  const signInWithGoogle = async (next?: string) => {
     const client = await getSupabaseClient();
     if (!client) return;
+    const destination = next ?? "/stock-items";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
     await client.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo:
-          redirectTo ??
-          (typeof window !== "undefined"
-            ? `${window.location.origin}/stock-items`
-            : undefined),
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(destination)}`,
       },
     });
   };
