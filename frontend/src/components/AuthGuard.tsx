@@ -14,14 +14,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!authEnabled || loading) return;
-    if (!session) {
-      router.push("/login");
-      return;
-    }
     if (!group) {
       router.push("/no-group");
     }
-  }, [authEnabled, loading, session, group, router]);
+  }, [authEnabled, loading, group, router]);
 
   if (!authEnabled) return <>{children}</>;
   if (session && (group || speculativeGroupId)) return <>{children}</>;

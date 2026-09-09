@@ -121,14 +121,14 @@ describe("AuthGuard", () => {
       expect(mockPush).not.toHaveBeenCalled();
     });
 
-    it("未認証のとき /login へリダイレクトする", () => {
+    it("未認証でも AuthGuard 自身は /login へリダイレクトしない（middleware が担う）", () => {
       setup({ session: null });
       render(
         <AuthGuard>
           <span>content</span>
         </AuthGuard>,
       );
-      expect(mockPush).toHaveBeenCalledWith("/login");
+      expect(mockPush).not.toHaveBeenCalledWith("/login");
     });
 
     it("認証済み・グループ未所属のとき /no-group へリダイレクトする", () => {
