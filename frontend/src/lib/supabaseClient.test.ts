@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// @supabase/supabase-js の createClient を mock
-vi.mock("@supabase/supabase-js", () => ({
-  createClient: vi.fn(() => ({ from: vi.fn() })), // 最小限の fake client
+// @supabase/ssr の createBrowserClient を mock
+vi.mock("@supabase/ssr", () => ({
+  createBrowserClient: vi.fn(() => ({ from: vi.fn() })), // 最小限の fake client
 }));
 
 describe("getSupabaseClient", () => {
