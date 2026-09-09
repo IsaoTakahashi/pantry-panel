@@ -63,12 +63,13 @@ export async function middleware(request: NextRequest) {
       // 認証 cookie を含むレスポンスが CDN・リバースプロキシにキャッシュされ、
       // 別ユーザーに漏洩することを防ぐための header（Cache-Control 等）。
       // cookie 書き込みだけに使って捨てると事故るため必ず反映する。
-      // headers は setAll のたびに同じ固定内容（Cache-Control 等）が渡されるため
-      // 上書きで問題ない。
       for (const [key, value] of Object.entries(headers)) {
         response.headers.set(key, value);
       }
-      cacheHeaders = headers;
+      // @supabase/ssr は setAll のたびに同じ固定内容（Cache-Control 等）を渡す
+      // ため上書きでも実害はないが、その内部実装への暗黙の依存を無くすため
+      // 上書きではなくマージしておく。
+      cacheHeaders = { ...cacheHeaders, ...headers };
     },
   });
 
@@ -97,10 +98,24 @@ export async function middleware(request: NextRequest) {
     // 必須。
     const { data, error } = await supabase.auth.getClaims();
     isDefinitelyUnauthenticated = data === null && error === null;
-  } catch {
+    if (data === null && error !== null) {
+      // fail open するが、原因不明のまま黙って保護ルートの認証チェックが
+      // 無効化され続けると気づけない（持続的な Supabase 障害・設定ミス・
+      // リフレッシュ処理自体のバグ等）。挙動は変えず observability のみ追加。
+      console.error(
+        "middleware: getClaims resolved with an error, failing open (session refresh not confirmed)",
+        error,
+      );
+    }
+  } catch (err) {
     // リフレッシュ処理自体が例外を投げても fail open。未ログイン扱いにはせず、
     // 「セッション状態が確認できなかった」として素通りさせる（保護ルートで
     // あってもリフレッシュ失敗だけを理由に /login へは飛ばさない）。
+    // 挙動は変えず observability のみ追加。
+    console.error(
+      "middleware: getClaims threw, failing open (session refresh not confirmed)",
+      err,
+    );
     return response;
   }
 
