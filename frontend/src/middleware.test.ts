@@ -1,14 +1,38 @@
+import type { CookieOptions } from "@supabase/ssr";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // @supabase/ssr の createServerClient を mock し、middleware が
-// getClaims() の結果 / エラーに応じてどう振る舞うかだけを確認する
-// スモークテスト。網羅的なシナリオ（S-7/S-8）は Task 8 が担当する。
+// getClaims() の結果 / エラーに応じてどう振る舞うかを確認する。
+// S-7（リフレッシュ成功時に Set-Cookie が付与される）/ S-8（リフレッシュ
+// 失敗時も fail open で通過する）は下記の専用テストで検証する。
+//
+// createServerClient に渡される cookies オプション（getAll/setAll）も
+// 捕捉する。S-7（リフレッシュ成功時に Set-Cookie が付与される）を検証
+// するには、getClaimsMock の実装内から setAll を呼び出して「@supabase/ssr
+// がリフレッシュ中に内部で cookie を書き込む」挙動を再現する必要がある
+// （route.test.ts の capturedCookieMethods パターンを踏襲）。
+type CapturedCookieMethods = {
+  getAll: () => { name: string; value: string }[];
+  setAll?: (
+    cookiesToSet: { name: string; value: string; options: CookieOptions }[],
+    headers: Record<string, string>,
+  ) => void;
+};
+
+let capturedCookieMethods: CapturedCookieMethods | null = null;
 const getClaimsMock = vi.fn();
 vi.mock("@supabase/ssr", () => ({
-  createServerClient: () => ({
-    auth: { getClaims: getClaimsMock },
-  }),
+  createServerClient: (
+    _url: string,
+    _key: string,
+    options: { cookies: CapturedCookieMethods },
+  ) => {
+    capturedCookieMethods = options.cookies;
+    return {
+      auth: { getClaims: getClaimsMock },
+    };
+  },
 }));
 
 function makeRequest(path: string): NextRequest {
@@ -19,6 +43,7 @@ describe("middleware", () => {
   beforeEach(() => {
     vi.resetModules();
     getClaimsMock.mockReset();
+    capturedCookieMethods = null;
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
   });
@@ -48,6 +73,40 @@ describe("middleware", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("S-7: セッションリフレッシュ成功時、更新後の cookie が Set-Cookie として付与される", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    getClaimsMock.mockImplementation(async () => {
+      // @supabase/ssr が getClaims() 内部でリフレッシュを検知し、新しい
+      // アクセストークンを cookie に書き込む挙動を再現する。
+      capturedCookieMethods?.setAll?.(
+        [
+          {
+            name: "sb-access-token",
+            value: "refreshed-token-value",
+            options: { path: "/" },
+          },
+        ],
+        {
+          "Cache-Control":
+            "private, no-cache, no-store, must-revalidate, max-age=0",
+        },
+      );
+      return { data: { claims: { sub: "user-1" } }, error: null };
+    });
+    const { middleware } = await import("./middleware");
+
+    const res = await middleware(makeRequest("/stock-items"));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.cookies.get("sb-access-token")?.value).toBe(
+      "refreshed-token-value",
+    );
+    expect(res.headers.get("Cache-Control")).toContain("no-store");
     expect(errorSpy).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });
