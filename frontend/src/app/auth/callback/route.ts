@@ -13,34 +13,49 @@ const LOGIN_ERROR_PATH = "/login?error=auth_callback_failed";
 
 /**
  * `next` クエリパラメータ（攻撃者が自由に指定できる）を検証し、安全な同一
- * オリジンの相対パスであればそのまま返し、そうでなければデフォルトへ
- * フォールバックする（オープンリダイレクト対策）。
+ * オリジンの URL であればそれを返し、そうでなければデフォルトへフォール
+ * バックする（オープンリダイレクト対策）。
  *
- * 単純な文字列判定（"//" で始まらない・"://" を含まない等）だけでは、WHATWG
+ * **戻り値は `URL` オブジェクトそのものであり、文字列に再構築しない。**
+ * 過去のバージョンでは `` `${resolved.pathname}${resolved.search}${resolved.hash}` ``
+ * のように文字列を再構築して返し、呼び出し側で `new URL(next, request.url)`
+ * として再度パースしていたが、これは2回目のパースが独立した入力になる
+ * ため脆弱だった。例えば `next=/..//evil.com` は1回目のパース時点では
+ * `..` のパス正規化によって pathname が `//evil.com` に潰れるが、この時点
+ * ではまだ同一オリジン（`resolved.origin` は自分自身のまま）であり安全。
+ * しかしこの pathname だけを文字列として取り出し、単独で `new URL()` に
+ * 再度渡すと、今度は `//evil.com` が単独の入力としてプロトコル相対URLと
+ * 解釈され、host が evil.com に解決されてしまう（実機で確認済み）。
+ * この「検証した値」と「実際にリダイレクトする値」が2回の別々のパースで
+ * 食い違う問題を、URL オブジェクトをそのまま返して再パースを排除すること
+ * で解消する。
+ *
+ * 単純な文字列判定（"//" で始まらない・"://" を含まない等）だけでも、WHATWG
  * URL パーサーが特別スキーム（http/https）においてバックスラッシュを "/" として
  * 正規化する挙動をすり抜けられる（例: "/\evil.com" は "//evil.com" と同様に
  * host が evil.com に解決される）。そのため実際に `new URL()` で解決し、結果の
  * origin がリクエスト自身の origin と一致するかで最終判定する。
  */
-function resolveNextPath(nextParam: string | null, requestUrl: string): string {
+function resolveNextUrl(nextParam: string | null, requestUrl: string): URL {
+  const fallback = new URL(DEFAULT_NEXT_PATH, requestUrl);
   if (!nextParam?.startsWith("/") || nextParam.startsWith("//")) {
-    return DEFAULT_NEXT_PATH;
+    return fallback;
   }
   try {
     const resolved = new URL(nextParam, requestUrl);
     const base = new URL(requestUrl);
     if (resolved.origin !== base.origin) {
-      return DEFAULT_NEXT_PATH;
+      return fallback;
     }
-    return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+    return resolved;
   } catch {
-    return DEFAULT_NEXT_PATH;
+    return fallback;
   }
 }
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
-  const next = resolveNextPath(
+  const nextUrl = resolveNextUrl(
     request.nextUrl.searchParams.get("next"),
     request.url,
   );
@@ -82,7 +97,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(LOGIN_ERROR_PATH, request.url));
   }
 
-  const redirectResponse = NextResponse.redirect(new URL(next, request.url));
+  const redirectResponse = NextResponse.redirect(nextUrl);
   // Cache-Control 等の header は cookies() 経由では自動反映されないため、
   // ここで明示的にレスポンスへ適用する（cookie の Set-Cookie 自体は自動反映
   // されるが、header はレスポンスオブジェクトを直接触る必要がある）。

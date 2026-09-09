@@ -175,4 +175,42 @@ describe("GET /auth/callback", () => {
 
     expect(res.headers.get("location")).toBe("https://example.com/stock-items");
   });
+
+  // Regression: path-traversal-then-double-slash bypass (task-4 review finding).
+  //
+  // A previous implementation validated the origin of one `URL` parse of
+  // `next`, then reconstructed a *string* from `pathname+search+hash` and
+  // handed that string to a SECOND, independent `new URL(next, request.url)`
+  // call in the GET handler. For `next=/..//evil.com`, the first parse's
+  // path normalization collapses `/..//evil.com` down to pathname
+  // `//evil.com` — still same-origin at that point (the leading `/..` is
+  // consumed relative to the base). But re-parsing the extracted string
+  // `"//evil.com"` alone, with no base to anchor it, makes the SECOND parse
+  // treat it as protocol-relative and resolve to `https://evil.com/` — a
+  // real off-site redirect that the origin check upstream never saw.
+  //
+  // The fix parses `next` exactly once and returns that validated `URL`
+  // object directly to `NextResponse.redirect()`, so there is no second,
+  // differently-anchored parse to disagree with the first. The safe
+  // resolution keeps `..//evil.com`-style input on `example.com` (as an
+  // odd-looking but harmless path), never sends it to `evil.com`.
+  it.each([["/..//evil.com"], ["/.//evil.com"], ["/a/../..//evil.com"]])(
+    "open-redirect guard: path-traversal-collapse bypass (%s) stays same-origin, never evil.com",
+    async (nextParam) => {
+      exchangeCodeForSessionMock.mockResolvedValue({ error: null });
+
+      const { GET } = await import("./route");
+      const res = await GET(
+        makeRequest(
+          `/auth/callback?code=abc123&next=${encodeURIComponent(nextParam)}`,
+        ),
+      );
+
+      const location = res.headers.get("location");
+      expect(location).not.toBeNull();
+      const locationUrl = new URL(location as string);
+      expect(locationUrl.origin).toBe("https://example.com");
+      expect(locationUrl.origin).not.toBe("https://evil.com");
+    },
+  );
 });
