@@ -181,7 +181,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // （middleware は未ログイン状態でのナビゲーション発生時のみ /login へ飛ばす。
     // signOut 自体はナビゲーションを起こさないため、放置すると保護ルート上に
     // session=null のまま留まり、AuthGuard が children を描画しない空白画面になる）。
-    router.push("/login");
+    // push ではなく replace: sign-out は明示的・終端的な操作であり、履歴に
+    // 保護ルートを残すと Back 押下で Router Cache から即座に復元され
+    // （新規リクエストが発生せず middleware が走らない）、この修正が防ごうと
+    // している「session=null のまま保護ルートに留まる」状態を Back 一回で
+    // 再現してしまうため。
+    router.replace("/login");
   };
 
   const refreshGroup = useCallback(async () => {

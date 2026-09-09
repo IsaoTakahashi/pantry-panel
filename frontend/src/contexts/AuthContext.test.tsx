@@ -34,6 +34,7 @@ import { fetchMyGroups } from "@/lib/authApi";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 const mockPush = vi.fn();
+const mockReplace = vi.fn();
 
 function TestConsumer() {
   const { session, group, groups, loading, switchGroup } = useAuth();
@@ -107,7 +108,10 @@ beforeEach(() => {
   mockOnAuthStateChange.mockReturnValue({
     data: { subscription: { unsubscribe: vi.fn() } },
   });
-  vi.mocked(useRouter).mockReturnValue({ push: mockPush } as never);
+  vi.mocked(useRouter).mockReturnValue({
+    push: mockPush,
+    replace: mockReplace,
+  } as never);
   localStorage.clear();
 });
 
@@ -405,7 +409,10 @@ describe("AuthContext", () => {
   // K-4 リグレッション対応: middleware は「未ログイン状態でのナビゲーション」しか
   // 拾えないため、signOut() 自体がナビゲーションを発生させないと保護ルート上に
   // session=null のまま留まってしまう (frontend/e2e/stock-items.spec.ts K-4)。
-  it("signOut は /login へ遷移させる", async () => {
+  // push ではなく replace を使う: 履歴に保護ルートを残すと Back 押下で
+  // Router Cache から即座に復元され（新規リクエストが発生せず middleware が
+  // 走らない）、同じ空白画面バグを Back 一回で再現してしまうため。
+  it("signOut は /login へ遷移させる（履歴を残さない replace）", async () => {
     const session = { access_token: "tok", user: { id: "u1" } };
     mockGetSession.mockResolvedValue({ data: { session } });
     vi.mocked(fetchMyGroups).mockResolvedValue([
@@ -425,13 +432,14 @@ describe("AuthContext", () => {
       ),
     );
 
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
 
     await act(async () => {
       await (captured as SpeculativeCaptureHandle | null)?.signOut();
     });
 
-    expect(mockPush).toHaveBeenCalledWith("/login");
+    expect(mockReplace).toHaveBeenCalledWith("/login");
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it("switchGroup は speculativeGroupId を新しい groupId に更新する", async () => {
