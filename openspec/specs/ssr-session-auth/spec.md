@@ -15,19 +15,21 @@
 
 ### Requirement: middleware は全リクエストでセッションをリフレッシュする
 
-`middleware.ts` は全ページリクエストに対してセッション cookie のリフレッシュを試みる SHALL。リフレッシュに失敗してもリクエストの処理は継続する MUST（fail open）。
+`middleware.ts` は全ページリクエストに対してセッション cookie のリフレッシュを試みる SHALL。**セッション状態を確定できない場合**（ネットワーク障害等の retryable なエラー、または並行する `signOut` によりリフレッシュ結果が破棄された場合）は、リクエストの処理を継続する MUST（fail open）。一方、**トークンが確定的に無効と判定された場合**（署名検証失敗等）は、fail open の対象としない MUST NOT——未ログイン扱いとして扱い、保護ルートであれば通常の未ログインリダイレクト（次の Requirement）に従う。
 
 #### Scenario: 有効なセッションはリフレッシュされる
 - **WHEN** 有効なセッション cookie を持つユーザーがページに遷移する
 - **THEN** セッション cookie が最新の状態にリフレッシュされる
 
-#### Scenario: リフレッシュ失敗時もリクエストを継続する
-- **WHEN** セッションリフレッシュ処理が失敗する（ネットワーク障害等の retryable なエラーだけでなく、署名検証失敗等でトークンが確定的に無効と判定された場合を含む、現状の実装は両者を区別しない）
-- **THEN** リクエストはブロックされずに後続の処理(ページレンダリング等)に進む
+#### Scenario: リフレッシュ失敗時もリクエストを継続する（fail open は retryable なエラー・discard 系のレースに限る）
+- **WHEN** セッションリフレッシュ処理が一時的な障害（ネットワーク断・Supabase 側の retryable なエラー等）で失敗する、または並行する `signOut` によってリフレッシュ結果が破棄される
+- **THEN** リクエストはブロックされずに後続の処理（ページレンダリング等）に進む
 
-**重要（アーキテクチャ上の注意、最終ブランチレビューで発見）**: middleware のセッション確認は UX 向上のためのゲートであり、認可の境界ではない。サーバー側でデータを扱う経路（Server Component・Route Handler・Server Action 等）は、middleware を通過したことに関わらず、各経路が独立してセッション・認可を検証する SHALL。本 change（Phase A）の対象範囲では `/stock-items` はクライアント側シェルであり、実データは backend が JWT を独立検証した上で返すため実害はないが、Phase B（stock-items の Server Component 化）でサーバー側から直接データを返す経路を追加する場合は、この独立検証を省略してはならない。
+#### Scenario: 確定的に無効なトークンは fail open の対象外
+- **WHEN** セッション cookie は存在するが、トークンの署名検証失敗等により確定的に無効と判定される
+- **THEN** fail open せず、未ログイン扱いとして扱う（保護ルートであれば `/login` へリダイレクトする）
 
-**既知の制約（Known Limitation）**: 現状の fail open は「セッション状態を確定できない場合（retryable）」と「トークンが確定的に無効と判定された場合（署名検証失敗等）」を区別せず、両方とも fail open する。前者のみを fail open 対象とし、後者は未ログイン扱いとして扱う（保護ルートであれば `/login` へリダイレクトする）よう改善する余地がある。Phase A の範囲では実害はない（上記の理由）が、Phase B でサーバー側データ経路を追加する前にこの区別を実装することを推奨する。
+**重要（アーキテクチャ上の注意）**: middleware のセッション確認は UX 向上のためのゲートであり、認可の境界ではない。サーバー側でデータを扱う経路（Server Component・Route Handler・Server Action 等）は、middleware を通過したことに関わらず、各経路が独立してセッション・認可を検証する SHALL。本 Requirement の改善（fail open の対象を狭めること）は、middleware 通過＝認可済みという前提を作るものではない。
 
 ### Requirement: middleware は未ログイン時に保護ルートから /login へリダイレクトする
 
