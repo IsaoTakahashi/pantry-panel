@@ -6,7 +6,7 @@ Issue #256（Phase A: 認証を @supabase/ssr の cookie ベースに移行す�
 
 - middleware の fail open を、セッション状態を確定できない場合（ネットワーク障害等の retryable なエラー）に限定する。トークンが確定的に無効と判定された場合（署名検証失敗等）は fail open せず、未ログイン扱いとして扱い保護ルートであれば `/login` へリダイレクトする
 - `AuthGuard` に、ページ遷移を伴わない受動的なセッション喪失（別タブでのサインアウト、リフレッシュトークン失効等）が起きた場合のフォールバックUI（「セッションが切れました→ログインする」）を追加する。リダイレクトではなく表示の変更のみ行う
-- middleware の JWKS（JSON Web Key Set）取得をモジュールレベルで TTL キャッシュし、`getClaims()` に `jwks` オプションとして渡す。認証済みリクエスト（RSC プリフェッチ含む）ごとに JWKS を再取得するコストを削減する。バックエンドが `SUPABASE_JWKS_URL` を使用していることから本プロジェクトは非対称鍵（asymmetric JWT signing key）運用であることを確認済みで、`@supabase/auth-js` の `getClaims(jwt?, { jwks })` がこのキャッシュを直接サポートしている
+- （撤回）middleware の JWKS 再取得コストについて実装前調査を行った結果、`@supabase/auth-js` が既にモジュールレベルの JWKS キャッシュ（`GLOBAL_JWKS`、TTL 10分、Vercel/Lambda 等のアイソレート再利用環境向けに明示的に設計済み）を内蔵していることを確認した。独自キャッシュを追加しても同じ特性を重複するだけで利益がないため実装しない（design.md Decision 3 参照）
 
 ## Capabilities
 
@@ -19,8 +19,7 @@ Issue #256（Phase A: 認証を @supabase/ssr の cookie ベースに移行す�
 
 ## Impact
 
-- `frontend/src/middleware.ts`（fail open 判定ロジックの変更、JWKS キャッシュの追加）
-- `frontend/src/lib/`（JWKS キャッシュ用の新規モジュール、想定: `jwksCache.ts` 等）
+- `frontend/src/middleware.ts`（fail open 判定ロジックの変更のみ。JWKS キャッシュは調査の結果、実装不要と判断——design.md Decision 3）
 - `frontend/src/components/AuthGuard.tsx`（受動的セッション喪失時のフォールバックUI追加）
 - テスト: `middleware.test.ts`、`AuthGuard.test.tsx` に新規シナリオ追加
 - backend への影響なし
@@ -119,17 +118,6 @@ Issue #256（Phase A: 認証を @supabase/ssr の cookie ベースに移行す�
 
 ---
 
-### JWKS キャッシュ（Decision 3）のテスト方針
+### JWKS キャッシュ（Decision 3）のテスト方針 — 撤回
 
-Decision 3 は「認証済みリクエストごとの JWKS 再取得コストを削減する」ことが目的の**純粋なパフォーマンス最適化**であり、実装が正しく動く限りユーザーから観測可能な挙動の変化はない（キャッシュが無くても `getClaims()` はライブラリ内蔵の取得・キャッシュ経路にフォールバックし、認証結果自体は変わらない設計——design.md Decision 3）。この性質上、ハイブリッド形式の G/W/T シナリオ（ユーザー操作起点の Given/When/Then）を立てるのは不自然であり、`.claude/rules/testing.md` の代替条件「HTTP のリクエスト/レスポンスを検証したい（UI不要）→ Backend Unit / Integration」に相当する（ここでは Frontend 版として、キャッシュモジュール自体の入出力検証）に該当すると判断し、S-番号は振らず以下の Frontend Unit テスト群で担保する。
-
-| スコープ | 検証観点 | 備考 |
-|---------|---------|------|
-| Frontend Unit（`jwksCache.test.ts`、新規） | キャッシュが無い状態で呼ぶと fetch し `{ keys }` を返す | discovery endpoint（`{supabaseUrl}/auth/v1/.well-known/jwks.json`）への fetch をモック |
-| Frontend Unit | TTL 内に2回呼ぶと fetch は1回しか実行されず、2回目もキャッシュされた `keys` を返す | `vi.useFakeTimers()` 等で時刻を固定した状態での呼び出し2回を比較 |
-| Frontend Unit | TTL 経過後に呼ぶと再度 fetch が実行される | `vi.advanceTimersByTime()` で TTL（design.md 記載の想定 10分）超過後に呼び出し、fetch 回数が2回になることを確認 |
-| Frontend Unit | fetch が失敗（reject、または非 200 レスポンス）した場合は例外を投げず `undefined` を返す | design.md「fetch 自体が失敗した場合は `undefined` を返し、呼び出し側は `jwks` オプションを渡さずに `getClaims()` を呼ぶ」の直接的な discriminator |
-| Frontend Integration（`middleware.test.ts` の既存テスト拡張） | `getClaimsMock` の呼び出し引数を検証し、キャッシュが有効な `keys` を返すときは `getClaims(undefined, { jwks: { keys } })` の形で呼ばれ、キャッシュが `undefined` を返すときは `jwks` オプション無し（または `jwks: undefined`）で呼ばれることを確認する | 「JWKS キャッシュ機能が `middleware.ts` に正しく配線されているか」を保証するのはこのテストのみ。`jwksCache.ts` 単体のロジック（Frontend Unit 側）とは責務を分ける |
-
-**E2E判定:** No
-**理由:** 判断ツリー Q1 = No（キャッシュのロジックもその配線もブラウザ非依存で直接呼び出し検証できる）。加えて、実装が正しい限りキャッシュの有無はレスポンスの認証結果を一切変えない設計であるため、そもそも E2E で観測できる差分が存在しない。既存の `auth.spec.ts` の S-4〜S-6（未ログインリダイレクト・cookie 維持等）が本 change 後も green であり続けること自体が「JWKS キャッシュを組み込んでも認証が壊れていない」ことの間接的な regression 確認として機能するため、本 change のために新規 E2E を追加する必要はないと判断した。なお design.md の Trade-off（TTL 内に鍵がローテーションされ検証失敗した場合に `AuthInvalidJwtError` として誤って redirect されうる懸念）への対処（再フェッチのセーフティネット）が実装で必要と判断された場合は、そのセーフティネット自体は S-1〜S-3 と同じ Frontend Integration の枠組み（`getClaimsMock` の呼び出しシーケンスを検証）で追加すれば足り、これも E2E化は不要と考える
+実装前調査（tasks.md 3.1）の結果、独自 JWKS キャッシュは実装しないことになったため、`jwksCache.ts` 用のテスト群・`middleware.test.ts` への呼び出し引数検証テストは追加しない。既存の `middleware.test.ts`・`auth.spec.ts`（S-4〜S-6）が本 change 後も green であり続けることが、fail open 分類の変更（S-1〜S-3）を含め回帰確認として機能する。詳細は design.md Decision 3 を参照。

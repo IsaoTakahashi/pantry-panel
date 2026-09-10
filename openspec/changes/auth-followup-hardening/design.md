@@ -9,7 +9,7 @@ Issue #256（Phase A、PR #257）の最終ブランチ全体レビューで、me
 **Goals:**
 - middleware の fail open を「セッション状態を確定できない場合」に限定し、確定的に無効なトークンは未ログイン扱いにする
 - 受動的なセッション喪失（ページ遷移を伴わない）が起きたとき、`AuthGuard` がユーザーに状況を伝えるフォールバックUIを表示する
-- middleware の JWKS 取得をモジュールレベルでキャッシュし、認証済みリクエストごとの再取得コストを削減する
+- middleware の JWKS 再取得コストについて、実装が必要かどうかを実装時の調査で確定させる（結果: 不要、Decision 3 参照）
 
 **Non-Goals:**
 - Phase B（stock-items の Server Component 化）自体
@@ -40,21 +40,23 @@ Issue #256（Phase A、PR #257）の最終ブランチ全体レビューで、me
 
 検討した代替案: `signOut()` と同様に `router.replace("/login")` で自動リダイレクトする。採用しなかった理由: これは Issue #258 の指摘そのものが「AuthGuard に自動リダイレクトを追加すべきでない（Decision 3 の MUST NOT に抵触する）」という前提で書かれており、フォールバック**表示**の追加に留めることが明示的に推奨されている。ユーザー操作（リンククリック）を挟むことで、意図しない自動リダイレクトの連鎖（Task 6.3 で一度実際に踏んだ事故のクラス）を再発させない。
 
-### Decision 3: JWKS キャッシュはモジュールレベルの TTL キャッシュとして実装し、`getClaims()` に `jwks` オプションで渡す
+### Decision 3（撤回）: 独自 JWKS キャッシュは実装しない——`@supabase/auth-js` が同等のキャッシュを既に内蔵している
 
-`frontend/src/lib/jwksCache.ts`（新規）に、`NEXT_PUBLIC_SUPABASE_URL` から導出した JWKS discovery endpoint（`{supabaseUrl}/auth/v1/.well-known/jwks.json`）を fetch し、結果を `{ keys: JWK[], fetchedAt: number }` の形でモジュールレベル変数にキャッシュする関数を実装する。TTL は Supabase 公式ドキュメントの JWKS ローテーション推奨に合わせて長め（例: 10分）に設定し、キャッシュが無い/期限切れのときのみ fetch する。取得した `keys` を `middleware.ts` の `getClaims(undefined, { jwks: { keys } })` に渡す。
+当初案（`frontend/src/lib/jwksCache.ts` を新規実装し `getClaims(undefined, { jwks: { keys } })` で渡す）は実装着手前の調査（tasks.md 3.6、controller 自身による `node_modules/@supabase/auth-js` ソース調査）で撤回した。根拠:
 
-fetch 自体が失敗した場合は `undefined` を返し、呼び出し側（`middleware.ts`）は `jwks` オプションを渡さずに `getClaims()` を呼ぶ（ライブラリ自身のデフォルトの取得・キャッシュ経路にフォールバックする）——Decision 1 で新設した fail open 分類とは独立した話で、JWKS 取得失敗そのものを「認証失敗」として扱わない。
+1. **本番プロジェクトの署名鍵は ES256（非対称鍵）である**: `curl https://<project>.supabase.co/auth/v1/.well-known/jwks.json` で実際に確認済み。`getClaims()` は非対称鍵の場合、`getUser()` のようなサーバーへの往復リクエストを行わず、JWKS を使ったローカル検証（WebCrypto）を行う（`GoTrueClient.js` の `getClaims()` 実装・JSDoc で確認）。
+2. **`@supabase/auth-js` はモジュールレベルの JWKS キャッシュ（`GLOBAL_JWKS`）を既に持つ**: `GoTrueClient.js` 冒頭のコメントに明記されている: 「Caches JWKS values for all clients created in the same environment. This is especially useful for shared-memory execution environments such as Vercel's Fluid Compute, AWS Lambda or Supabase's Edge Functions.」——本プロジェクトのデプロイ構成（Vercel + AWS Lambda + LWA）そのものを名指しした、ライブラリが意図的に提供している最適化である。このキャッシュは `storageKey`（本プロジェクトでは全 `createServerClient` 呼び出しで固定値）をキーに、TTL = `JWKS_TTL`（10分）で管理される。
+3. **鍵ローテーションも kid-miss で正しく扱われる**: `fetchJwk(kid, jwks)` の実装は「呼び出し側が渡した `jwks` 内に `kid` があればそれを使う → なければ自分の内部キャッシュ内に `kid` があり、かつ TTL 内ならそれを使う → どちらにも無ければ（TTL 内かどうかに関わらず）即座にネットワークから再取得し、内部キャッシュを更新する」という順序。TTL はあくまで「見つかった鍵をどれだけ信用するか」を制御するだけで、ローテーションで新しい `kid` が来た場合は TTL 残り時間に関わらず必ず即時再取得される。design.md の当初の Trade-off（TTL 内はローテーション後の鍵で検証失敗しうる）は成立しない。
 
-**確認事項（実装時に必ず検証する）**: `JWK` 型は `@supabase/auth-js/dist/module/lib/types.d.ts` で定義されているが、`@supabase/supabase-js`・`@supabase/ssr` のトップレベルから re-export されているかは未確認。実装時に `node_modules` の型定義を直接確認し、re-export されていなければ `@supabase/auth-js` から直接 import するか、必要な形（`{ kty, key_ops, alg?, kid? }` 等）だけをローカルで定義する。
+自前でモジュールレベルキャッシュを実装しても、ライブラリが既に持つ `GLOBAL_JWKS` と全く同じ特性（プロセス/アイソレート単位で永続、TTL 10分、kid-miss で即時再取得）を重複して持つだけで、追加の性能上の利益はゼロである。CLAUDE.md の「タスクが要求する以上の抽象化を導入しない」に反するため実装しない。
 
-検討した代替案: Vercel の Edge Config や KV など外部キャッシュストアを使う。採用しなかった理由: 新規インフラ依存を増やすほどの問題ではなく、モジュールレベルの変数キャッシュ（Vercel Edge Runtime のアイソレート再利用で効く、コールドスタートでは単に初回フェッチに戻るだけで実害はない）で十分。過剰設計を避ける。
+tasks.md の Task 3 はこの調査結果を記録する1タスクに縮小する（新規ファイル `jwksCache.ts` は作成しない）。
 
 ## Risks / Trade-offs
 
 - [Risk] Decision 1 の3分類は `@supabase/auth-js` の非公開に近い内部エラークラスの命名に依存する。ライブラリのメジャーバージョンアップでクラス名やこの型ガード関数が変わる可能性がある → 型ガード関数（`isAuthRetryableFetchError` 等）はライブラリが公開 export している安定した API であり、内部実装の詳細ではない。バージョンアップ時は `frontend/package.json` のバージョン選定ルール（general.md）に従い変更ログを確認する
 - [Risk] Decision 2 のフォールバックUIは新しいテスト対象コンポーネント/分岐を追加する。既存の `AuthGuard.test.tsx` の各テストケース（no-group リダイレクト、loading 中の非リダイレクト等）が新しい3値分岐と衝突しないか実装時に確認する
-- [Trade-off] Decision 3 の TTL キャッシュは「多少古い鍵セットを使う」可能性を許容する。Supabase の鍵ローテーションは十分低頻度（通常運用では鍵は頻繁に変わらない）と想定されるため実害は小さいが、万一直近でローテーションされた場合、TTL 内は新しい鍵で署名されたトークンの検証に失敗しうる。この失敗は Decision 1 により「確定的に無効」（`AuthInvalidJwtError`）として扱われ、fail open ではなくリダイレクトされてしまう懸念がある → 実装時に `getClaims()` が `jwks` オプションで渡した鍵セットで検証に失敗した場合、ライブラリ自身が最新鍵セットへのフォールバック・リトライを行うかどうかを確認する。行わない場合は、TTL 内であっても「渡した鍵セットで検証失敗」時は `jwks` オプション無しで一度だけ再試行するなどのセーフティネットを検討する
+- [Retracted] Decision 3 の当初案が想定していた「TTL 内のローテーションで検証失敗する」Trade-off は、調査の結果、成立しないことが判明した（`fetchJwk` の kid-miss は TTL に関わらず即時再取得するため）。この Trade-off 自体が Decision 3 撤回の根拠の一部である
 
 ## Migration Plan
 
