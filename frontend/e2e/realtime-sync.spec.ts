@@ -5,6 +5,16 @@ import { createClient } from "@supabase/supabase-js";
 
 const AUTH_FILE = path.join(__dirname, "../.auth/user.json");
 
+// TEMP DIAGNOSTIC (Issue #247, remove before merge): forwards [RT-DIAG]
+// browser console lines to CI stdout so the access-token-timing hypothesis
+// can be checked from job logs.
+function forwardRtDiag(page: Page, label: string): void {
+  page.on("console", (msg) => {
+    const text = msg.text();
+    if (text.includes("[RT-DIAG]")) console.log(`[${label}] ${text}`);
+  });
+}
+
 // networkidle は Realtime の phx_join ハンドシェイクを捉えない（既に開いている
 // WebSocket 上を流れるため）。実際の購読完了シグナルとして window フラグを待つ。
 async function waitForRealtimeSubscription(page: Page): Promise<void> {
@@ -154,6 +164,8 @@ test.describe
       const ctxB = await browser.newContext({ storageState: AUTH_FILE });
       const pageA = await ctxA.newPage();
       const pageB = await ctxB.newPage();
+      forwardRtDiag(pageA, "A");
+      forwardRtDiag(pageB, "B");
 
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
@@ -186,6 +198,8 @@ test.describe
       const ctxB = await browser.newContext({ storageState: AUTH_FILE });
       const pageA = await ctxA.newPage();
       const pageB = await ctxB.newPage();
+      forwardRtDiag(pageA, "A");
+      forwardRtDiag(pageB, "B");
 
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
@@ -234,6 +248,8 @@ test.describe
       const ctxB = await browser.newContext({ storageState: AUTH_FILE });
       const pageA = await ctxA.newPage();
       const pageB = await ctxB.newPage();
+      forwardRtDiag(pageA, "A");
+      forwardRtDiag(pageB, "B");
 
       await pageA.goto("/stock-items");
       await pageB.goto("/stock-items");
