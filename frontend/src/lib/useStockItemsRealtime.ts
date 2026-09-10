@@ -21,9 +21,24 @@ export function useStockItemsRealtime(onChange: () => void): void {
     // 同期パス・非同期パスの両方から呼ぶ共通の subscribe 処理。cancelled
     // ガードと SUBSCRIBED-refetch（Issue #247 対応）を 1 箇所にまとめ、
     // 2 経路が個別に書かれて挙動が drift するのを防ぐ。
-    function subscribe(c: SupabaseClient) {
+    async function subscribe(c: SupabaseClient) {
       if (cancelled) return;
       client = c;
+      // postgres_changes の RLS 評価は channel join 時点で送信されるトークンに
+      // 固定される。後から client 内部の onAuthStateChange 配線が
+      // realtime.setAuth() を呼んでも、既に確立した channel の RLS スコープには
+      // 遡って反映されない（Issue #247、診断ログによる実測で確認済み: 失敗した
+      // CI 実行はすべて subscribe() 呼び出し時点でアクセストークン未セット、
+      // 成功実行では一度も 100% 欠落しなかった）。getSession() を待って
+      // 明示的に setAuth() してから subscribe() することで、join payload に
+      // 確実に有効なトークンを含める。sync-peek パスであっても、この await が
+      // 入る分だけ完全同期タイミングよりわずかに遅れるが、「早いが未認証な
+      // subscribe」より安全側を優先する。
+      const { data } = await c.auth.getSession();
+      if (cancelled) return;
+      if (data.session) {
+        c.realtime.setAuth(data.session.access_token);
+      }
       channel = c
         .channel("stock-items-realtime")
         .on(
@@ -54,12 +69,13 @@ export function useStockItemsRealtime(onChange: () => void): void {
     // 評価時（≒ページの script 実行開始とほぼ同時）に発火するため、React の
     // hydration〜初回 effect flush が完了するまでの間にチャンク取得が終わって
     // いることが多い、という実際のネットワーク/実行タイミングの結果であり、
-    // 保証ではない。peekSupabaseClient() で解決済みなら同じ tick で同期的に
-    // subscribe し（Issue #247: main ブランチの完全同期な subscribe と
-    // タイミングを揃え、SUBSCRIBED 到達前イベント取りこぼしのリスクを下げる）、
-    // 未解決の場合は従来どおり非同期で待つ。async パスに落ちた場合の残存
-    // リスクは Issue #247 に記録済み（83b1413 の SUBSCRIBED-refetch が
-    // セーフティネットとして機能するが、完全な保証ではない）。
+    // 保証ではない。peekSupabaseClient() で解決済みなら同じ tick で
+    // subscribe() を呼ぶが、subscribe() 自体は内部で getSession() を待って
+    // からチャンネルを join するため、完全な同期呼び出しではなくなった
+    // （上記の subscribe() 内コメント参照）。未解決の場合は従来どおり
+    // getSupabaseClient() の resolve を非同期で待つ。async パスに落ちた
+    // 場合の残存リスクは Issue #247 に記録済み（83b1413 の SUBSCRIBED-refetch
+    // がセーフティネットとして機能するが、完全な保証ではない）。
     const peeked = peekSupabaseClient();
     if (peeked !== undefined) {
       if (peeked) subscribe(peeked);
