@@ -24,13 +24,6 @@ export function useStockItemsRealtime(onChange: () => void): void {
     function subscribe(c: SupabaseClient) {
       if (cancelled) return;
       client = c;
-      // TEMP DIAGNOSTIC (Issue #247, remove before merge): checks Opus's
-      // access-token-timing hypothesis — does subscribe() fire before
-      // realtime.setAuth() has run (async, via onAuthStateChange/INITIAL_SESSION)?
-      console.log(
-        "[RT-DIAG] pre-subscribe accessTokenValue present:",
-        !!c.realtime.accessTokenValue,
-      );
       channel = c
         .channel("stock-items-realtime")
         .on(
@@ -39,13 +32,6 @@ export function useStockItemsRealtime(onChange: () => void): void {
           () => onChangeRef.current(), // INSERT/UPDATE/DELETE で最新 onChange を呼ぶ
         )
         .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            // TEMP DIAGNOSTIC (Issue #247, remove before merge)
-            console.log(
-              "[RT-DIAG] SUBSCRIBED accessTokenValue present:",
-              !!c.realtime.accessTokenValue,
-            );
-          }
           if (cancelled || status !== "SUBSCRIBED") return;
           // postgres_changes は SUBSCRIBED 到達前の変更を再送しないため、
           // マウント〜購読確立（再接続時は切断〜再購読）までの間に取りこぼした
