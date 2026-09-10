@@ -1,4 +1,8 @@
 import type { CookieOptions } from "@supabase/ssr";
+import {
+  isAuthRefreshDiscardedError,
+  isAuthRetryableFetchError,
+} from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabaseServerClient";
 
@@ -77,18 +81,22 @@ export async function middleware(request: NextRequest) {
   if (!supabase) return response;
 
   // 未ログイン確定（redirect すべき）と判定するのは「セッションが本当に存在
-  // しない」場合のみ。getClaims() は Supabase 側の一時的な障害（ネットワーク
+  // しない」場合と、「resolve されたエラーが fail-open 対象の2クラスに該当
+  // しない」場合。getClaims() は Supabase 側の一時的な障害（ネットワーク
   // エラー等）でも reject せず `{ data: null, error }` を resolve で返す
   // （@supabase/auth-js の GoTruClient.getClaims 実装: getSession() が
   // AuthRetryableFetchError 等の AuthError を返した場合は素通しで
   // `{ data: null, error }` を返すのみで throw しない）。そのため
   // `data === null` だけを見て redirect すると、一時障害時に保護ルートの
   // ユーザー全員が /login に飛ばされてしまう（S-8 が禁止する fail open 違反）。
+  // 一方で、resolve されたエラーの種類を一切見ずに常に fail open すると、
+  // JWT が明確に無効（署名不正・期限切れ等）な場合まで通過させてしまう。
   // 判定基準:
-  //   - data !== null                      → 認証済み（pass）
-  //   - data === null && error === null     → 本当に未ログイン（redirect 対象）
-  //   - data === null && error !== null     → 判定不能（fail open、redirect しない）
-  //   - 例外が飛んだ場合                     → 判定不能（fail open、redirect しない）
+  //   - data !== null                                → 認証済み（pass）
+  //   - data === null && error === null               → 本当に未ログイン（redirect 対象）
+  //   - data === null && error は Retryable/RefreshDiscarded → 判定不能（fail open、redirect しない）
+  //   - data === null && error はそれ以外              → 未ログイン確定扱い（redirect 対象）
+  //   - 例外が飛んだ場合                                → 判定不能（fail open、redirect しない）
   let isDefinitelyUnauthenticated = false;
   try {
     // getClaims() はセッションの有効期限が近ければ内部でリフレッシュしてから
@@ -97,15 +105,37 @@ export async function middleware(request: NextRequest) {
     // クライアントを生成しただけではリフレッシュは走らないため、この呼び出しが
     // 必須。
     const { data, error } = await supabase.auth.getClaims();
-    isDefinitelyUnauthenticated = data === null && error === null;
-    if (data === null && error !== null) {
-      // fail open するが、原因不明のまま黙って保護ルートの認証チェックが
-      // 無効化され続けると気づけない（持続的な Supabase 障害・設定ミス・
-      // リフレッシュ処理自体のバグ等）。挙動は変えず observability のみ追加。
-      console.error(
-        "middleware: getClaims resolved with an error, failing open (session refresh not confirmed)",
-        error,
-      );
+    if (data === null && error === null) {
+      isDefinitelyUnauthenticated = true;
+    } else if (data === null && error !== null) {
+      if (
+        isAuthRetryableFetchError(error) ||
+        isAuthRefreshDiscardedError(error)
+      ) {
+        // fail open するが、原因不明のまま黙って保護ルートの認証チェックが
+        // 無効化され続けると気づけない（持続的な Supabase 障害・設定ミス・
+        // リフレッシュ処理自体のバグ等）。挙動は変えず observability のみ追加。
+        //
+        // AuthRefreshDiscardedError を fail open 側に含める理由: このエラーは
+        // 「サーバーはリフレッシュトークンのローテーションに成功したが、
+        // クライアントがローテーション後のトークンを永続化する直前に
+        // ローカルのセッション状態が変わった（例: 別タブでの同時 signOut）
+        // ため保存を見送った」ことを示す（@supabase/auth-js の errors.js の
+        // doc comment より）。トークン自体が無効なわけではなく、次のリクエスト
+        // で解消する一時的な競合状態。ここで redirect すると、別タブでの
+        // サインアウトがこのタブのリフレッシュとたまたま競合しただけの
+        // ユーザーを誤って追い出してしまう。
+        console.error(
+          "middleware: getClaims resolved with an error, failing open (session refresh not confirmed)",
+          error,
+        );
+      } else {
+        // Retryable でも RefreshDiscarded でもない resolve エラー（例:
+        // AuthInvalidJwtError）は、リトライしても解消しない明確な判定不能
+        // ではなく「セッションが有効ではない」ケースとみなし、未ログイン
+        // 確定として扱う。
+        isDefinitelyUnauthenticated = true;
+      }
     }
   } catch (err) {
     // リフレッシュ処理自体が例外を投げても fail open。未ログイン扱いにはせず、
