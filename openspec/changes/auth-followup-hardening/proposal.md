@@ -29,7 +29,7 @@ Issue #256（Phase A: 認証を @supabase/ssr の cookie ベースに移行す�
 
 シナリオ数は5件（S-1〜S-5）で `.claude/rules/testing.md` の「6件以上で `e2e-design.md` に切り出す」閾値を超えないため、本セクションにインラインで収める。
 
-本 change はバックエンドのコードに影響しない（backend は引き続き `Authorization: Bearer <token>` を JWKS で検証するのみで、本 change が触るのは middleware の fail open 分類・AuthGuard のレンダー分岐・Next.js 側 JWKS キャッシュという、いずれも Next.js アプリ内に閉じた関心事）。したがって **バックエンドシナリオのセクションは設けない**（`ssr-cookie-auth-phase-a` が同じ理由でこのセクションを省略したのと同じ判断）。
+本 change はバックエンドのコードに影響しない（backend は引き続き `Authorization: Bearer <token>` を JWKS で検証するのみで、本 change が触るのは middleware の fail open 分類・AuthGuard のレンダー分岐という、いずれも Next.js アプリ内に閉じた関心事）。したがって **バックエンドシナリオのセクションは設けない**（`ssr-cookie-auth-phase-a` が同じ理由でこのセクションを省略したのと同じ判断）。
 
 ### フロントエンドシナリオ
 

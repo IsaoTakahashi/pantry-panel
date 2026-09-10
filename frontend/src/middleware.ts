@@ -134,6 +134,10 @@ export async function middleware(request: NextRequest) {
         // AuthInvalidJwtError）は、リトライしても解消しない明確な判定不能
         // ではなく「セッションが有効ではない」ケースとみなし、未ログイン
         // 確定として扱う。
+        console.error(
+          "middleware: getClaims resolved with a definitively invalid error, redirecting to /login",
+          error,
+        );
         isDefinitelyUnauthenticated = true;
       }
     }

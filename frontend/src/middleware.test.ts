@@ -179,6 +179,12 @@ describe("middleware", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();
+    // fail open は黙って行わず、observability のため必ずログを残す
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("resolved with an error"),
+      claimsError,
+    );
     errorSpy.mockRestore();
   });
 

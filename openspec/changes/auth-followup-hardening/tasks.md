@@ -22,5 +22,5 @@
 - [x] 4.1 `cd frontend && npx tsc --noEmit` が clean であることを確認する
 - [x] 4.2 `cd frontend && npx biome check` が clean であることを確認する
 - [x] 4.3 `cd frontend && npx vitest run` が green であることを確認する
-- [x] 4.4 `cd frontend && npx playwright test --project=mock` で既存 E2E スイート全体（`auth.spec.ts` の S-4〜S-6 含む）が green であることを確認する（JWKS キャッシュ導入後も認証が壊れていないことの間接的な regression 確認、proposal.md 参照）
+- [x] 4.4 `cd frontend && npx playwright test --project=mock` で既存 E2E スイート全体（`auth.spec.ts` の S-4〜S-6 含む）が green であることを確認する（本 change（fail open 分類変更、AuthGuard フォールバックUI追加）導入後も認証が壊れていないことの regression 確認、proposal.md 参照）
 - [x] 4.5 CI（`ci.yml`, `e2e.yml`, `e2e-preview.yml`）が green になることを確認する

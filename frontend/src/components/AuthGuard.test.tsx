@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
 const mockPush = vi.fn();
+const mockReplace = vi.fn();
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -29,7 +30,10 @@ function setup(auth: Partial<ReturnType<typeof useAuth>>) {
     switchGroup: vi.fn(),
     ...auth,
   });
-  vi.mocked(useRouter).mockReturnValue({ push: mockPush } as never);
+  vi.mocked(useRouter).mockReturnValue({
+    push: mockPush,
+    replace: mockReplace,
+  } as never);
 }
 
 describe("AuthGuard", () => {
@@ -91,6 +95,7 @@ describe("AuthGuard", () => {
       expect(link).toHaveAttribute("href", "/login");
       expect(screen.queryByText("content")).not.toBeInTheDocument();
       expect(mockPush).not.toHaveBeenCalled();
+      expect(mockReplace).not.toHaveBeenCalled();
     });
 
     it("session と speculativeGroupId があれば group 未確定・loading=true でも children を表示する", () => {
@@ -135,16 +140,6 @@ describe("AuthGuard", () => {
         </AuthGuard>,
       );
       expect(screen.getByText("content")).toBeInTheDocument();
-      expect(mockPush).not.toHaveBeenCalled();
-    });
-
-    it("未認証でも AuthGuard 自身はリダイレクトしない（middleware が担う）", () => {
-      setup({ session: null });
-      render(
-        <AuthGuard>
-          <span>content</span>
-        </AuthGuard>,
-      );
       expect(mockPush).not.toHaveBeenCalled();
     });
 
