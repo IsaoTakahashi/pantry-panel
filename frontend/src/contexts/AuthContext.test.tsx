@@ -25,8 +25,16 @@ vi.mock("@/lib/authApi", () => ({
   fetchMyGroups: vi.fn(),
 }));
 
+// signOut() が /login へ遷移させる (K-4 リグレッション対応)。AuthGuard.test.tsx と
+// 同じパターンで next/navigation の useRouter をモックする。
+vi.mock("next/navigation", () => ({ useRouter: vi.fn() }));
+
+import { useRouter } from "next/navigation";
 import { fetchMyGroups } from "@/lib/authApi";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+
+const mockPush = vi.fn();
+const mockReplace = vi.fn();
 
 function TestConsumer() {
   const { session, group, groups, loading, switchGroup } = useAuth();
@@ -45,6 +53,20 @@ function TestConsumer() {
 }
 
 type AuthContextHandle = { refreshGroup: () => Promise<void> };
+
+type SignInCaptureHandle = {
+  signInWithGoogle: (next?: string) => Promise<void>;
+};
+
+function SignInCapture({
+  onReady,
+}: {
+  onReady: (handle: SignInCaptureHandle) => void;
+}) {
+  const { signInWithGoogle } = useAuth();
+  onReady({ signInWithGoogle });
+  return null;
+}
 
 function RefreshCapture({
   onReady,
@@ -86,6 +108,10 @@ beforeEach(() => {
   mockOnAuthStateChange.mockReturnValue({
     data: { subscription: { unsubscribe: vi.fn() } },
   });
+  vi.mocked(useRouter).mockReturnValue({
+    push: mockPush,
+    replace: mockReplace,
+  } as never);
   localStorage.clear();
 });
 
@@ -380,6 +406,42 @@ describe("AuthContext", () => {
     ).toBeUndefined();
   });
 
+  // K-4 リグレッション対応: middleware は「未ログイン状態でのナビゲーション」しか
+  // 拾えないため、signOut() 自体がナビゲーションを発生させないと保護ルート上に
+  // session=null のまま留まってしまう (frontend/e2e/stock-items.spec.ts K-4)。
+  // push ではなく replace を使う: 履歴に保護ルートを残すと Back 押下で
+  // Router Cache から即座に復元され（新規リクエストが発生せず middleware が
+  // 走らない）、同じ空白画面バグを Back 一回で再現してしまうため。
+  it("signOut は /login へ遷移させる（履歴を残さない replace）", async () => {
+    const session = { access_token: "tok", user: { id: "u1" } };
+    mockGetSession.mockResolvedValue({ data: { session } });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "owner" },
+    ]);
+
+    let captured: SpeculativeCaptureHandle | null = null;
+    render(
+      <AuthProvider>
+        <SpeculativeCapture onReady={(h) => (captured = h)} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect((captured as SpeculativeCaptureHandle | null)?.groups.length).toBe(
+        1,
+      ),
+    );
+
+    expect(mockReplace).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await (captured as SpeculativeCaptureHandle | null)?.signOut();
+    });
+
+    expect(mockReplace).toHaveBeenCalledWith("/login");
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
   it("switchGroup は speculativeGroupId を新しい groupId に更新する", async () => {
     const session = { access_token: "tok", user: { id: "u1" } };
     mockGetSession.mockResolvedValue({ data: { session } });
@@ -416,6 +478,69 @@ describe("AuthContext", () => {
         (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
       ).toBe("g2"),
     );
+  });
+
+  describe("signInWithGoogle", () => {
+    const originalLocation = window.location;
+
+    beforeEach(() => {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { ...originalLocation, origin: "https://app.example.com" },
+      });
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+    });
+
+    afterEach(() => {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+      });
+    });
+
+    it("next 省略時は /stock-items を最終目的地として /auth/callback へ redirectTo する", async () => {
+      let captured: SignInCaptureHandle | null = null;
+      render(
+        <AuthProvider>
+          <SignInCapture onReady={(h) => (captured = h)} />
+        </AuthProvider>,
+      );
+
+      await act(async () => {
+        await (captured as SignInCaptureHandle | null)?.signInWithGoogle();
+      });
+
+      expect(mockSignInWithOAuth).toHaveBeenCalledWith({
+        provider: "google",
+        options: {
+          redirectTo:
+            "https://app.example.com/auth/callback?next=%2Fstock-items",
+        },
+      });
+    });
+
+    it("next 指定時はその値を最終目的地として /auth/callback へ redirectTo する", async () => {
+      let captured: SignInCaptureHandle | null = null;
+      render(
+        <AuthProvider>
+          <SignInCapture onReady={(h) => (captured = h)} />
+        </AuthProvider>,
+      );
+
+      await act(async () => {
+        await (captured as SignInCaptureHandle | null)?.signInWithGoogle(
+          "/join?token=abc",
+        );
+      });
+
+      expect(mockSignInWithOAuth).toHaveBeenCalledWith({
+        provider: "google",
+        options: {
+          redirectTo:
+            "https://app.example.com/auth/callback?next=%2Fjoin%3Ftoken%3Dabc",
+        },
+      });
+    });
   });
 
   describe("getSupabaseClient() 非同期化後の到着順序(cancel ガード)", () => {

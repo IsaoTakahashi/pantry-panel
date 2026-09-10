@@ -14,11 +14,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!authEnabled || loading) return;
-    if (!session) {
-      router.push("/login");
-      return;
-    }
-    if (!group) {
+    if (session && !group) {
       router.push("/no-group");
     }
   }, [authEnabled, loading, session, group, router]);

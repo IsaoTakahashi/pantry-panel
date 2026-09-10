@@ -1,13 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
 
 import { useAuth } from "@/contexts/AuthContext";
 
-export default function LoginPage() {
+function LoginContent() {
   const { session, loading, signInWithGoogle } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const hasCallbackError = searchParams.get("error") === "auth_callback_failed";
 
   useEffect(() => {
     if (!loading && session) {
@@ -21,6 +23,11 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6">
       <h1 className="text-3xl font-bold text-[#00d1b2]">Pantry Panel</h1>
       <p className="text-gray-600">家族の食品・日用品を管理する</p>
+      {hasCallbackError && (
+        <p className="text-red-500">
+          ログインに失敗しました。もう一度お試しください。
+        </p>
+      )}
       <button
         type="button"
         onClick={() => signInWithGoogle()}
@@ -47,5 +54,13 @@ export default function LoginPage() {
         Googleでサインイン
       </button>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   );
 }

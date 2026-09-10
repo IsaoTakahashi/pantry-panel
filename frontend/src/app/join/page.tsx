@@ -88,11 +88,7 @@ function JoinContent() {
       <p className="text-gray-600">グループへの招待を受け取りました</p>
       <button
         type="button"
-        onClick={() =>
-          signInWithGoogle(
-            typeof window !== "undefined" ? window.location.href : undefined,
-          )
-        }
+        onClick={() => signInWithGoogle(`/join?token=${token}`)}
         className="flex items-center gap-3 bg-white border border-gray-300 rounded-lg px-6 py-3 text-gray-700 font-medium shadow-sm hover:bg-gray-50"
       >
         Googleでサインインして参加する

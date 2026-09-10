@@ -199,3 +199,23 @@ proposal.md の「ユーザーシナリオとテスト設計」セクション�
 - **一般化した基準:**
   1. discriminator が red にならない場合、直ちに「テストが弱い」と結論せず、**保証を作っている可能性のある経路を複数列挙**し、それぞれを（必要なら組み合わせて）直列化・無効化してから再判定する
   2. 冗長な二重保証が見つかった場合は bug ではなく発見（informational）として記録する。ただし「片方の経路だけが壊れても、もう片方が偶然カバーしてテストは green のまま」というリグレッション検出の穴が残ることは明示しておく（今回は非アクショナブルとして許容したが、該当コードを次に触るときの注意点として引き継ぐ）
+
+### 2026-09-10: `browser.newContext()` は Playwright project の `storageState` を暗黙に引き継ぎうる。未認証コンテキストが必要なテストは明示的に空の `storageState` を渡す
+
+- **対象シナリオ:** auth.spec.ts S-4（middleware による未ログインリダイレクトの `javaScriptEnabled: false` discriminator、ssr-cookie-auth-phase-a Task 10）
+- **変更前:** `browser.newContext({ javaScriptEnabled: false })`（`storageState` を明示的に渡さない）で「project の `storageState`（`.auth/user.json`、認証済み）を引き継がない、まっさらな未認証コンテキストが作れる」という前提でテストを書いた
+- **変更後:** 実際に `page.goto("/stock-items")` すると `/login` ではなく `/stock-items` に到達し、cookie を確認したところ認証済み cookie が存在していた——`browser` fixture 経由の `newContext()` は project の `storageState` を暗黙に引き継いでいた。`storageState: { cookies: [], origins: [] }` を明示的に渡すことで解消した
+- **理由:** 「未認証コンテキストが必要」という前提を、`newContext()` に何も渡さないことのみで満たそうとすると、project 設定次第で静かに満たされないことがある。1回目の RED→GREEN 試行はこの前提の誤りに気づかずに実施され、無効な結果（両方の状態で red になり、何も判別していない）を「discriminator が機能している」と誤認しかけた
+- **一般化した基準:**
+  1. project レベルで `storageState` を設定している repo では、未認証コンテキストが必要なテストは `browser.newContext()` に **必ず明示的に空の `storageState`（`{ cookies: [], origins: [] }`）を渡す**。「何も渡さなければ独立したコンテキストになるはず」という仮定に頼らず、cookie の有無を実際に確認してから前提として採用する
+  2. 認証状態を discriminator の前提にするテスト（未認証 vs 認証済みの挙動差を検証するテスト）を書いたら、まず「実際に意図した認証状態になっているか」を（cookie 確認や実際のページ到達先で）検証してから、本来検証したいロジックの RED→GREEN に進む
+
+### 2026-09-10: サーバー側 discriminator の RED は「pre-change のコード」を忠実に再現しないと、何も判別しない
+
+- **対象シナリオ:** auth.spec.ts S-4（同上）。middleware 導入前は `AuthGuard`（クライアント側）が未ログインリダイレクトを担っていた
+- **変更前:** RED を確認する際、単に `middleware.ts` を一時的に退避しただけで JS 無効コンテキストのテストを実行し、red になったことを「discriminator が機能している証拠」として採用しかけた
+- **理由:** この時点での `AuthGuard.tsx` は既に本 change（Task 6）でクライアント側リダイレクトを削除済みだったため、「middleware を退避した状態」は pre-change の実装ではなく「redirect ロジックがどこにも存在しない状態」だった。この状態では JS 有効・無効のどちらでも red になり（何もリダイレクトしないため）、「JS 無効時特有に server-side redirect が効かなくなる」ことを何も証明していなかった
+- **変更後:** `AuthGuard.tsx` に pre-change の client-side redirect（`if (!session) { router.push("/login"); return; }`）を一時的に再導入した状態で middleware を退避し、JS 無効テストが red・JS 有効テストが green という非対称な結果になることを確認してから、両ファイルを完全に復元した（`git diff` が空であることを確認）
+- **一般化した基準:**
+  1. 「本 change 適用前のコードに red になることを確認する」という要求は、**該当ロジックを削除しただけの状態（何も存在しない）ではなく、削除前に存在していた実際のメカニズムを一時的に再現した状態**で検証する。前者は「何かが起きるはずなのに起きない」ことしか証明せず、後者だけが「新しい経路（server-side）と旧い経路（client-side）の違い」という本来証明したい主張を証明する
+  2. RED 確認のために一時的にコードを変更した場合は、変更前後で対象ファイルの `git diff` が空になることを commit 前に必ず確認する

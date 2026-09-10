@@ -1,6 +1,7 @@
 "use client";
 
 import type { Session, User } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -22,7 +23,7 @@ type AuthContextValue = {
   group: GroupInfo | null;
   speculativeGroupId: string | undefined;
   loading: boolean;
-  signInWithGoogle: (redirectTo?: string) => Promise<void>;
+  signInWithGoogle: (next?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshGroup: () => Promise<void>;
   switchGroup: (groupId: string) => void;
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // onAuthStateChange(INITIAL_SESSION/SIGNED_IN/TOKEN_REFRESHED) が同じ
   // トークンで重複発火しても /api/groups/me を 1 回に抑えるためのガード。
   const loadedTokenRef = useRef<string | null>(null);
+  const router = useRouter();
 
   const applyGroups = useCallback((gs: GroupInfo[]) => {
     setGroups(gs);
@@ -148,17 +150,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loadGroups]);
 
-  const signInWithGoogle = async (redirectTo?: string) => {
+  const signInWithGoogle = async (next?: string) => {
     const client = await getSupabaseClient();
     if (!client) return;
+    const destination = next ?? "/stock-items";
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
     await client.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo:
-          redirectTo ??
-          (typeof window !== "undefined"
-            ? `${window.location.origin}/stock-items`
-            : undefined),
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(destination)}`,
       },
     });
   };
@@ -176,6 +176,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") {
       localStorage.removeItem(ACTIVE_GROUP_KEY);
     }
+    // signOut() はユーザーの明示的な操作であり、middleware が拾える「保護ルートへの
+    // ナビゲーション」を伴わないため、ここで明示的に /login へ遷移させる
+    // （middleware は未ログイン状態でのナビゲーション発生時のみ /login へ飛ばす。
+    // signOut 自体はナビゲーションを起こさないため、放置すると保護ルート上に
+    // session=null のまま留まり、AuthGuard が children を描画しない空白画面になる）。
+    // push ではなく replace: sign-out は明示的・終端的な操作であり、履歴に
+    // 保護ルートを残すと Back 押下で Router Cache から即座に復元され
+    // （新規リクエストが発生せず middleware が走らない）、この修正が防ごうと
+    // している「session=null のまま保護ルートに留まる」状態を Back 一回で
+    // 再現してしまうため。
+    router.replace("/login");
   };
 
   const refreshGroup = useCallback(async () => {

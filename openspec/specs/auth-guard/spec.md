@@ -22,11 +22,7 @@
 - **THEN** children はレンダーされず `null` を返す
 
 ### Requirement: 確定結果に基づいてのみリダイレクトする
-`AuthGuard` は `loading` が `false` になった後の確定済み `session`・`group` の状態のみに基づいてリダイレクトを判断する SHALL。`speculativeGroupId` の有無はリダイレクト判断に使用しない MUST。
-
-#### Scenario: loading 完了後にセッションが無ければログインへリダイレクトする
-- **WHEN** `loading` が `false` になり `session` が `null` である
-- **THEN** `/login` へリダイレクトする
+`AuthGuard` は `loading` が `false` になった後の確定済み `group` の状態のみに基づいてリダイレクトを判断する SHALL。`speculativeGroupId` の有無はリダイレクト判断に使用しない MUST。未ログイン時のリダイレクトは `middleware`（`ssr-session-auth` capability）が担い、`AuthGuard` はこれを行わない MUST NOT。
 
 #### Scenario: loading 完了後にグループが無ければ no-group へリダイレクトする
 - **WHEN** `loading` が `false` になり `session` はあるが `group` が `null` である(推測グループIDの有無に関わらず)
