@@ -74,6 +74,23 @@ describe("AuthGuard", () => {
         </AuthGuard>,
       );
       expect(screen.queryByText("content")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/セッションが切れました/),
+      ).not.toBeInTheDocument();
+    });
+
+    it("session が無く loading=false のときフォールバックUIを表示し、リダイレクトしない", () => {
+      setup({ session: null });
+      render(
+        <AuthGuard>
+          <span>content</span>
+        </AuthGuard>,
+      );
+      expect(screen.getByText(/セッションが切れました/)).toBeInTheDocument();
+      const link = screen.getByRole("link", { name: "ログイン画面へ" });
+      expect(link).toHaveAttribute("href", "/login");
+      expect(screen.queryByText("content")).not.toBeInTheDocument();
+      expect(mockPush).not.toHaveBeenCalled();
     });
 
     it("session と speculativeGroupId があれば group 未確定・loading=true でも children を表示する", () => {
