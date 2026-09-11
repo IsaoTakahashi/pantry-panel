@@ -40,8 +40,18 @@ vi.mock("@supabase/ssr", () => ({
   },
 }));
 
-function makeRequest(path: string): NextRequest {
-  return new NextRequest(new URL(path, "https://example.com"));
+function makeRequest(
+  path: string,
+  cookies?: { name: string; value: string }[],
+): NextRequest {
+  const init = cookies?.length
+    ? {
+        headers: {
+          cookie: cookies.map((c) => `${c.name}=${c.value}`).join("; "),
+        },
+      }
+    : undefined;
+  return new NextRequest(new URL(path, "https://example.com"), init);
 }
 
 describe("middleware", () => {
@@ -239,5 +249,95 @@ describe("middleware", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();
+  });
+
+  // S-9 (Issue #260): isDefinitelyUnauthenticated になる2経路
+  // (a) data===null && error===null と (b) AuthInvalidJwtError resolve の
+  // どちらでも、redirectResponse は request が持っていた sb-*-auth-token
+  // cookie（チャンク分割されたものを含む）を失効させなければならない。
+  // ブラウザ側の createBrowserClient（supabaseClient.ts）は同じ cookie
+  // ストアを読むため、cookie が残ると /login → /stock-items の
+  // リダイレクトループになる（Issue #260）。
+  //
+  // 事前検証（実装前の RED 確認）: この単体テストは createServerClient
+  // 自体を丸ごとモックしているため、@supabase/ssr が実環境の (a) で内部の
+  // setAll() を呼んで cookie を消しているかどうかはこのテストからは
+  // 観測できない（テストの getClaimsMock は setAll を呼ばない）。その結果、
+  // 修正前の実装では (a)(b) の両方が red になった。つまり
+  // middleware.ts 自身は経路によらず cookie を明示的にクリアしていない
+  // ため、修正は経路を問わず isDefinitelyUnauthenticated の redirect
+  // 分岐全体に対して行う。
+  describe("S-9: redirect 時に sb-*-auth-token cookie を失効させる", () => {
+    it("(a) セッション無し(data/error 共に null) で redirect する際、単一の auth-token cookie を失効させる", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      getClaimsMock.mockResolvedValue({ data: null, error: null });
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(
+        makeRequest("/stock-items", [
+          { name: "sb-fakeref-auth-token", value: "stale-value" },
+        ]),
+      );
+
+      expect(res.status).toBe(307);
+      const cleared = res.cookies.get("sb-fakeref-auth-token");
+      expect(cleared?.value).toBe("");
+      errorSpy.mockRestore();
+    });
+
+    it("(a) セッション無しで redirect する際、チャンク分割された auth-token cookie を両方失効させる", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      getClaimsMock.mockResolvedValue({ data: null, error: null });
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(
+        makeRequest("/stock-items", [
+          { name: "sb-fakeref-auth-token.0", value: "chunk0" },
+          { name: "sb-fakeref-auth-token.1", value: "chunk1" },
+        ]),
+      );
+
+      expect(res.status).toBe(307);
+      expect(res.cookies.get("sb-fakeref-auth-token.0")?.value).toBe("");
+      expect(res.cookies.get("sb-fakeref-auth-token.1")?.value).toBe("");
+      errorSpy.mockRestore();
+    });
+
+    it("(b) AuthInvalidJwtError resolve で redirect する際、単一の auth-token cookie を失効させる", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const claimsError = new AuthInvalidJwtError("Token signature is invalid");
+      getClaimsMock.mockResolvedValue({ data: null, error: claimsError });
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(
+        makeRequest("/stock-items", [
+          { name: "sb-fakeref-auth-token", value: "stale-value" },
+        ]),
+      );
+
+      expect(res.status).toBe(307);
+      const cleared = res.cookies.get("sb-fakeref-auth-token");
+      expect(cleared?.value).toBe("");
+      errorSpy.mockRestore();
+    });
+
+    it("(b) AuthInvalidJwtError resolve で redirect する際、チャンク分割された auth-token cookie を両方失効させる", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const claimsError = new AuthInvalidJwtError("Token signature is invalid");
+      getClaimsMock.mockResolvedValue({ data: null, error: claimsError });
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(
+        makeRequest("/stock-items", [
+          { name: "sb-fakeref-auth-token.0", value: "chunk0" },
+          { name: "sb-fakeref-auth-token.1", value: "chunk1" },
+        ]),
+      );
+
+      expect(res.status).toBe(307);
+      expect(res.cookies.get("sb-fakeref-auth-token.0")?.value).toBe("");
+      expect(res.cookies.get("sb-fakeref-auth-token.1")?.value).toBe("");
+      errorSpy.mockRestore();
+    });
   });
 });

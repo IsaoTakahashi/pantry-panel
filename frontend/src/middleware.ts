@@ -18,6 +18,11 @@ const PROTECTED_PATHS = ["/", "/stock-items", "/invite", "/no-group"];
 // ここで余計な処理を挟んで壊してはならない。
 const EXCLUDED_PATHS = ["/login", "/join", "/auth/callback"];
 
+// @supabase/ssr の cookie 名パターン。project ref を含むため固定名では
+// 拾えず、かつ大きなセッションはチャンク分割される（`.0`, `.1` ...）ため
+// 数値サフィックスも許容する（Issue #260）。
+const AUTH_TOKEN_COOKIE_PATTERN = /^sb-.+-auth-token(\.\d+)?$/;
+
 function matchesPath(pathname: string, paths: string[]): boolean {
   return paths.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
@@ -164,6 +169,19 @@ export async function middleware(request: NextRequest) {
     // response 側にしか反映しないと、上記の書き換えが黙って失われる。
     for (const cookie of response.cookies.getAll()) {
       redirectResponse.cookies.set(cookie);
+    }
+    // ブラウザ側の createBrowserClient（supabaseClient.ts）は middleware と
+    // 同じ cookie ストアを読むため、失効させずに残すと未ログイン確定後も
+    // ブラウザがセッションありと誤判定し、/login → 保護ルートへ押し戻す
+    // redirect ループになる（Issue #260）。上記コピーループの後に実行する
+    // 必要がある（先に実行すると request 由来の生きた cookie で上書きされる）。
+    for (const cookie of request.cookies.getAll()) {
+      if (AUTH_TOKEN_COOKIE_PATTERN.test(cookie.name)) {
+        redirectResponse.cookies.set(cookie.name, "", {
+          path: "/",
+          maxAge: 0,
+        });
+      }
     }
     for (const [key, value] of Object.entries(cacheHeaders)) {
       redirectResponse.headers.set(key, value);
