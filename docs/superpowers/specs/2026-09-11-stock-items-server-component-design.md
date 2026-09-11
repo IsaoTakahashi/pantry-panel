@@ -55,9 +55,9 @@ SSRされたitemsが実際に初回描画されるためには、`AuthGuard` の
 
 **`layout.tsx`（ルート）**: `async function RootLayout` にし、`headers()` で `x-pp-authenticated` と cookie `pantry-panel-active-group` を読み、`<AuthProvider initialAuthenticated={boolean} initialGroupId={string | undefined}>` として渡す。
 
-**`AuthContext.tsx`**: `useState` の初期値を `initialAuthenticated`/`initialGroupId` から組み立てる。`session` の中身（`access_token` 等）は初期 `undefined` のまま（`getSession()` 解決後に埋まる）。`loading` の初期値は `initialAuthenticated` が true なら `false` 相当にする。`speculativeGroupId` は `initialGroupId`（cookie由来）に改名・差し替え——**削除ではない**。役割（`AuthGuard`ゲートの後半を満たし描画ブロックを解除する）は存続し、発生源だけ `localStorage` の同期読み取りから、サーバーから渡された値に変わる。
+**`AuthContext.tsx`**: `useState` の初期値を `initialAuthenticated`/`initialGroupId` から組み立てる。`session` の中身（`access_token` 等）は初期 `undefined` のまま（`getSession()` 解決後に埋まる）。`speculativeGroupId` は `initialGroupId`（cookie由来）に改名・差し替え——**削除ではない**。役割（`AuthGuard`ゲートの後半を満たし描画ブロックを解除する）は存続し、発生源だけ `localStorage` の同期読み取りから、サーバーから渡された値に変わる。**`loading` の初期値は変更しない**（常に `true` から始まる、従来通り）。理由はD5参照。
 
-**`AuthGuard.tsx`**: ゲート条件を `(session || initialAuthenticated) && (group || initialGroupId)` に変更。`initialAuthenticated` は「サーバーが認証済みと確認した」という一度きりの事実であり、`getSession()` が後から `session=null` を返す場合（トークン失効等）は既存の受動的セッション喪失フォールバック（Issue #261の中立文言パス）に自然に合流する。
+**`AuthGuard.tsx`**: children を返すゲート条件を `(session || initialAuthenticated) && (group || initialGroupId)` に変更。`initialAuthenticated` は「サーバーが認証済みと確認した」という一度きりの事実であり、`getSession()` が後から `session=null` を返す場合（トークン失効等）は既存の受動的セッション喪失フォールバック（Issue #261の中立文言パス）に自然に合流する。**`/no-group` へのリダイレクトを行う `useEffect`（`if (!authEnabled || loading) return; if (session && !group) router.push("/no-group")`）は変更しない**（D5参照）。
 
 ### D4. `useStockItems` の変更
 
@@ -67,7 +67,28 @@ SSRされたitemsが実際に初回描画されるためには、`AuthGuard` の
 - `effectiveGroupId` が変化した場合（`switchGroup` 等）は通常通りfetchする。`speculativeFailureRef`・リトライ機構は不変
 - `useStockItems.ts:59-66` のコメント（「未確定IDでは書き込みハンドラが呼ばれ得ない」という前提の説明）は、`initialGroupId`（cookie由来、未確定カテゴリ）に文言更新する。前提自体は崩れない——`group` 未確定中は `effectiveGroupId` が `initialGroupId` になるだけで、「未確定」という分類は変わらないため
 
-### D5. SSR取得失敗時のフォールバック
+### D5. `loading` の意味は変更しない（実装計画作成中に発見した訂正）
+
+D3の初稿では「`loading` の初期値を `initialAuthenticated` が true なら `false` 相当にする」としていたが、これは誤りだったため訂正する。
+
+**発見した問題**: 現行コードでは `loading === false` は「groups の解決（確定 or 確定的な不在）が完了した」ことを意味する不変条件であり、`AuthContext.tsx` の `onAuthStateChange` ハンドラのコメント（133-135行目）が明示的にこれを警告している（「ここで無条件に `setLoading(false)` すると `group=null` のまま `loading` が倒れ、`AuthGuard` が起動時の group 取得待ち中に誤って `/no-group` へ飛ばす」）。`AuthGuard.tsx` の `/no-group` リダイレクト用 `useEffect` はこの不変条件に依存している（`loading` が false になって初めて `session && !group` を評価する）。D3案のように `initialAuthenticated=true` の場合に `loading` の初期値を `false` にしてしまうと、この不変条件が壊れ、**groupsがまだ確定していないのに `session` 解決後 `group` がまだ `null` である一瞬に `/no-group` へ誤ってリダイレクトしてしまう**（セッション確定〜groups確定の間の競合状態）。
+
+**訂正した方針**:
+- `loading` の意味・初期値（常に `true` から開始）・`/no-group` リダイレクト用 `useEffect` の条件は**一切変更しない**
+- 初回ペイントのブロック解除は `AuthGuard` の children ゲート（`(session || initialAuthenticated) && (group || initialGroupId)`）**のみ**で行う。新しいcontextフィールド（例: `groupsConfirmed`）は不要——既存の `loading` がそのまま「groups確定済みか」を表し続けるため
+- `StockItemsClient.tsx:112` の `if (authLoading) return <StockItemsSkeleton />;` も同様に `loading` に頼ったままだと、SSRでitemsを埋め込んだケースでもここでブロックされてしまう（これも実装計画作成中に見つかった、D3では触れていなかった見落とし）。修正: `if (authLoading && initialItems === null) return <StockItemsSkeleton />;` とし、`initialItems`（D4で導入）が非nullの場合のみスケルトンをスキップする。`initialItems === null`（cookie未設定・SSR失敗）の場合は従来通りスケルトンを表示する
+
+**この訂正で4状態を確認**:
+| 状態 | AuthGuardの children ゲート | `/no-group`リダイレクト | StockItemsClientのスケルトン |
+|---|---|---|---|
+| 認証済み+cookie(groupId)あり | 即座に true（`initialAuthenticated && initialGroupId`） | `loading` 解決まで発火しない（不変条件通り） | `initialItems` があればスキップ |
+| 認証済み+cookieなし | `session` 解決まで `null`（従来通り） | 同上 | 従来通り表示 |
+| 未認証 | フォールバックUI（`!loading && !session`、従来通り） | 発火しない（`session` が truthy にならない） | N/A（AuthGuardより手前でmiddlewareが/loginへ） |
+| auth無効（env未設定） | `!authEnabled` で即children | 発火しない（`!authEnabled` で早期return） | 従来通り |
+
+**テストへの追加**: `AuthGuard` のユニットテストに、`session` truthy・`group === null`・`loading === true`・`initialGroupId` ありの状態で「`router.push` が呼ばれず、children が描画される」ことを確認するテストケースを追加する（この不変条件を将来のリファクタで再度壊さないためのピン留め）。
+
+### D6. SSR取得失敗時のフォールバック
 
 Server Component での `/api/stock-items` フェッチが失敗（タイムアウト・Lambda一時障害等）した場合、`initialItems: null` を渡し、エラー画面は出さない。クライアント側の `useStockItems` が通常のfetchフロー（loading表示 → フェッチ）にフォールバックする。SSRはbest-effortの高速化であり、失敗してもページ自体は壊れない。
 
