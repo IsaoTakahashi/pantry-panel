@@ -3,16 +3,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { peekSupabaseClient } from "./supabaseClient";
 import { useStockItemsRealtime } from "./useStockItemsRealtime";
 
-const { mockChannel, mockClient } = vi.hoisted(() => {
+const { mockChannel, mockClient, mockSession } = vi.hoisted(() => {
   const mockChannel = {
     on: vi.fn().mockReturnThis(),
     subscribe: vi.fn().mockReturnThis(),
   };
+  const mockSession = { access_token: "test-access-token" };
   const mockClient = {
     channel: vi.fn().mockReturnValue(mockChannel),
     removeChannel: vi.fn(),
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: mockSession } }),
+    },
+    realtime: {
+      setAuth: vi.fn(),
+    },
   };
-  return { mockChannel, mockClient };
+  return { mockChannel, mockClient, mockSession };
 });
 
 vi.mock("./supabaseClient", () => ({
@@ -38,6 +45,9 @@ describe("useStockItemRealtime", () => {
     mockChannel.on.mockReturnThis();
     mockChannel.subscribe.mockReturnThis();
     mockClient.channel.mockReturnValue(mockChannel);
+    mockClient.auth.getSession.mockResolvedValue({
+      data: { session: mockSession },
+    });
     // clearAllMocks() は呼び出し履歴のみリセットし、前のテストが
     // mockReturnValue で上書きした戻り値実装は引き継がれてしまうため、
     // ここで明示的にデフォルト（未解決 = undefined）へ戻す。
@@ -59,7 +69,7 @@ describe("useStockItemRealtime", () => {
     expect(mockChannel.subscribe).toHaveBeenCalled();
   });
 
-  it("peekSupabaseClient が resolve 済みクライアントを返すとき、waitFor/await なしで同期的に subscribe する", () => {
+  it("peekSupabaseClient が resolve 済みクライアントを返すとき、waitFor/await なしで同じ tick で getSession() を呼ぶ（channel join は getSession の resolve を待つ）", () => {
     // getSupabaseClient() が既に一度 resolve 済み（AuthGuard 配下の通常ケース）
     // をシミュレートする。
     vi.mocked(peekSupabaseClient).mockReturnValue(mockClient as never);
@@ -67,9 +77,27 @@ describe("useStockItemRealtime", () => {
     const onChange = vi.fn();
     renderHook(() => useStockItemsRealtime(onChange));
 
-    // await / waitFor を一切挟まず、effect と同じ tick で呼ばれていることを
-    // 確認する。これが同期パスの discriminator（非同期フォールバックのみだと
-    // ここでまだ subscribe されておらず red になる）。
+    // await / waitFor を一切挟まず、effect と同じ tick で subscribe() 関数に
+    // 入り getSession() が呼ばれていることを確認する。これが同期パスの
+    // discriminator（非同期フォールバックのみだと、ここではまだ
+    // getSession() すら呼ばれておらず red になる）。
+    expect(mockClient.auth.getSession).toHaveBeenCalled();
+    // 一方で channel の join（getSession() の resolve を待つ）はまだ
+    // 起きていない。トークン取得前に join してしまう旧実装の回帰を防ぐ
+    // discriminator（Issue #247: subscribe() 時点でのトークン未セットが
+    // CI 失敗と相関することが実測で確認された）。
+    expect(mockClient.channel).not.toHaveBeenCalled();
+  });
+
+  it("peekSupabaseClient が resolve 済みクライアントを返すとき、getSession() の resolve 後に subscribe する", async () => {
+    vi.mocked(peekSupabaseClient).mockReturnValue(mockClient as never);
+
+    const onChange = vi.fn();
+    renderHook(() => useStockItemsRealtime(onChange));
+
+    await waitFor(() => {
+      expect(mockClient.channel).toHaveBeenCalled();
+    });
     expect(mockClient.channel).toHaveBeenCalledWith("stock-items-realtime");
     expect(mockChannel.on).toHaveBeenCalledWith(
       "postgres_changes",
@@ -77,6 +105,65 @@ describe("useStockItemRealtime", () => {
       expect.any(Function),
     );
     expect(mockChannel.subscribe).toHaveBeenCalled();
+  });
+
+  it("getSession() → realtime.setAuth() → channel().subscribe() の順で呼ばれる（トークンを join payload に確実に含めるための順序）", async () => {
+    const callOrder: string[] = [];
+    mockClient.auth.getSession.mockImplementation(async () => {
+      callOrder.push("getSession");
+      return { data: { session: mockSession } };
+    });
+    mockClient.realtime.setAuth.mockImplementation(() => {
+      callOrder.push("setAuth");
+    });
+    mockChannel.subscribe.mockImplementation(() => {
+      callOrder.push("subscribe");
+      return mockChannel;
+    });
+
+    const onChange = vi.fn();
+    renderHook(() => useStockItemsRealtime(onChange));
+
+    await waitFor(() => {
+      expect(mockChannel.subscribe).toHaveBeenCalled();
+    });
+
+    expect(callOrder).toEqual(["getSession", "setAuth", "subscribe"]);
+    expect(mockClient.realtime.setAuth).toHaveBeenCalledWith(
+      mockSession.access_token,
+    );
+  });
+
+  it("getSession() が session: null を返すとき（未ログイン等）、setAuth を呼ばずに subscribe する", async () => {
+    mockClient.auth.getSession.mockResolvedValue({ data: { session: null } });
+
+    const onChange = vi.fn();
+    renderHook(() => useStockItemsRealtime(onChange));
+
+    await waitFor(() => {
+      expect(mockChannel.subscribe).toHaveBeenCalled();
+    });
+
+    expect(mockClient.realtime.setAuth).not.toHaveBeenCalled();
+  });
+
+  it("getSession() が resolve する前に unmount した場合、その後 resolve しても subscribe しない（cancelled ガード）", async () => {
+    const { promise, resolve } = deferred<{
+      data: { session: typeof mockSession | null };
+    }>();
+    mockClient.auth.getSession.mockReturnValue(promise as never);
+
+    const onChange = vi.fn();
+    const { unmount } = renderHook(() => useStockItemsRealtime(onChange));
+
+    expect(() => unmount()).not.toThrow();
+
+    resolve({ data: { session: mockSession } });
+    await promise;
+    await Promise.resolve();
+
+    expect(mockClient.realtime.setAuth).not.toHaveBeenCalled();
+    expect(mockClient.channel).not.toHaveBeenCalled();
   });
 
   it("peekSupabaseClient が解決済み無効値（null）を返すとき、subscribe しない", () => {
