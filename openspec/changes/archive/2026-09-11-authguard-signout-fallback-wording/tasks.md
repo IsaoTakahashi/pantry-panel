@@ -12,8 +12,8 @@
 
 - [x] 3.1 `cd frontend && npx vitest run src/components/AuthGuard.test.tsx` で green を確認する。11/11 green（実装 sub-agent が確認済み）
 - [x] 3.2 コードレビュー sub-agent で変更差分をレビューする。medium レベルで実施、指摘0件（clean）
-- [ ] 3.3 commit・push し、`gh pr checks --watch` で CI が green であることを確認する
+- [x] 3.3 commit・push し、`gh pr checks --watch` で CI が green であることを確認する。PR #269、全 check green
 
 ## 4. 完了処理
 
-- [ ] 4.1 `openspec archive` で本 change をアーカイブし、`specs/auth-guard/spec.md` に MODIFIED Requirements を反映する（PR マージ前、同一ブランチで実施。移動元ディレクトリの削除を必ず `git add`/`git rm` でステージすること — Issue #267 の再発防止）
+- [x] 4.1 `openspec archive` で本 change をアーカイブし、`specs/auth-guard/spec.md` に MODIFIED Requirements を反映する（PR マージ前、同一ブランチで実施）。`git mv` でリネームとしてステージし、Issue #267（移動元ディレクトリの削除漏れ）の再発を防いだ
