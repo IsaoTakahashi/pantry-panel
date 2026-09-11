@@ -42,7 +42,7 @@ epic #179（初回起動パフォーマンス改善）の最後の残タスク�
 `async function StockItemsPage()` にし、以下を行う:
 
 1. `next/headers` の `cookies()` から Supabase セッション cookie を読み、`createSupabaseServerClient`（`middleware.ts` と共有する既存関数）でサーバー用クライアントを作る
-2. `getClaims()` でアクセストークンを取得。失敗すれば以降をスキップし `initialItems: null` を渡す（エラー画面は出さない。後述 D5）
+2. `getSession()` でアクセストークン（`session.access_token`）を取得する（`getClaims()` は decode 済み claims のみを返し raw token を含まないため、Go API へのAuthorizationヘッダーには使えない。middlewareの検証は既に通過済みという前提のもと、ここでは軽量な `getSession()` を使う）。セッションが取れなければ以降をスキップし `initialItems: null` を渡す（エラー画面は出さない。後述 D6）
 3. `pantry-panel-active-group` cookie を読む。**未設定なら items は SSR しない**（`initialItems: null`）。サーバー側で「デフォルトグループを推測する」ロジックは実装しない——groups をSSRしない方針（Non-Goal）と矛盾するため、cookie未設定時は素直にクライアントフェッチに委ねる
 4. cookie に groupId があれば、それを使い Go API `/api/stock-items` 相当のサーバー用フェッチを実行
 5. 成功すれば `StockItem[]`、失敗 or cookie未設定なら `null` を `initialItems` として `StockItemsClient` に渡す（空配列と未取得を型で区別する。D4参照）
