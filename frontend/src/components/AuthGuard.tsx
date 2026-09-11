@@ -5,7 +5,8 @@ import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { session, group, speculativeGroupId, loading } = useAuth();
+  const { session, group, initialGroupId, initialAuthenticated, loading } =
+    useAuth();
   const router = useRouter();
   const authEnabled = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -20,7 +21,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [authEnabled, loading, session, group, router]);
 
   if (!authEnabled) return <>{children}</>;
-  if (session && (group || speculativeGroupId)) return <>{children}</>;
+  if ((session || initialAuthenticated) && (group || initialGroupId))
+    return <>{children}</>;
   if (!loading && !session) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4">
