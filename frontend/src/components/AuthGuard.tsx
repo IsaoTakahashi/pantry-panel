@@ -26,9 +26,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4">
         <h1 className="text-2xl font-bold text-[#00d1b2]">Pantry Panel</h1>
         <p className="text-gray-600 text-center">
-          セッションが切れました。
+          ログインが必要です。
           <br />
-          もう一度ログインしてください。
+          ログイン画面からログインしてください。
         </p>
         <a
           href="/login"
