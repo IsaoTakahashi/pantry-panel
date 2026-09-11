@@ -5,6 +5,7 @@ import { MotionProvider } from "@/components/MotionProvider";
 import { PreconnectLinks } from "@/components/PreconnectLinks";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { getServerAuthBootstrap } from "@/lib/serverAuthBootstrap";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,11 +28,14 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { initialAuthenticated, initialGroupId } =
+    await getServerAuthBootstrap();
+
   return (
     <html
       lang="ja"
@@ -47,7 +51,12 @@ export default function RootLayout({
         <ServiceWorkerRegister />
         <ChunkLoadRecovery />
         <MotionProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider
+            initialAuthenticated={initialAuthenticated}
+            initialGroupId={initialGroupId}
+          >
+            {children}
+          </AuthProvider>
         </MotionProvider>
       </body>
     </html>
