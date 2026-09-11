@@ -127,7 +127,7 @@ export function useStockItems(
   // biome-ignore lint/correctness/useExhaustiveDependencies: retryTick is a deliberate re-run trigger only (bumped by the retry-trigger effect below) — its value is never read in the body, so Biome sees it as "unnecessary", but removing it would break the round-1 retry mechanism (Decision 2: effectiveGroupId alone must not force a re-run when unchanged).
   useEffect(() => {
     // accessToken か effectiveGroupId のどちらかが無ければ fetch しない。
-    // effectiveGroupId は speculativeGroupId の遅延初期化により初回レンダーから
+    // effectiveGroupId は initialGroupId の遅延初期化により初回レンダーから
     // 存在しうるが、session（したがって accessToken）は client.auth.getSession()
     // の Promise 解決を待つため初回レンダーでは null。ここで accessToken も
     // ガードしないと、初回の fetchStockItems 呼び出しが Authorization ヘッダ無しで

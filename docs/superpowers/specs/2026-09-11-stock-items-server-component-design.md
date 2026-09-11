@@ -108,6 +108,11 @@ Server Component での `/api/stock-items` フェッチが失敗（タイムア�
 - `auth.spec.ts` S-5（`/api/groups/me` を空配列にstub）はgroups取得ロジック自体を変えないため無影響
 - 影響を受ける既存specは基本的に無しという見立て。実装時に反証されたら本設計に追記する
 
+**追記（Task 10, 全体検証時に反証）:** `health.spec.ts`（`getByText("ok")`、非exact match）が `npx playwright test --project=mock` のローカル実行で稀に strict mode violation で flaky になることを確認した（1回のフル実行で1件、retry で green）。原因は本designの本体（`RootLayout` を async化し `getServerAuthBootstrap()` で `cookies()`/`headers()` を無条件に読む変更、`frontend/src/app/layout.tsx`）そのもの。`RootLayout` は `/stock-items` だけでなく `/health` `/login` `/invite` を含む全ルートをラップしているため、この変更で**アプリの全ルートが prerendering 対象外の完全動的ルートになった**。Next.js dev server はこれを `Route "/health": Next.js encountered runtime data during prerendering.` という issue として検知し、Dev Tools のオーバーレイ（"N Issue" バッジ）に code frame（`cookieStore = ` / `cookies();` を含むソース断片）を描画する。このオーバーレイが稀に `/health` ページの DOM に同時に存在し、`getByText("ok")`（非exact）がオーバーレイのソース断片テキスト（"c**ok**ieStore" 等）にも一致してしまい strict mode violation になる。
+  - 本体のテスト（`auth.spec.ts` S-4/S-4回帰/S-5/S-6、`ssr-stock-items.spec.ts`、`stock-items.spec.ts` 全4件）はこの影響を受けず green だった。影響は `health.spec.ts` 単体かつ非exact locator に限定される
+  - **見落としていたリスク**: 本designは「`/stock-items` の SSR 化」に焦点を当てていたが、認証ブートストラップを `RootLayout` に置いたことで **`/stock-items` 以外の全ルートも副作用として prerendering 対象外になる**という trade-off が Risks/Trade-offs セクションに記載されていなかった。実運用上（Vercel 本番ビルド）の静的最適化への影響は本タスクでは未検証（dev server 上の warning のみ確認）。将来的にこの trade-off を許容するか、`headers()`/`cookies()` を `/stock-items` 配下のみで読むよう限定するかは別途判断が必要
+  - `health.spec.ts` 自体の修正（`getByText("ok", { exact: true })` 等）は本タスク（Task 10: 検証・ドキュメントのみ）のスコープ外として見送り、次にこのテストを触るセッションへの申し送りとする
+
 **Migration動作確認:**
 - cookie未設定・localStorageに既存値ありのユーザーが初回訪問し、一度だけcookieが書かれることを確認する
 

@@ -62,9 +62,9 @@ export function AuthProvider({
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [group, setGroup] = useState<GroupInfo | null>(null);
   // 初期グループIDの決定順序: (1) SSRがcookieから読んで渡した initialGroupIdProp
-  // （最も正確、サーバー検証済み）(2) localStorage の同期読み取り（従来の
-  // speculativeGroupId 相当のフォールバック — cookie未設定の移行期間や
-  // auth無効環境向け）。どちらも無ければ undefined のまま、groups確定を待つ。
+  // （最も正確、サーバー検証済み）(2) localStorage の同期読み取り（cookie未設定の
+  // 移行期間や auth無効環境向けのフォールバック）。どちらも無ければ undefined の
+  // まま、groups確定を待つ。
   const [initialGroupId, setInitialGroupId] = useState<string | undefined>(
     () =>
       initialGroupIdProp ??
