@@ -78,20 +78,20 @@ function RefreshCapture({
   return null;
 }
 
-type SpeculativeCaptureHandle = {
-  speculativeGroupId: string | undefined;
+type InitialGroupCaptureHandle = {
+  initialGroupId: string | undefined;
   groups: GroupInfo[];
   signOut: () => Promise<void>;
   switchGroup: (groupId: string) => void;
 };
 
-function SpeculativeCapture({
+function InitialGroupCapture({
   onReady,
 }: {
-  onReady: (handle: SpeculativeCaptureHandle) => void;
+  onReady: (handle: InitialGroupCaptureHandle) => void;
 }) {
-  const { speculativeGroupId, groups, signOut, switchGroup } = useAuth();
-  onReady({ speculativeGroupId, groups, signOut, switchGroup });
+  const { initialGroupId, groups, signOut, switchGroup } = useAuth();
+  onReady({ initialGroupId, groups, signOut, switchGroup });
   return null;
 }
 
@@ -113,11 +113,13 @@ beforeEach(() => {
     replace: mockReplace,
   } as never);
   localStorage.clear();
+  document.cookie = "pantry-panel-active-group=; path=/; max-age=0";
 });
 
 afterEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  document.cookie = "pantry-panel-active-group=; path=/; max-age=0";
 });
 
 // resolve/reject を外部から任意タイミングで発火できる Promise。
@@ -352,7 +354,7 @@ describe("AuthContext", () => {
     );
   });
 
-  it("mount 時に localStorage の active group id を speculativeGroupId として同期的に公開する", () => {
+  it("mount 時、SSR initialGroupId が未指定なら localStorage の active group id に同期的にフォールバックする", () => {
     localStorage.setItem("pantry-panel:active-group-id", "cached-g1");
     vi.mocked(getSupabaseClient).mockResolvedValue(null);
 
@@ -360,20 +362,22 @@ describe("AuthContext", () => {
     // 効果が解決済みになり最終値が一致してしまい退行を検出できない。
     // すべての onReady 呼び出しを記録し、FIRST render の値を検証することで
     // 「初回レンダーで既に値がある」＝lazy initializer であることを保証する。
-    const calls: SpeculativeCaptureHandle[] = [];
+    const calls: InitialGroupCaptureHandle[] = [];
     render(
-      <AuthProvider>
-        <SpeculativeCapture onReady={(h) => calls.push(h)} />
+      // initialGroupId={undefined}: SSR が cookie を渡さなかった（cookie未設定の
+      // 移行期間など）ケースを明示的に再現し、localStorage フォールバックを検証する。
+      <AuthProvider initialGroupId={undefined}>
+        <InitialGroupCapture onReady={(h) => calls.push(h)} />
       </AuthProvider>,
     );
 
     // render() 直後（await/waitFor なし）で、かつ最初の呼び出し（calls[0]）が
     // 既に値を持っていることが lazy initializer 実装の根拠。
-    // useEffect 実装なら calls[0].speculativeGroupId は undefined になるはず。
-    expect(calls[0]?.speculativeGroupId).toBe("cached-g1");
+    // useEffect 実装なら calls[0].initialGroupId は undefined になるはず。
+    expect(calls[0]?.initialGroupId).toBe("cached-g1");
   });
 
-  it("signOut は speculativeGroupId を undefined にリセットする", async () => {
+  it("signOut は initialGroupId を undefined にリセットする", async () => {
     localStorage.setItem("pantry-panel:active-group-id", "g1");
     const session = { access_token: "tok", user: { id: "u1" } };
     mockGetSession.mockResolvedValue({ data: { session } });
@@ -381,28 +385,28 @@ describe("AuthContext", () => {
       { groupId: "g1", name: "我が家", role: "owner" },
     ]);
 
-    let captured: SpeculativeCaptureHandle | null = null;
+    let captured: InitialGroupCaptureHandle | null = null;
     render(
       <AuthProvider>
-        <SpeculativeCapture onReady={(h) => (captured = h)} />
+        <InitialGroupCapture onReady={(h) => (captured = h)} />
       </AuthProvider>,
     );
 
-    expect(
-      (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
-    ).toBe("g1");
+    expect((captured as InitialGroupCaptureHandle | null)?.initialGroupId).toBe(
+      "g1",
+    );
     await waitFor(() =>
-      expect((captured as SpeculativeCaptureHandle | null)?.groups.length).toBe(
-        1,
-      ),
+      expect(
+        (captured as InitialGroupCaptureHandle | null)?.groups.length,
+      ).toBe(1),
     );
 
     await act(async () => {
-      await (captured as SpeculativeCaptureHandle | null)?.signOut();
+      await (captured as InitialGroupCaptureHandle | null)?.signOut();
     });
 
     expect(
-      (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
+      (captured as InitialGroupCaptureHandle | null)?.initialGroupId,
     ).toBeUndefined();
   });
 
@@ -419,30 +423,30 @@ describe("AuthContext", () => {
       { groupId: "g1", name: "我が家", role: "owner" },
     ]);
 
-    let captured: SpeculativeCaptureHandle | null = null;
+    let captured: InitialGroupCaptureHandle | null = null;
     render(
       <AuthProvider>
-        <SpeculativeCapture onReady={(h) => (captured = h)} />
+        <InitialGroupCapture onReady={(h) => (captured = h)} />
       </AuthProvider>,
     );
 
     await waitFor(() =>
-      expect((captured as SpeculativeCaptureHandle | null)?.groups.length).toBe(
-        1,
-      ),
+      expect(
+        (captured as InitialGroupCaptureHandle | null)?.groups.length,
+      ).toBe(1),
     );
 
     expect(mockReplace).not.toHaveBeenCalled();
 
     await act(async () => {
-      await (captured as SpeculativeCaptureHandle | null)?.signOut();
+      await (captured as InitialGroupCaptureHandle | null)?.signOut();
     });
 
     expect(mockReplace).toHaveBeenCalledWith("/login");
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it("switchGroup は speculativeGroupId を新しい groupId に更新する", async () => {
+  it("switchGroup は initialGroupId を新しい groupId に更新する", async () => {
     const session = { access_token: "tok", user: { id: "u1" } };
     mockGetSession.mockResolvedValue({ data: { session } });
     vi.mocked(fetchMyGroups).mockResolvedValue([
@@ -450,33 +454,120 @@ describe("AuthContext", () => {
       { groupId: "g2", name: "実家", role: "member" },
     ]);
 
-    let captured: SpeculativeCaptureHandle | null = null;
+    let captured: InitialGroupCaptureHandle | null = null;
     render(
       <AuthProvider>
-        <SpeculativeCapture onReady={(h) => (captured = h)} />
+        <InitialGroupCapture onReady={(h) => (captured = h)} />
       </AuthProvider>,
     );
 
     await waitFor(() =>
-      expect((captured as SpeculativeCaptureHandle | null)?.groups.length).toBe(
-        2,
-      ),
+      expect(
+        (captured as InitialGroupCaptureHandle | null)?.groups.length,
+      ).toBe(2),
     );
-    // applyGroups は確定した active group と speculativeGroupId を同期させる
+    // applyGroups は確定した active group と initialGroupId を同期させる
     // （Decision 5）。savedId が無いのでフォールバック先の gs[0]（"g1"）が
-    // active になり、speculativeGroupId もそれに合わせて "g1" になる。
-    expect(
-      (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
-    ).toBe("g1");
+    // active になり、initialGroupId もそれに合わせて "g1" になる。
+    expect((captured as InitialGroupCaptureHandle | null)?.initialGroupId).toBe(
+      "g1",
+    );
 
     act(() => {
-      (captured as SpeculativeCaptureHandle | null)?.switchGroup("g2");
+      (captured as InitialGroupCaptureHandle | null)?.switchGroup("g2");
     });
 
     await waitFor(() =>
       expect(
-        (captured as SpeculativeCaptureHandle | null)?.speculativeGroupId,
+        (captured as InitialGroupCaptureHandle | null)?.initialGroupId,
       ).toBe("g2"),
+    );
+  });
+
+  it("initialAuthenticated=true を渡すと session 解決前でも AuthGuard 判定用の initialAuthenticated が true になる", () => {
+    let captured: { initialAuthenticated: boolean } | null = null;
+    function Capture() {
+      const { initialAuthenticated } = useAuth();
+      captured = { initialAuthenticated };
+      return null;
+    }
+    render(
+      <AuthProvider initialAuthenticated initialGroupId={undefined}>
+        <Capture />
+      </AuthProvider>,
+    );
+    expect(captured).toEqual({ initialAuthenticated: true });
+  });
+
+  it("initialGroupId を渡すと context の initialGroupId に反映される", () => {
+    let captured: { initialGroupId: string | undefined } | null = null;
+    function Capture() {
+      const { initialGroupId } = useAuth();
+      captured = { initialGroupId };
+      return null;
+    }
+    render(
+      <AuthProvider initialAuthenticated={false} initialGroupId="ssr-group-1">
+        <Capture />
+      </AuthProvider>,
+    );
+    expect(captured).toEqual({ initialGroupId: "ssr-group-1" });
+  });
+
+  it("switchGroup は active group cookie も書き込む", async () => {
+    const groups: GroupInfo[] = [
+      { groupId: "g1", name: "家1", role: "owner" },
+      { groupId: "g2", name: "家2", role: "owner" },
+    ];
+    // switchGroup は groups 内に groupId が見つからないと no-op になる
+    // （既存の guard、本タスクの対象外）ため、groups が確定するまで待つ必要が
+    // ある。そのため session=null ではなく実セッションで fetchMyGroups を
+    // 発火させる。
+    const session = { access_token: "tok", user: { id: "u1" } };
+    vi.mocked(getSupabaseClient).mockResolvedValue(mockClient as never);
+    mockGetSession.mockResolvedValue({ data: { session } });
+    mockOnAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    });
+    vi.mocked(fetchMyGroups).mockResolvedValue(groups);
+
+    let captured: InitialGroupCaptureHandle | null = null;
+    render(
+      <AuthProvider initialAuthenticated={false} initialGroupId={undefined}>
+        <InitialGroupCapture onReady={(h) => (captured = h)} />
+      </AuthProvider>,
+    );
+    await waitFor(() =>
+      expect(
+        (captured as InitialGroupCaptureHandle | null)?.groups.length,
+      ).toBe(2),
+    );
+
+    act(() => {
+      (captured as InitialGroupCaptureHandle | null)?.switchGroup("g2");
+    });
+
+    expect(document.cookie).toContain("pantry-panel-active-group=g2");
+  });
+
+  it("マウント時、cookie未設定・localStorageに既存値がある場合は一度だけcookieへ移行する", async () => {
+    localStorage.setItem("pantry-panel:active-group-id", "legacy-group");
+    vi.mocked(getSupabaseClient).mockResolvedValue(mockClient as never);
+    mockGetSession.mockResolvedValue({ data: { session: null } });
+    mockOnAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    });
+
+    render(
+      <AuthProvider initialAuthenticated={false} initialGroupId={undefined}>
+        <span>child</span>
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(document.cookie).toContain(
+        "pantry-panel-active-group=legacy-group",
+      ),
     );
   });
 
