@@ -90,6 +90,19 @@ describe("getInitialStockItems", () => {
     expect(result).toBeNull();
   });
 
+  it("getSession が reject したら null を返す（エラーを投げない）", async () => {
+    mockCookiesGet.mockImplementation((name: string) =>
+      name === "pantry-panel-active-group" ? { value: "group-1" } : undefined,
+    );
+    mockGetSession.mockRejectedValue(new Error("cookie JSON parse error"));
+    const { getInitialStockItems } = await import("./getInitialStockItems");
+
+    const result = await getInitialStockItems();
+
+    expect(result).toBeNull();
+    expect(fetchStockItems).not.toHaveBeenCalled();
+  });
+
   it("Supabase env未設定（createSupabaseServerClientがnullを返す）のとき null を返す", async () => {
     const { createSupabaseServerClient } = await import(
       "@/lib/supabaseServerClient"

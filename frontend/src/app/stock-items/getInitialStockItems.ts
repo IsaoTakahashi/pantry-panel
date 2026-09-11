@@ -24,12 +24,12 @@ export async function getInitialStockItems(): Promise<StockItem[] | null> {
   });
   if (!supabase) return null;
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return null;
-
   try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return null;
+
     return await fetchStockItems(session.access_token, activeGroupId);
   } catch {
     return null;
