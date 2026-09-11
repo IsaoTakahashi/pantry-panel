@@ -43,4 +43,3 @@ pantry-panel/
 
 **コミットメッセージ:**
 - 英語で100文字以内にする
-- Co-Authored-By などの Author 情報は付けない
