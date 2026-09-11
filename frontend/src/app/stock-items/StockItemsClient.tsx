@@ -11,6 +11,7 @@ import ItemCard from "@/components/ItemCard";
 import ItemCardSimple from "@/components/ItemCardSimple";
 import { useAuth } from "@/contexts/AuthContext";
 import { type FilterCondition, filterStockItems } from "@/lib/filterStockItems";
+import type { StockItem } from "@/types/stockItem";
 import StockItemsSkeleton from "./StockItemsSkeleton";
 import { useStockItems } from "./useStockItems";
 
@@ -38,7 +39,11 @@ const INITIAL_FILTER: FilterCondition = {
   category: null,
 };
 
-export default function StockItemsClient() {
+export default function StockItemsClient({
+  initialItems,
+}: {
+  initialItems: StockItem[] | null;
+}) {
   const {
     session,
     group,
@@ -47,11 +52,11 @@ export default function StockItemsClient() {
     signOut,
     loading: authLoading,
     refreshGroup,
-    speculativeGroupId,
+    initialGroupId,
   } = useAuth();
   const accessToken = session?.access_token;
   const activeGroupId = group?.groupId;
-  const effectiveGroupId = group?.groupId ?? speculativeGroupId;
+  const effectiveGroupId = group?.groupId ?? initialGroupId;
   const isGroupConfirmed = group != null;
 
   const {
@@ -86,6 +91,7 @@ export default function StockItemsClient() {
     effectiveGroupId,
     refreshGroup,
     isGroupConfirmed,
+    initialItems,
   );
 
   const [filter, setFilter] = useState<FilterCondition>(INITIAL_FILTER);
@@ -109,7 +115,7 @@ export default function StockItemsClient() {
     setFilter(INITIAL_FILTER);
   };
 
-  if (authLoading) return <StockItemsSkeleton />;
+  if (authLoading && initialItems === null) return <StockItemsSkeleton />;
 
   return (
     <AuthGuard>

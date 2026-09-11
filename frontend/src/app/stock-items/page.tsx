@@ -5,7 +5,7 @@ import StockItemsSkeleton from "./StockItemsSkeleton";
 export default function StockItemsPage() {
   return (
     <Suspense fallback={<StockItemsSkeleton />}>
-      <StockItemsClient />
+      <StockItemsClient initialItems={null} />
     </Suspense>
   );
 }
