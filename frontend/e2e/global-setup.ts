@@ -77,16 +77,28 @@ async function globalSetup() {
   const expires = Math.floor(Date.now() / 1000) + 400 * 24 * 60 * 60;
 
   const storageState = {
-    cookies: chunks.map((chunk) => ({
-      name: chunk.name,
-      value: chunk.value,
-      domain: originUrl.hostname,
-      path: "/",
-      expires,
-      httpOnly: false,
-      secure,
-      sameSite: "Lax" as const,
-    })),
+    cookies: [
+      ...chunks.map((chunk) => ({
+        name: chunk.name,
+        value: chunk.value,
+        domain: originUrl.hostname,
+        path: "/",
+        expires,
+        httpOnly: false,
+        secure,
+        sameSite: "Lax" as const,
+      })),
+      {
+        name: "pantry-panel-active-group",
+        value: testGroupId,
+        domain: originUrl.hostname,
+        path: "/",
+        expires,
+        httpOnly: false,
+        secure,
+        sameSite: "Lax" as const,
+      },
+    ],
     origins: [
       {
         origin,
