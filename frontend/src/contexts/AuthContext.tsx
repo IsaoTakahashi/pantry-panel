@@ -10,6 +10,10 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  getActiveGroupCookie,
+  setActiveGroupCookie,
+} from "@/lib/activeGroupCookie";
 import { fetchMyGroups } from "@/lib/authApi";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { GroupInfo } from "@/types/group";
@@ -21,7 +25,8 @@ type AuthContextValue = {
   user: User | null;
   groups: GroupInfo[];
   group: GroupInfo | null;
-  speculativeGroupId: string | undefined;
+  initialGroupId: string | undefined;
+  initialAuthenticated: boolean;
   loading: boolean;
   signInWithGoogle: (next?: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -34,7 +39,8 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   groups: [],
   group: null,
-  speculativeGroupId: undefined,
+  initialGroupId: undefined,
+  initialAuthenticated: false,
   loading: true,
   signInWithGoogle: async () => {},
   signOut: async () => {},
@@ -42,21 +48,42 @@ const AuthContext = createContext<AuthContextValue>({
   switchGroup: () => {},
 });
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({
+  children,
+  initialAuthenticated = false,
+  initialGroupId: initialGroupIdProp,
+}: {
+  children: React.ReactNode;
+  initialAuthenticated?: boolean;
+  initialGroupId?: string;
+}) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [group, setGroup] = useState<GroupInfo | null>(null);
-  // localStorage の active group id をマウント時に一度だけ同期的に読む「推測値」。
-  // applyGroups の確定 group とは別管理（groups 確定を待たずに参照できるようにするため）。
-  const [speculativeGroupId, setSpeculativeGroupId] = useState<
-    string | undefined
-  >(() =>
-    typeof window !== "undefined"
-      ? (localStorage.getItem(ACTIVE_GROUP_KEY) ?? undefined)
-      : undefined,
+  // 初期グループIDの決定順序: (1) SSRがcookieから読んで渡した initialGroupIdProp
+  // （最も正確、サーバー検証済み）(2) localStorage の同期読み取り（cookie未設定の
+  // 移行期間や auth無効環境向けのフォールバック）。どちらも無ければ undefined の
+  // まま、groups確定を待つ。
+  const [initialGroupId, setInitialGroupId] = useState<string | undefined>(
+    () =>
+      initialGroupIdProp ??
+      (typeof window !== "undefined"
+        ? (localStorage.getItem(ACTIVE_GROUP_KEY) ?? undefined)
+        : undefined),
   );
   const [loading, setLoading] = useState(true);
+
+  // Migration（D1）: cookie未設定・localStorageに既存値があるユーザーの
+  // 初回訪問時、一度だけ cookie に書き写す。以降の訪問では SSR が cookie を
+  // 読めるようになる。effect は空の依存配列でマウント時に一度だけ実行する。
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (getActiveGroupCookie() !== undefined) return;
+    const legacy = localStorage.getItem(ACTIVE_GROUP_KEY);
+    if (legacy) setActiveGroupCookie(legacy);
+  }, []);
+
   // 直近に groups を取得したアクセストークン。起動時に getSession と
   // onAuthStateChange(INITIAL_SESSION/SIGNED_IN/TOKEN_REFRESHED) が同じ
   // トークンで重複発火しても /api/groups/me を 1 回に抑えるためのガード。
@@ -71,13 +98,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         : null;
     const active = gs.find((g) => g.groupId === savedId) ?? gs[0] ?? null;
     setGroup(active);
-    // speculativeGroupId は常に確定状態と同期させる（signOut/switchGroup と同様、
+    // initialGroupId は常に確定状態と同期させる（signOut/switchGroup と同様、
     // Decision 5）。ここでズレると、group が null になった後の effectiveGroupId
-    // （group が null のとき speculativeGroupId にフォールバックする）が、もう
+    // （group が null のとき initialGroupId にフォールバックする）が、もう
     // 存在しない/所属していないグループの id を指し続けてしまう。
-    setSpeculativeGroupId(active?.groupId ?? undefined);
+    setInitialGroupId(active?.groupId ?? undefined);
     if (active && typeof window !== "undefined") {
       localStorage.setItem(ACTIVE_GROUP_KEY, active.groupId);
+      setActiveGroupCookie(active.groupId);
     }
   }, []);
 
@@ -172,7 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setGroups([]);
     setGroup(null);
-    setSpeculativeGroupId(undefined);
+    setInitialGroupId(undefined);
     if (typeof window !== "undefined") {
       localStorage.removeItem(ACTIVE_GROUP_KEY);
     }
@@ -200,9 +228,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const target = groups.find((g) => g.groupId === groupId);
       if (!target) return;
       setGroup(target);
-      setSpeculativeGroupId(groupId);
+      setInitialGroupId(groupId);
       if (typeof window !== "undefined") {
         localStorage.setItem(ACTIVE_GROUP_KEY, groupId);
+        setActiveGroupCookie(groupId);
       }
     },
     [groups],
@@ -215,7 +244,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         groups,
         group,
-        speculativeGroupId,
+        initialGroupId,
+        initialAuthenticated,
         loading,
         signInWithGoogle,
         signOut,

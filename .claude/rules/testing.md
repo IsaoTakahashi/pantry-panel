@@ -244,3 +244,14 @@ proposal.md の「ユーザーシナリオとテスト設計」セクション�
   1. CI ワークフローの flaky率を報告・議論する際は、`gh run list` のような**最新 attempt のみの集計**を鵜呑みにしない。rerun で救われた失敗を含めた真の flaky率を知るには attempt 履歴の全数調査が必要
   2. 「rerun すれば直る」という経験則は、実際に何回の rerun で何割が解決するか、解決しないケースがどれだけあるかを実数で検証してから採用する。小さいサンプル（当日遭遇した1〜2件）からの一般化は、ユーザーからの指摘どおり偏りうる
   3. 高失敗率の期間を発見したら、それが調査対象の問題（今回は Issue #247）と同一原因か、別の独立した原因（今回は Docker イメージのバージョン不一致）かを切り分ける。同一原因と決めつけて合算すると、傾向分析そのものが誤った結論に導かれる
+
+### 2026-09-11: レイアウト単位で `cookies()`/`headers()` を無条件に読むと、対象外のルートの E2E まで dev-overlay 経由で巻き添えになりうる
+
+- **対象シナリオ:** health.spec.ts（Issue #182, stock-items-server-component design の Task 10 全体検証で発覚。`RootLayout` を async化し `getServerAuthBootstrap()` で cookie/header を読む変更、`frontend/src/app/layout.tsx`）
+- **変更前:** design.md は「`/stock-items` の SSR 化」にのみ着目し、既存 E2E への影響は「基本的に無し」と見立てていた
+- **変更後:** `npx playwright test --project=mock` のフル実行で `health.spec.ts`（`getByText("ok")`、非exact）が稀に strict mode violation で flaky になることを確認した。原因は `RootLayout` が `/health` `/login` `/invite` を含む**全ルート**をラップしており、`cookies()`/`headers()` の無条件読み取りにより全ルートが prerendering 対象外の完全動的ルートになったこと。Next.js dev server がこれを `Route "...": Next.js encountered runtime data during prerendering.` という issue として検知し、Dev Tools オーバーレイに code frame（`cookieStore = ` 等のソース断片）を描画する。このオーバーレイが DOM に同時存在すると、非exactな `getByText("ok")` がソース断片中の "ok" を含む語（"c**ok**ieStore" 等）にも一致し、strict mode violation になる
+- **理由:** 認証ブートストラップのような「特定ページのために追加したはずの `cookies()`/`headers()` 読み取り」を、そのページ専用のコンポーネントではなく共通レイアウト（`RootLayout` 等、全ルート共通の祖先）に置くと、対象外のルートまで副作用（prerendering 不可・dev-overlay issue 表示）を受ける。その副作用は機能的には無害でも、**非exactな E2E ロケータ（`getByText` の部分一致等）がオーバーレイの描画内容と偶然衝突し、無関係な既存specを flaky にする**という間接的な形で顕在化しうる
+- **一般化した基準:**
+  1. `cookies()`/`headers()`/`params`/`searchParams` を共通レイアウト（複数ルートの祖先）で無条件に読む変更を加える場合、影響範囲は「その値を使う特定ルート」だけでなく**そのレイアウトの子孫である全ルート**であると認識し、design.md の既存E2Eへの影響セクションではその全ルートを対象に確認する
+  2. Next.js dev server のログ（`Route "...": Next.js encountered runtime data during prerendering.` 等の警告）は、ローカル E2E フル実行時に一度は目を通す。警告が出ているルートと、flaky/failing な E2E spec のルートが一致していないか照合する
+  3. `getByText(...)`（非exact）を使う既存 E2E は、ページに Next.js Dev Tools のオーバーレイ（issue バッジ・code frame）が重なりうる場合、意図しない部分一致の温床になる。dev-only の挙動に依存した flaky の疑いがあれば、`{ exact: true }` またはより具体的なロケータへの置き換えを検討する。**追記**: CI の e2e.yml も `--project=mock`（`npm run dev` の dev server）で実行するため preview 限定の問題ではなくCI再現性があると判明し、`health.spec.ts` は `{ exact: true }` へその場で修正した（`--repeat-each=5` で5/5 green、フルスイート再実行でも flaky 消失を確認）

@@ -48,12 +48,13 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 // speculative (localStorage-cached) group id until the real group confirms,
 // and isGroupConfirmed reflects group !== null rather than authLoading.
 function Harness() {
-  const { session, group, speculativeGroupId, refreshGroup } = useAuth();
+  const { session, group, initialGroupId, refreshGroup } = useAuth();
   useStockItems(
     session?.access_token,
-    group?.groupId ?? speculativeGroupId,
+    group?.groupId ?? initialGroupId,
     refreshGroup,
     group != null,
+    null,
   );
   return null;
 }
@@ -127,7 +128,7 @@ describe("startup stock-items fetch", () => {
   it("starts fetching with the localStorage-cached speculative group id before groups resolve over the network", async () => {
     // Simulate a returning user: a previous session already cached the active
     // group id, so AuthProvider's lazy initializer exposes it synchronously as
-    // speculativeGroupId on the very first render, before any network I/O.
+    // initialGroupId on the very first render, before any network I/O.
     localStorage.setItem("pantry-panel:active-group-id", "g1");
 
     const session = { access_token: "tok", user: { id: "u1" } };
@@ -157,7 +158,7 @@ describe("startup stock-items fetch", () => {
     // see Finding 1 of the final review), so the very first fetch call only
     // happens once getSession() resolves. That resolution is a synchronous
     // localStorage read with no network round trip, so it lands on
-    // essentially the same tick as the speculativeGroupId that was already
+    // essentially the same tick as the initialGroupId that was already
     // available from the very first render (Harness — like production's
     // StockItemsClient, whose useStockItems call runs regardless of
     // AuthGuard — mounts useStockItems immediately). The first fetch is

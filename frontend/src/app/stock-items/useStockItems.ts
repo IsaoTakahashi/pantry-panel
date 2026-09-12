@@ -58,18 +58,25 @@ export function useStockItems(
   accessToken: string | undefined,
   // 書き込み系ハンドラ（handleCreate / handleSave / handleToggleWantToBuy /
   // handleConfirmDelete / handleImageSelect / handleRenameGroup）は全て
-  // effectiveGroupId（未確定の推測値のこともある）を使う。これが安全なのは
-  // 現状 frontend/src/app/stock-items/StockItemsClient.tsx（110行目付近）が
-  // group 未確定の間スケルトンを表示し操作可能な UI を一切レンダーしないため、
-  // 未確定 id で書き込みハンドラが呼ばれること自体が起こり得ないから。
-  // StockItemsClient がそのスケルトンゲートを外す/変更する場合は、この前提が
-  // 崩れないかここを再確認すること。
+  // effectiveGroupId（groupsのconfirmed値、または未確定のフォールバック値
+  // ——AuthContext の initialGroupId。SSRのcookieまたはlocalStorage由来）を
+  // 使う。これが安全なのは現状
+  // frontend/src/app/stock-items/StockItemsClient.tsx（110行目付近）が
+  // group 未確定の間スケルトンを表示し操作可能な UI を一切レンダーしないため
+  // （ただし initialItems が非nullの場合はスケルトンをスキップする——Issue
+  // #182。この場合も items 一覧は表示されるが、書き込み系UIそのものは
+  // AuthGuard の children ゲート後に描画される点は変わらず、group が未確定な
+  // 間は StockItemsClient 側の isGroupConfirmed ガードが書き込みハンドラの
+  // 到達を引き続き防ぐ）、未確定 id で書き込みハンドラが呼ばれること自体が
+  // 起こり得ないから。StockItemsClient がそのゲートを外す/変更する場合は、
+  // この前提が崩れないかここを再確認すること。
   effectiveGroupId: string | undefined,
   refreshGroup: () => Promise<void>,
   isGroupConfirmed: boolean,
+  initialItems: StockItem[] | null,
 ): UseStockItemsReturn {
-  const [items, setItems] = useState<StockItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<StockItem[]>(initialItems ?? []);
+  const [loading, setLoading] = useState(initialItems === null);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
@@ -112,10 +119,15 @@ export function useStockItems(
   const isGroupConfirmedRef = useRef(isGroupConfirmed);
   isGroupConfirmedRef.current = isGroupConfirmed;
 
+  // initialItems は SSR が渡した「マウント時点の effectiveGroupId に対する
+  // 最新値」。同じ id に対する初回 fetch effect を一度だけスキップするための
+  // ガード。effectiveGroupId が変わったら（switchGroup 等）通常通り fetch する。
+  const consumedInitialItemsRef = useRef(false);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: retryTick is a deliberate re-run trigger only (bumped by the retry-trigger effect below) — its value is never read in the body, so Biome sees it as "unnecessary", but removing it would break the round-1 retry mechanism (Decision 2: effectiveGroupId alone must not force a re-run when unchanged).
   useEffect(() => {
     // accessToken か effectiveGroupId のどちらかが無ければ fetch しない。
-    // effectiveGroupId は speculativeGroupId の遅延初期化により初回レンダーから
+    // effectiveGroupId は initialGroupId の遅延初期化により初回レンダーから
     // 存在しうるが、session（したがって accessToken）は client.auth.getSession()
     // の Promise 解決を待つため初回レンダーでは null。ここで accessToken も
     // ガードしないと、初回の fetchStockItems 呼び出しが Authorization ヘッダ無しで
@@ -129,6 +141,18 @@ export function useStockItems(
     // effectiveGroupId 自体が変化すれば依存配列の変化で自動的に再フェッチされ、
     // 変化しなければ（推測値=確定値）React が自動的に再実行をスキップする。
     if (!accessToken || !effectiveGroupId) return;
+
+    // SSR が渡した initialItems は「今の effectiveGroupId に対する最新値」。
+    // 初回だけそれを信頼して fetch をスキップする（一度消費したら以後は
+    // 通常通り fetch する——effectiveGroupId が変わった場合も含む）。
+    if (
+      !consumedInitialItemsRef.current &&
+      initialItems !== null &&
+      effectiveGroupId
+    ) {
+      consumedInitialItemsRef.current = true;
+      return;
+    }
 
     // effectiveGroupId が実際に変わっていたら、古い id に対する失敗記録は無効。
     // 新しい id の結果でこの後上書きされる。

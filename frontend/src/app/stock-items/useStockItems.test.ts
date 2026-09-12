@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import { createGroup, updateGroupName } from "@/lib/authApi";
 import { useStockItemsRealtime } from "@/lib/useStockItemsRealtime";
+import type { StockItem } from "@/types/stockItem";
 import { useStockItems } from "./useStockItems";
 
 vi.mock("@/lib/api");
@@ -39,12 +40,15 @@ const mockItems = [
   },
 ];
 
-// defaultArgs は effectiveGroupId が確定値であるケースを表す（isGroupConfirmed: true）
+// defaultArgs は effectiveGroupId が確定値であるケースを表す（isGroupConfirmed: true）。
+// initialItems は常に null（SSR 初期値なしの従来経路）——initialItems 非null の
+// 挙動は「initialItems (SSR)」describe ブロックで個別にテストする。
 const defaultArgs: Parameters<typeof useStockItems> = [
   "test-token",
   "group-1",
   vi.fn(),
   true,
+  null,
 ];
 
 function deferred<T>() {
@@ -106,7 +110,7 @@ describe("useStockItems", () => {
 
     it("effectiveGroupId が未定義のときは fetchStockItems が呼ばれない", () => {
       const { result } = renderHook(() =>
-        useStockItems("test-token", undefined, vi.fn(), false),
+        useStockItems("test-token", undefined, vi.fn(), false, null),
       );
 
       expect(fetchStockItems).not.toHaveBeenCalled();
@@ -119,7 +123,7 @@ describe("useStockItems", () => {
       vi.mocked(fetchStockItems).mockResolvedValue(mockItems);
 
       const { result } = renderHook(() =>
-        useStockItems("test-token", "speculative-group", vi.fn(), false),
+        useStockItems("test-token", "speculative-group", vi.fn(), false, null),
       );
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -137,16 +141,20 @@ describe("useStockItems", () => {
       const { result, rerender } = renderHook(
         (props: Parameters<typeof useStockItems>) => useStockItems(...props),
         {
-          initialProps: ["test-token", "group-1", vi.fn(), false] as Parameters<
-            typeof useStockItems
-          >,
+          initialProps: [
+            "test-token",
+            "group-1",
+            vi.fn(),
+            false,
+            null,
+          ] as Parameters<typeof useStockItems>,
         },
       );
 
       await waitFor(() => expect(result.current.loading).toBe(false));
       expect(fetchStockItems).toHaveBeenCalledTimes(1);
 
-      rerender(["test-token", "group-1", vi.fn(), true]);
+      rerender(["test-token", "group-1", vi.fn(), true, null]);
 
       // 再フェッチが起きないことを確認（非同期の追加呼び出しが無いことを待って確認）
       await waitFor(() => {
@@ -170,6 +178,7 @@ describe("useStockItems", () => {
             "speculative-group",
             vi.fn(),
             false,
+            null,
           ] as Parameters<typeof useStockItems>,
         },
       );
@@ -177,7 +186,7 @@ describe("useStockItems", () => {
       await waitFor(() => expect(result.current.loading).toBe(false));
       expect(result.current.items).toEqual(speculativeItems);
 
-      rerender(["test-token", "confirmed-group", vi.fn(), true]);
+      rerender(["test-token", "confirmed-group", vi.fn(), true, null]);
 
       await waitFor(() => {
         expect(result.current.items).toEqual(confirmedItems);
@@ -195,7 +204,7 @@ describe("useStockItems", () => {
       vi.mocked(fetchStockItems).mockRejectedValue(new Error("403 Forbidden"));
 
       const { result } = renderHook(() =>
-        useStockItems("test-token", "speculative-group", vi.fn(), false),
+        useStockItems("test-token", "speculative-group", vi.fn(), false, null),
       );
 
       await waitFor(() => expect(result.current.loading).toBe(false));
@@ -221,12 +230,13 @@ describe("useStockItems", () => {
             "speculative-group",
             vi.fn(),
             false,
+            null,
           ] as Parameters<typeof useStockItems>,
         },
       );
 
       // 推測フェッチが in-flight のうちに確定値へ切り替える
-      rerender(["test-token", "confirmed-group", vi.fn(), true]);
+      rerender(["test-token", "confirmed-group", vi.fn(), true, null]);
 
       // 確定フェッチが先に解決する
       await act(async () => {
@@ -271,12 +281,13 @@ describe("useStockItems", () => {
             "speculative-group",
             vi.fn(),
             false,
+            null,
           ] as Parameters<typeof useStockItems>,
         },
       );
 
       // 推測フェッチが in-flight のうちに、別の id で確定値へ切り替える
-      rerender(["test-token", "confirmed-group", vi.fn(), true]);
+      rerender(["test-token", "confirmed-group", vi.fn(), true, null]);
 
       // 確定フェッチが先に解決する
       await act(async () => {
@@ -310,9 +321,13 @@ describe("useStockItems", () => {
       const { result, rerender } = renderHook(
         (props: Parameters<typeof useStockItems>) => useStockItems(...props),
         {
-          initialProps: ["test-token", "group-1", vi.fn(), false] as Parameters<
-            typeof useStockItems
-          >,
+          initialProps: [
+            "test-token",
+            "group-1",
+            vi.fn(),
+            false,
+            null,
+          ] as Parameters<typeof useStockItems>,
         },
       );
 
@@ -323,7 +338,7 @@ describe("useStockItems", () => {
       expect(result.current.items).toEqual([]);
 
       // 同じ id で確定する（effectiveGroupId 自体は変化しない）
-      rerender(["test-token", "group-1", vi.fn(), true]);
+      rerender(["test-token", "group-1", vi.fn(), true, null]);
 
       await waitFor(() => {
         expect(fetchStockItems).toHaveBeenCalledTimes(2);
@@ -347,16 +362,20 @@ describe("useStockItems", () => {
       const { result, rerender } = renderHook(
         (props: Parameters<typeof useStockItems>) => useStockItems(...props),
         {
-          initialProps: ["test-token", "group-1", vi.fn(), false] as Parameters<
-            typeof useStockItems
-          >,
+          initialProps: [
+            "test-token",
+            "group-1",
+            vi.fn(),
+            false,
+            null,
+          ] as Parameters<typeof useStockItems>,
         },
       );
 
       await waitFor(() => expect(result.current.loading).toBe(false));
       expect(result.current.error).toBeNull();
 
-      rerender(["test-token", "group-1", vi.fn(), true]);
+      rerender(["test-token", "group-1", vi.fn(), true, null]);
 
       await waitFor(() => {
         expect(fetchStockItems).toHaveBeenCalledTimes(2);
@@ -368,7 +387,7 @@ describe("useStockItems", () => {
       expect(result.current.items).toEqual([]);
 
       // 無限ループしないことの確認: rerender を追加しても3回目は呼ばれない
-      rerender(["test-token", "group-1", vi.fn(), true]);
+      rerender(["test-token", "group-1", vi.fn(), true, null]);
       await waitFor(() => {
         expect(fetchStockItems).toHaveBeenCalledTimes(2);
       });
@@ -381,9 +400,13 @@ describe("useStockItems", () => {
       const { result, rerender } = renderHook(
         (props: Parameters<typeof useStockItems>) => useStockItems(...props),
         {
-          initialProps: ["test-token", "group-1", vi.fn(), false] as Parameters<
-            typeof useStockItems
-          >,
+          initialProps: [
+            "test-token",
+            "group-1",
+            vi.fn(),
+            false,
+            null,
+          ] as Parameters<typeof useStockItems>,
         },
       );
 
@@ -395,7 +418,7 @@ describe("useStockItems", () => {
       // speculativeFailureRef はまだ未設定（失敗前）なので no-op で終わり、
       // effectiveGroupId/isGroupConfirmed は以後変化しないため、この effect は
       // 二度と実行されない。
-      rerender(["test-token", "group-1", vi.fn(), true]);
+      rerender(["test-token", "group-1", vi.fn(), true, null]);
 
       expect(fetchStockItems).toHaveBeenCalledTimes(1);
 
@@ -416,6 +439,91 @@ describe("useStockItems", () => {
       expect(result.current.items).toEqual([]);
       // 無限にリトライが積まれていないことも確認する
       expect(fetchStockItems).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("initialItems (SSR)", () => {
+    it("initialItems が非nullのとき、初回マウント時に items が即座に埋まり loading=false になる", () => {
+      const initialItems: StockItem[] = [
+        {
+          id: "1",
+          name: "初期商品",
+          category: "調味料",
+          imageUrl: null,
+          sourceUrl: null,
+          wantToBuy: false,
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          sortedAt: "2026-01-01T00:00:00Z",
+        },
+      ];
+
+      const { result } = renderHook(() =>
+        useStockItems("token", "group-1", vi.fn(), true, initialItems),
+      );
+
+      expect(result.current.items).toEqual(initialItems);
+      expect(result.current.loading).toBe(false);
+      expect(fetchStockItems).not.toHaveBeenCalled();
+    });
+
+    it("initialItems が null のとき、従来通り fetchStockItems が呼ばれる", async () => {
+      vi.mocked(fetchStockItems).mockResolvedValue([]);
+
+      renderHook(() => useStockItems("token", "group-1", vi.fn(), true, null));
+
+      await waitFor(() => expect(fetchStockItems).toHaveBeenCalledTimes(1));
+    });
+
+    it("initialItems ありでも effectiveGroupId が変わったら再フェッチする", async () => {
+      // initialItems を空配列にすると「SSR値が使われた」ことと「未フェッチの
+      // 初期状態」が区別できないため、非空の initialItems と、group切替後の
+      // fetch が返す別データを使い、fetch 後に items が実際に置き換わることまで
+      // 確認する（スキップされた分岐で setItems が呼ばれない実装だと検出できない
+      // ように）。
+      const initialItems: StockItem[] = [mockItems[0]];
+      const group2Items: StockItem[] = [mockItems[1]];
+      vi.mocked(fetchStockItems).mockResolvedValue(group2Items);
+
+      const { result, rerender } = renderHook(
+        ({ groupId }) =>
+          useStockItems("token", groupId, vi.fn(), true, initialItems),
+        { initialProps: { groupId: "group-1" } },
+      );
+      expect(fetchStockItems).not.toHaveBeenCalled();
+      expect(result.current.items).toEqual(initialItems);
+
+      rerender({ groupId: "group-2" });
+
+      await waitFor(() => expect(fetchStockItems).toHaveBeenCalledTimes(1));
+      expect(fetchStockItems).toHaveBeenCalledWith("token", "group-2");
+      await waitFor(() => expect(result.current.items).toEqual(group2Items));
+    });
+
+    it("initialItems ありでもaccessToken未確定（実際の起動順序）のうちはフェッチせず、後からtokenが来てもスキップは一度だけ消費済みのまま再フェッチしない", async () => {
+      // 実運用の起動順序（コメント参照: client.auth.getSession() の解決待ちで
+      // 初回レンダーは accessToken === undefined）を再現する discriminator。
+      // skip-first-fetch ブロックを accessToken/effectiveGroupId ガードより前に
+      // 置いてしまうと、このテストでは mount 時点（token 未確定）で
+      // consumedInitialItemsRef が早々に true になり、token が確定した次の
+      // render で「同じ id に対する初回 fetch」のはずが誤ってスキップされない
+      // （= fetch が呼ばれてしまう）リグレッションを検出する。
+      vi.mocked(fetchStockItems).mockResolvedValue([]);
+      const initialItems: StockItem[] = [];
+
+      const { rerender } = renderHook(
+        ({ token }: { token: string | undefined }) =>
+          useStockItems(token, "group-1", vi.fn(), true, initialItems),
+        { initialProps: { token: undefined as string | undefined } },
+      );
+      expect(fetchStockItems).not.toHaveBeenCalled();
+
+      rerender({ token: "token" });
+
+      // token が確定しても、同じ effectiveGroupId に対する initialItems の
+      // skip は一度だけ有効なまま——fetch は呼ばれない。
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(fetchStockItems).not.toHaveBeenCalled();
     });
   });
 

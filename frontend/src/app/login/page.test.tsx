@@ -21,7 +21,7 @@ function setupAuth(overrides: Record<string, unknown> = {}) {
     user: null,
     groups: [],
     group: null,
-    speculativeGroupId: undefined,
+    initialGroupId: undefined,
     loading: false,
     signInWithGoogle: vi.fn(),
     signOut: vi.fn(),

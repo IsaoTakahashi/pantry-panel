@@ -340,4 +340,72 @@ describe("middleware", () => {
       errorSpy.mockRestore();
     });
   });
+
+  // S-10 (Issue #182): 認証済みと判定できたリクエストには、layout.tsx が
+  // AuthProvider の初期状態を組み立てるための x-pp-authenticated ヘッダーを
+  // 付与する。Server Component は middleware の判定結果を直接読めないため、
+  // request.headers 経由で明示的に転送する必要がある。
+  it("S-10: 認証済みのとき request.headers に x-pp-authenticated: 1 がセットされる", async () => {
+    getClaimsMock.mockResolvedValue({
+      data: { claims: { sub: "user-1" } },
+      error: null,
+    });
+    const { middleware } = await import("./middleware");
+
+    const req = makeRequest("/stock-items");
+    await middleware(req);
+
+    expect(req.headers.get("x-pp-authenticated")).toBe("1");
+  });
+
+  it("S-10: 未ログイン確定（data===null, error===null）のとき x-pp-authenticated を付与しない", async () => {
+    getClaimsMock.mockResolvedValue({ data: null, error: null });
+    const { middleware } = await import("./middleware");
+
+    const req = makeRequest("/stock-items");
+    await middleware(req);
+
+    expect(req.headers.get("x-pp-authenticated")).toBeNull();
+  });
+
+  it("S-10: /login は除外ルートなので x-pp-authenticated は付与されない（getClaims自体呼ばれない）", async () => {
+    const { middleware } = await import("./middleware");
+
+    const req = makeRequest("/login");
+    await middleware(req);
+
+    expect(req.headers.get("x-pp-authenticated")).toBeNull();
+    expect(getClaimsMock).not.toHaveBeenCalled();
+  });
+
+  // S-10 なりすまし防止: x-pp-authenticated は「middleware が getClaims() で
+  // 検証済み」という事実の証跡として layout.tsx に信頼されるため、クライアント
+  // が最初からこのヘッダーを付けて送ってきても、middleware 自身の判定結果でしか
+  // 上書きされてはならない（未認証と判定されたら必ず除去される）。
+  it("S-10: クライアントが x-pp-authenticated を偽装して送っても、未認証判定なら除去される", async () => {
+    getClaimsMock.mockResolvedValue({ data: null, error: null });
+    const { middleware } = await import("./middleware");
+
+    const req = new NextRequest(
+      new URL("/stock-items", "https://example.com"),
+      {
+        headers: { "x-pp-authenticated": "1" },
+      },
+    );
+    await middleware(req);
+
+    expect(req.headers.get("x-pp-authenticated")).toBeNull();
+  });
+
+  it("S-10: 除外ルートでもクライアントが偽装した x-pp-authenticated は除去される", async () => {
+    const { middleware } = await import("./middleware");
+
+    const req = new NextRequest(new URL("/login", "https://example.com"), {
+      headers: { "x-pp-authenticated": "1" },
+    });
+    await middleware(req);
+
+    expect(req.headers.get("x-pp-authenticated")).toBeNull();
+    expect(getClaimsMock).not.toHaveBeenCalled();
+  });
 });

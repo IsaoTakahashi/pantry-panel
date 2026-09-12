@@ -30,6 +30,11 @@ function matchesPath(pathname: string, paths: string[]): boolean {
 }
 
 export async function middleware(request: NextRequest) {
+  // クライアントが x-pp-authenticated を偽装して送ってきた場合に、下流の
+  // Server Component（layout.tsx）がそれを「middleware が検証済み」と誤って
+  // 信頼しないよう、response を組み立てる前に必ず一度取り除く（Issue #182）。
+  // 認証済みと判定できたときだけ、この関数が改めて付与し直す。
+  request.headers.delete("x-pp-authenticated");
   let response = NextResponse.next({ request });
   // setAll() が実際に呼ばれて cookie を書き換えた場合の Cache-Control 等の
   // header を控えておく。/login へリダイレクトする場合は response とは別の
@@ -110,7 +115,30 @@ export async function middleware(request: NextRequest) {
     // クライアントを生成しただけではリフレッシュは走らないため、この呼び出しが
     // 必須。
     const { data, error } = await supabase.auth.getClaims();
-    if (data === null && error === null) {
+    if (data !== null) {
+      // 認証済みと判定できた事実を Server Component（layout.tsx）へ転送する
+      // （Issue #182）。middleware は request/response のライフサイクルの中で
+      // 唯一 getClaims() を呼んで検証する場所であり、下流の Server Component
+      // が同じ検証をもう一度行う（＝二重のネットワーク呼び出し）のを避ける
+      // ため、ヘッダー経由で結果だけを渡す。
+      //
+      // request.headers への書き込みを下流（layout.tsx）に伝えるには
+      // NextResponse.next({ request }) を呼び直して response を作り直す
+      // 必要がある（Next.js は呼び出し時点の request.headers を元に転送用
+      // header をエンコードするため、response 構築後の request 変更は
+      // 反映されない）。ただし作り直すと setAll()（getClaims() 内部での
+      // セッションリフレッシュ）が既に response に積んでいた Set-Cookie /
+      // Cache-Control が失われるため、setAll() と同じパターンで
+      // pendingCookies・cacheHeaders を積み直す（S-7 回帰）。
+      request.headers.set("x-pp-authenticated", "1");
+      response = NextResponse.next({ request });
+      for (const { name, value, options } of pendingCookies) {
+        response.cookies.set(name, value, options);
+      }
+      for (const [key, value] of Object.entries(cacheHeaders)) {
+        response.headers.set(key, value);
+      }
+    } else if (data === null && error === null) {
       isDefinitelyUnauthenticated = true;
     } else if (data === null && error !== null) {
       if (

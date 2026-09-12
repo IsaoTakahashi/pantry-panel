@@ -5,7 +5,8 @@ import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { session, group, speculativeGroupId, loading } = useAuth();
+  const { session, group, initialGroupId, initialAuthenticated, loading } =
+    useAuth();
   const router = useRouter();
   const authEnabled = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -20,7 +21,19 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [authEnabled, loading, session, group, router]);
 
   if (!authEnabled) return <>{children}</>;
-  if (session && (group || speculativeGroupId)) return <>{children}</>;
+  // initialAuthenticated が実 session の代わりを務めるのは、クライアントがまだ
+  // 何も解決していない間（loading===true、初期状態）に限る。initialAuthenticated
+  // はサーバーが認証済みリクエストごとに渡す prop でクライアントからクリア
+  // されないため、無条件に代役を務めさせるとゲートが永久に開いたままになり、
+  // クライアントが後から session===null を確定させた場合（別タブでのサインアウト、
+  // トークン失効等）に Issue #261 の受動的セッション喪失フォールバックへ
+  // 到達できなくなる。loading===false になった後は実 session を要求することで、
+  // そのケースの挙動を本ブランチ以前と一致させる。
+  if (
+    (session || (initialAuthenticated && loading)) &&
+    (group || initialGroupId)
+  )
+    return <>{children}</>;
   if (!loading && !session) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-6 px-4">
