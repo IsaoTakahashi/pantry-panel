@@ -85,16 +85,25 @@ test.describe("SSR stock-items (Issue #182)", () => {
       const context = await browser.newContext({ javaScriptEnabled: false });
       const page = await context.newPage();
 
-      // toBeVisible() (DOM可視性) ではなく、レスポンス本文そのものに商品名が
-      // 含まれるかを直接検証する。streaming SSR (Suspense boundary) は
-      // 内容を一旦 hidden template として送り、JS 側のインラインスクリプトが
-      // 所定位置へ差し替えるまで可視化されない。javaScriptEnabled: false では
-      // このスクリプトが動かないため、実際には初期HTMLに商品名が含まれていても
-      // toBeVisible() は "hidden" のまま失敗しうる（本タスクが検証したいのは
-      // JS実行前の初期HTMLレスポンスそのものであり、可視化タイミングではない）。
+      // レスポンス本文 (`response.text()`) に対する toContain ではなく、
+      // 描画された DOM を locator で検証する。
+      // 理由: レスポンス本文には RSC の flight ペイロード
+      // (`self.__next_f.push(...)`、hydration 用にNext.jsが埋め込む
+      // シリアライズ済みデータ) が含まれるため、AuthGuard (Client Component) が
+      // ゲートを開かず何も描画していなくても商品名は本文に現れる。つまり
+      // 認証ブートストラップ連鎖が下流で壊れていても素通りしてしまい、
+      // このテストが唯一検証すべき対象を何も検証できていなかった。
+      // `article[aria-label=商品名]` は `ItemCard` が描画する要素そのもの
+      // (src/components/ItemCard.tsx) であり、これが初期HTMLに存在することは
+      // middleware→layout→AuthContext→AuthGuard→useStockItems→page.tsx の
+      // 連鎖が全て繋がったことを意味する。
+      // 以前あった「streaming SSR の hidden template により toBeVisible が
+      // 失敗しうる」という懸念は、`layout.tsx` の `export const instant = false`
+      // （Cache Components 下で blocking レンダリングを選択する）により解消済み。
+      // 初期HTMLは Suspense の fallback ではなく実データで返る。
       const response = await page.goto("/stock-items");
       if (!response) throw new Error("no response from /stock-items");
-      expect(await response.text()).toContain(itemName);
+      await expect(page.getByRole("article", { name: itemName })).toBeVisible();
 
       await context.close();
     } finally {
