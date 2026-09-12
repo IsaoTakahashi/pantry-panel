@@ -15,13 +15,13 @@ vi.mock("@/lib/sessionCookie", () => ({
     cookies.map((c) => `${c.name}=${c.value}`).join("; "),
 }));
 
-function makeRequest(headers?: Record<string, string>): NextRequest {
-  return new NextRequest(
-    new URL("/api/warm/stock-items", "https://app.example.com"),
-    {
-      headers,
-    },
-  );
+function makeRequest(
+  headers?: Record<string, string>,
+  origin = "https://app.example.com",
+): NextRequest {
+  return new NextRequest(new URL("/api/warm/stock-items", origin), {
+    headers,
+  });
 }
 
 describe("GET /api/warm/stock-items", () => {
@@ -42,6 +42,10 @@ describe("GET /api/warm/stock-items", () => {
     vi.stubEnv("WARM_USER_EMAIL", "warm@example.com");
     vi.stubEnv("WARM_USER_PASSWORD", "warm-password");
     vi.stubEnv("WARM_GROUP_ID", "group-1");
+    // 受信リクエストの origin（makeRequest のデフォルト "https://app.example.com"）とは
+    // 意図的に異なる値にする。同じ値だと request.nextUrl.origin を使う旧実装の
+    // バグがテストをすり抜けてしまう（Finding A の discriminator として機能しない）。
+    vi.stubEnv("WARM_TARGET_ORIGIN", "https://warm-target.example.com");
   });
 
   afterEach(() => {
@@ -101,7 +105,7 @@ describe("GET /api/warm/stock-items", () => {
       expect.objectContaining({ access_token: "access-token" }),
     );
     expect(fetch).toHaveBeenCalledWith(
-      new URL("/stock-items", "https://app.example.com"),
+      new URL("/stock-items", "https://warm-target.example.com"),
       expect.objectContaining({
         redirect: "manual",
         cache: "no-store",
@@ -110,6 +114,28 @@ describe("GET /api/warm/stock-items", () => {
             "sb-abc-auth-token=cookie-value; pantry-panel-active-group=group-1",
         },
       }),
+    );
+  });
+
+  it("受信リクエストの origin が WARM_TARGET_ORIGIN と異なっても、内部 fetch は常に WARM_TARGET_ORIGIN 側を使う", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 200 }));
+    const { GET } = await import("./route");
+
+    const res = await GET(
+      makeRequest(
+        { "x-warmup-secret": "shared-secret" },
+        "https://attacker.example.com",
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(fetch).toHaveBeenCalledWith(
+      new URL("/stock-items", "https://warm-target.example.com"),
+      expect.anything(),
+    );
+    expect(fetch).not.toHaveBeenCalledWith(
+      new URL("/stock-items", "https://attacker.example.com"),
+      expect.anything(),
     );
   });
 
@@ -167,6 +193,19 @@ describe("GET /api/warm/stock-items", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("WARM_TARGET_ORIGIN が未設定のとき 500 を返し Supabase も内部 fetch も呼ばない", async () => {
+    vi.stubEnv("WARM_TARGET_ORIGIN", "");
+    const { GET } = await import("./route");
+
+    const res = await GET(makeRequest({ "x-warmup-secret": "shared-secret" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error).toContain("WARM_TARGET_ORIGIN");
+    expect(getWarmSessionMock).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("サインインが失敗するなど予期しない例外が起きたとき 502 と JSON body を返す", async () => {
     getWarmSessionMock.mockRejectedValue(new Error("sign-in failed"));
     const { GET } = await import("./route");
@@ -177,5 +216,30 @@ describe("GET /api/warm/stock-items", () => {
     expect(res.status).toBe(502);
     expect(body.error).toContain("sign-in failed");
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("内部 fetch がハングしたとき、タイムアウトして 502 を返す（無限に待たない）", async () => {
+    vi.useFakeTimers();
+    // signal が abort されて初めて reject する、ハングを模した fetch。
+    // これを実装しないと abort しても reject されず、テスト自体がハングする。
+    vi.mocked(fetch).mockImplementation(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          (init as RequestInit)?.signal?.addEventListener("abort", () => {
+            reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+          });
+        }),
+    );
+    const { GET } = await import("./route");
+
+    const resPromise = GET(makeRequest({ "x-warmup-secret": "shared-secret" }));
+    await vi.advanceTimersByTimeAsync(5000);
+    const res = await resPromise;
+    const body = await res.json();
+
+    expect(res.status).toBe(502);
+    expect(body.error).toBeDefined();
+
+    vi.useRealTimers();
   });
 });

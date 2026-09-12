@@ -1,5 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const signInWithPasswordMock = vi.fn();
 const refreshSessionMock = vi.fn();
@@ -38,6 +38,10 @@ describe("getWarmSession", () => {
     createClientMock.mockClear();
     signInWithPasswordMock.mockReset();
     refreshSessionMock.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("キャッシュが無いとき signInWithPassword で新規ログインする", async () => {
@@ -194,5 +198,56 @@ describe("getWarmSession", () => {
     await expect(
       getWarmSession(SUPABASE_URL, ANON_KEY, EMAIL, PASSWORD),
     ).rejects.toThrow(/invalid credentials/);
+  });
+
+  it("signInWithPassword がハングしたとき、タイムアウトして診断可能なエラーで reject する（無限に待たない）", async () => {
+    vi.useFakeTimers();
+    // 解決も拒否もしない Promise でハングを模す。
+    signInWithPasswordMock.mockReturnValue(new Promise(() => {}));
+    const { getWarmSession } = await import("./warmSession");
+
+    const resultPromise = getWarmSession(
+      SUPABASE_URL,
+      ANON_KEY,
+      EMAIL,
+      PASSWORD,
+    );
+    const assertion = expect(resultPromise).rejects.toThrow();
+    await vi.advanceTimersByTimeAsync(10_000);
+    await assertion;
+  });
+
+  it("キャッシュ済みセッションの refreshSession がハングしたときも、タイムアウトして signInWithPassword にフォールバックする", async () => {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const staleSession = makeSession({ expires_at: nowSeconds + 60 });
+    const freshSession = makeSession({
+      access_token: "fresh-access-token-after-hang",
+      expires_at: nowSeconds + 3600,
+    });
+    signInWithPasswordMock.mockResolvedValueOnce({
+      data: { session: staleSession },
+      error: null,
+    });
+    const { getWarmSession } = await import("./warmSession");
+    await getWarmSession(SUPABASE_URL, ANON_KEY, EMAIL, PASSWORD);
+
+    vi.useFakeTimers();
+    // refreshSession がハングした場合を模す。
+    refreshSessionMock.mockReturnValue(new Promise(() => {}));
+    signInWithPasswordMock.mockResolvedValueOnce({
+      data: { session: freshSession },
+      error: null,
+    });
+
+    const resultPromise = getWarmSession(
+      SUPABASE_URL,
+      ANON_KEY,
+      EMAIL,
+      PASSWORD,
+    );
+    const assertion = expect(resultPromise).resolves.toEqual(freshSession);
+    await vi.advanceTimersByTimeAsync(10_000);
+    await assertion;
+    expect(signInWithPasswordMock).toHaveBeenCalledTimes(2);
   });
 });

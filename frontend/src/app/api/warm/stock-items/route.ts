@@ -4,6 +4,9 @@ import { buildSessionCookies, toCookieHeader } from "@/lib/sessionCookie";
 import { getWarmSession } from "@/lib/warmSession";
 
 const WARMUP_SECRET_HEADER = "x-warmup-secret";
+// api/health/route.ts と同じ 5 秒。内部 fetch がハングすると cron-job.org の
+// 2分おきの呼び出しのたびに Function の最大実行時間まで詰まってしまうため。
+const FETCH_TIMEOUT_MS = 5000;
 
 export async function GET(request: NextRequest) {
   const expectedSecret = process.env.WARMUP_SHARED_SECRET;
@@ -26,6 +29,7 @@ export async function GET(request: NextRequest) {
   const email = process.env.WARM_USER_EMAIL;
   const password = process.env.WARM_USER_PASSWORD;
   const groupId = process.env.WARM_GROUP_ID;
+  const targetOrigin = process.env.WARM_TARGET_ORIGIN;
 
   // これらのうち一つでも欠けると、空文字 fallback のまま処理を続けてしまい
   // （例: WARM_GROUP_ID なら active-group cookie が空文字のまま internal fetch
@@ -40,6 +44,7 @@ export async function GET(request: NextRequest) {
       ["WARM_USER_EMAIL", email],
       ["WARM_USER_PASSWORD", password],
       ["WARM_GROUP_ID", groupId],
+      ["WARM_TARGET_ORIGIN", targetOrigin],
     ] as const
   ).find(([, value]) => !value)?.[0];
   if (missingVar) {
@@ -59,14 +64,29 @@ export async function GET(request: NextRequest) {
     const authCookies = buildSessionCookies(supabaseUrl as string, session);
     const cookieHeader = `${toCookieHeader(authCookies)}; ${ACTIVE_GROUP_COOKIE_NAME}=${groupId as string}`;
 
-    const internalUrl = new URL("/stock-items", request.nextUrl.origin);
-    const internalResponse = await fetch(internalUrl, {
-      headers: { Cookie: cookieHeader },
-      redirect: "manual",
-      // キャッシュされたレスポンスで 200 が返ると、ping自体は成功したように
-      // 見えても実際には Function を叩いておらずウォームアップの目的を果たさない。
-      cache: "no-store",
-    });
+    // WARMUP_SHARED_SECRET は cron-job.org（サードパーティSaaS）に平文で
+    // 保存されているため、このエンドポイントは内部インフラより漏洩しやすい。
+    // request.nextUrl.origin（受信リクエストの Host/X-Forwarded-Host 由来）を
+    // ここで使うと、secret を知る第三者がこの認証済み cookie 付き fetch を
+    // 任意のホストへリダイレクトさせられてしまう。本番デプロイ先は1つしか
+    // ないため、固定の env var を使い request 由来の値には一切依存しない。
+    const internalUrl = new URL("/stock-items", targetOrigin as string);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    let internalResponse: Response;
+    try {
+      internalResponse = await fetch(internalUrl, {
+        headers: { Cookie: cookieHeader },
+        redirect: "manual",
+        // キャッシュされたレスポンスで 200 が返ると、ping自体は成功したように
+        // 見えても実際には Function を叩いておらずウォームアップの目的を果たさない。
+        cache: "no-store",
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
 
     if (internalResponse.status === 200) {
       return Response.json({ ok: true }, { status: 200 });
