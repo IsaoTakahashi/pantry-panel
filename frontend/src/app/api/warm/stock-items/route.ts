@@ -16,16 +16,48 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-    const email = process.env.WARM_USER_EMAIL ?? "";
-    const password = process.env.WARM_USER_PASSWORD ?? "";
-    const groupId = process.env.WARM_GROUP_ID ?? "";
+  // NEXT_PUBLIC_* は Next.js のビルド時に静的アクセス（process.env.FOO）だと
+  // リテラルへインライン置換される。ここを動的な process.env[name] にすると
+  // ビルド時に埋め込まれた値と食い違いうるため、検証は実際に使う変数への
+  // 静的アクセスをそのまま並べて行う（各値をここで一度だけ読み、以降は
+  // この定数を使い回す）。
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const email = process.env.WARM_USER_EMAIL;
+  const password = process.env.WARM_USER_PASSWORD;
+  const groupId = process.env.WARM_GROUP_ID;
 
-    const session = await getWarmSession(supabaseUrl, anonKey, email, password);
-    const authCookies = buildSessionCookies(supabaseUrl, session);
-    const cookieHeader = `${toCookieHeader(authCookies)}; ${ACTIVE_GROUP_COOKIE_NAME}=${groupId}`;
+  // これらのうち一つでも欠けると、空文字 fallback のまま処理を続けてしまい
+  // （例: WARM_GROUP_ID なら active-group cookie が空文字のまま internal fetch
+  // が 200 を返す）、Go backend への実フェッチを一度も行わないのに warm-up が
+  // 「成功」したように見える false positive になる。design.md の "Fail loudly"
+  // 方針はこの内部フェッチの成否だけでなく、そもそもこのフローを構成する env var
+  // の欠落にも適用されるべきなので、進む前に全部揃っているか検証する。
+  const missingVar = (
+    [
+      ["NEXT_PUBLIC_SUPABASE_URL", supabaseUrl],
+      ["NEXT_PUBLIC_SUPABASE_ANON_KEY", anonKey],
+      ["WARM_USER_EMAIL", email],
+      ["WARM_USER_PASSWORD", password],
+      ["WARM_GROUP_ID", groupId],
+    ] as const
+  ).find(([, value]) => !value)?.[0];
+  if (missingVar) {
+    return Response.json(
+      { error: `missing required env var: ${missingVar}` },
+      { status: 500 },
+    );
+  }
+
+  try {
+    const session = await getWarmSession(
+      supabaseUrl as string,
+      anonKey as string,
+      email as string,
+      password as string,
+    );
+    const authCookies = buildSessionCookies(supabaseUrl as string, session);
+    const cookieHeader = `${toCookieHeader(authCookies)}; ${ACTIVE_GROUP_COOKIE_NAME}=${groupId as string}`;
 
     const internalUrl = new URL("/stock-items", request.nextUrl.origin);
     const internalResponse = await fetch(internalUrl, {

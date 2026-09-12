@@ -36,12 +36,12 @@ describe("GET /api/warm/stock-items", () => {
       access_token: "access-token",
       refresh_token: "refresh-token",
     });
-    process.env.WARMUP_SHARED_SECRET = "shared-secret";
-    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://abc.supabase.co";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
-    process.env.WARM_USER_EMAIL = "warm@example.com";
-    process.env.WARM_USER_PASSWORD = "warm-password";
-    process.env.WARM_GROUP_ID = "group-1";
+    vi.stubEnv("WARMUP_SHARED_SECRET", "shared-secret");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://abc.supabase.co");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-key");
+    vi.stubEnv("WARM_USER_EMAIL", "warm@example.com");
+    vi.stubEnv("WARM_USER_PASSWORD", "warm-password");
+    vi.stubEnv("WARM_GROUP_ID", "group-1");
   });
 
   afterEach(() => {
@@ -72,7 +72,7 @@ describe("GET /api/warm/stock-items", () => {
   });
 
   it("WARMUP_SHARED_SECRET 自体が未設定のとき、常に 401 を返す（open access にしない）", async () => {
-    process.env.WARMUP_SHARED_SECRET = "";
+    vi.stubEnv("WARMUP_SHARED_SECRET", "");
     const { GET } = await import("./route");
 
     const res = await GET(makeRequest({ "x-warmup-secret": "" }));
@@ -139,6 +139,32 @@ describe("GET /api/warm/stock-items", () => {
 
     expect(res.status).toBe(502);
     expect(body.status).toBe(500);
+  });
+
+  it("WARM_GROUP_ID が未設定のとき 500 を返し Supabase も内部 fetch も呼ばない（空文字 fallback で200を返さない）", async () => {
+    vi.stubEnv("WARM_GROUP_ID", "");
+    const { GET } = await import("./route");
+
+    const res = await GET(makeRequest({ "x-warmup-secret": "shared-secret" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error).toContain("WARM_GROUP_ID");
+    expect(getWarmSessionMock).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("WARM_USER_EMAIL など他の必須env varが未設定のときも同様に 500 で変数名を返す", async () => {
+    vi.stubEnv("WARM_USER_EMAIL", "");
+    const { GET } = await import("./route");
+
+    const res = await GET(makeRequest({ "x-warmup-secret": "shared-secret" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error).toContain("WARM_USER_EMAIL");
+    expect(getWarmSessionMock).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("サインインが失敗するなど予期しない例外が起きたとき 502 と JSON body を返す", async () => {
