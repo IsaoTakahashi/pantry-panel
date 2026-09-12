@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ACTIVE_GROUP_COOKIE_NAME,
+  clearActiveGroupCookie,
   getActiveGroupCookie,
   setActiveGroupCookie,
 } from "./activeGroupCookie";
@@ -31,6 +32,12 @@ describe("activeGroupCookie", () => {
 
   it("getActiveGroupCookie ignores unrelated cookies", () => {
     document.cookie = "unrelated=value; path=/";
+    expect(getActiveGroupCookie()).toBeUndefined();
+  });
+
+  it("clearActiveGroupCookie removes a previously set cookie", () => {
+    setActiveGroupCookie("group-123");
+    clearActiveGroupCookie();
     expect(getActiveGroupCookie()).toBeUndefined();
   });
 });

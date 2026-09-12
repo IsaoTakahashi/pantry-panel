@@ -112,6 +112,17 @@ describe("fetchStockItems", () => {
       }),
     );
   });
+
+  it("タイムアウト用の AbortSignal を fetch に渡す", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }),
+    );
+    await fetchStockItems();
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
 });
 
 describe("createStockItem", () => {

@@ -377,7 +377,7 @@ describe("AuthContext", () => {
     expect(calls[0]?.initialGroupId).toBe("cached-g1");
   });
 
-  it("signOut は initialGroupId を undefined にリセットする", async () => {
+  it("signOut は initialGroupId を undefined にリセットし、active-group cookie もクリアする", async () => {
     localStorage.setItem("pantry-panel:active-group-id", "g1");
     const session = { access_token: "tok", user: { id: "u1" } };
     mockGetSession.mockResolvedValue({ data: { session } });
@@ -400,6 +400,7 @@ describe("AuthContext", () => {
         (captured as InitialGroupCaptureHandle | null)?.groups.length,
       ).toBe(1),
     );
+    expect(document.cookie).toContain("pantry-panel-active-group=g1");
 
     await act(async () => {
       await (captured as InitialGroupCaptureHandle | null)?.signOut();
@@ -408,6 +409,7 @@ describe("AuthContext", () => {
     expect(
       (captured as InitialGroupCaptureHandle | null)?.initialGroupId,
     ).toBeUndefined();
+    expect(document.cookie).not.toContain("pantry-panel-active-group=g1");
   });
 
   // K-4 リグレッション対応: middleware は「未ログイン状態でのナビゲーション」しか
@@ -481,6 +483,33 @@ describe("AuthContext", () => {
       expect(
         (captured as InitialGroupCaptureHandle | null)?.initialGroupId,
       ).toBe("g2"),
+    );
+  });
+
+  it("groups確定時、cookie と localStorage が食い違う場合は cookie を優先する（D1）", async () => {
+    document.cookie = "pantry-panel-active-group=g2; path=/";
+    localStorage.setItem("pantry-panel:active-group-id", "g1");
+    const session = { access_token: "tok", user: { id: "u1" } };
+    mockGetSession.mockResolvedValue({ data: { session } });
+    vi.mocked(fetchMyGroups).mockResolvedValue([
+      { groupId: "g1", name: "我が家", role: "owner" },
+      { groupId: "g2", name: "実家", role: "member" },
+    ]);
+
+    let captured: InitialGroupCaptureHandle | null = null;
+    render(
+      <AuthProvider>
+        <InitialGroupCapture onReady={(h) => (captured = h)} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(
+        (captured as InitialGroupCaptureHandle | null)?.groups.length,
+      ).toBe(2),
+    );
+    expect((captured as InitialGroupCaptureHandle | null)?.initialGroupId).toBe(
+      "g2",
     );
   });
 

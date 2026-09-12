@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import {
+  clearActiveGroupCookie,
   getActiveGroupCookie,
   setActiveGroupCookie,
 } from "@/lib/activeGroupCookie";
@@ -92,9 +93,14 @@ export function AuthProvider({
 
   const applyGroups = useCallback((gs: GroupInfo[]) => {
     setGroups(gs);
+    // cookie を localStorage より優先する（D1: 読み取りの正はcookieに一本化する）。
+    // cookie は SSRが読んだ値と同じ発生源であり、複数タブ・複数デバイスでの
+    // 書き込み順序次第で localStorage と食い違いうる localStorage単独読みより
+    // 信頼できる。cookie未設定（移行期間・auth無効環境）の場合のみ
+    // localStorage にフォールバックする。
     const savedId =
       typeof window !== "undefined"
-        ? localStorage.getItem(ACTIVE_GROUP_KEY)
+        ? (getActiveGroupCookie() ?? localStorage.getItem(ACTIVE_GROUP_KEY))
         : null;
     const active = gs.find((g) => g.groupId === savedId) ?? gs[0] ?? null;
     setGroup(active);
@@ -203,6 +209,7 @@ export function AuthProvider({
     setInitialGroupId(undefined);
     if (typeof window !== "undefined") {
       localStorage.removeItem(ACTIVE_GROUP_KEY);
+      clearActiveGroupCookie();
     }
     // signOut() はユーザーの明示的な操作であり、middleware が拾える「保護ルートへの
     // ナビゲーション」を伴わないため、ここで明示的に /login へ遷移させる

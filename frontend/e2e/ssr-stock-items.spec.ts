@@ -98,8 +98,10 @@ test.describe("SSR stock-items (Issue #182)", () => {
       // middleware→layout→AuthContext→AuthGuard→useStockItems→page.tsx の
       // 連鎖が全て繋がったことを意味する。
       // 以前あった「streaming SSR の hidden template により toBeVisible が
-      // 失敗しうる」という懸念は、`layout.tsx` の `export const instant = false`
-      // （Cache Components 下で blocking レンダリングを選択する）により解消済み。
+      // 失敗しうる」という懸念は、`stock-items/page.tsx` から `<Suspense>` 境界
+      // 自体を削除したことで解消済み（`layout.tsx` の `export const instant =
+      // false` は Cache Components のビルド時検証を無効化するだけで、この
+      // streaming 挙動までは抑止しない。詳細は page.tsx のコメント参照）。
       // 初期HTMLは Suspense の fallback ではなく実データで返る。
       const response = await page.goto("/stock-items");
       if (!response) throw new Error("no response from /stock-items");
