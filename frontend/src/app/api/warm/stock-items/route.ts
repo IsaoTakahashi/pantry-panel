@@ -103,7 +103,14 @@ export async function GET(request: NextRequest) {
       { status: 502 },
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown error";
+    // fetch の abort は環境によって DOMException で reject されうるため、
+    // `instanceof Error` が真とは限らない。api/health/route.ts と同じく
+    // プロパティアクセスにして abort 理由を握りつぶさないようにする。
+    const asError = err as Error | null;
+    const message =
+      asError?.name === "AbortError"
+        ? "timeout"
+        : (asError?.message ?? "unknown error");
     return Response.json({ error: message }, { status: 502 });
   }
 }

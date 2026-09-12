@@ -8,10 +8,7 @@ const REFRESH_MARGIN_SECONDS = 5 * 60;
 // AbortSignal を受け取るオプションを持たない（インストール済みバージョンの
 // 型定義で確認済み）。api/health/route.ts の AbortController パターンが使えない
 // ため、Promise.race によるタイムアウトで代替する。signIn は api/health/route.ts
-// と同じ 5 秒、refresh は signIn へのフォールバックがあるぶん短い 3 秒にする
-// （route.ts の内部 fetch 5 秒と合わせた worst case は 3+5+5=13 秒。Vercel の
-// Function 最大実行時間の設定はこのファイルの変更範囲外のため、未設定なら
-// 別途確認が必要）。
+// と同じ 5 秒、refresh は signIn へのフォールバックがあるぶん短い 3 秒にする。
 const SIGNIN_TIMEOUT_MS = 5000;
 const REFRESH_TIMEOUT_MS = 3000;
 

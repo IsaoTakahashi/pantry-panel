@@ -238,7 +238,7 @@ describe("GET /api/warm/stock-items", () => {
     const body = await res.json();
 
     expect(res.status).toBe(502);
-    expect(body.error).toBeDefined();
+    expect(body.error).toBe("timeout");
 
     vi.useRealTimers();
   });
