@@ -254,4 +254,4 @@ proposal.md の「ユーザーシナリオとテスト設計」セクション�
 - **一般化した基準:**
   1. `cookies()`/`headers()`/`params`/`searchParams` を共通レイアウト（複数ルートの祖先）で無条件に読む変更を加える場合、影響範囲は「その値を使う特定ルート」だけでなく**そのレイアウトの子孫である全ルート**であると認識し、design.md の既存E2Eへの影響セクションではその全ルートを対象に確認する
   2. Next.js dev server のログ（`Route "...": Next.js encountered runtime data during prerendering.` 等の警告）は、ローカル E2E フル実行時に一度は目を通す。警告が出ているルートと、flaky/failing な E2E spec のルートが一致していないか照合する
-  3. `getByText(...)`（非exact）を使う既存 E2E は、ページに Next.js Dev Tools のオーバーレイ（issue バッジ・code frame）が重なりうる場合、意図しない部分一致の温床になる。dev-only の挙動に依存した flaky の疑いがあれば、`{ exact: true }` またはより具体的なロケータへの置き換えを検討する（本件では Task 10 のスコープ外として実際の修正は見送り、次にこのテストを触るセッションへ申し送った）
+  3. `getByText(...)`（非exact）を使う既存 E2E は、ページに Next.js Dev Tools のオーバーレイ（issue バッジ・code frame）が重なりうる場合、意図しない部分一致の温床になる。dev-only の挙動に依存した flaky の疑いがあれば、`{ exact: true }` またはより具体的なロケータへの置き換えを検討する。**追記**: CI の e2e.yml も `--project=mock`（`npm run dev` の dev server）で実行するため preview 限定の問題ではなくCI再現性があると判明し、`health.spec.ts` は `{ exact: true }` へその場で修正した（`--repeat-each=5` で5/5 green、フルスイート再実行でも flaky 消失を確認）
