@@ -22,12 +22,15 @@ async function fetchHealth(): Promise<HealthResponse> {
   return response.json();
 }
 
+const STOCK_ITEMS_FETCH_TIMEOUT_MS = 10_000;
+
 async function fetchStockItems(
   accessToken?: string,
   activeGroupId?: string,
 ): Promise<StockItem[]> {
   const response = await fetch(`${API_BASE_URL}/api/stock-items`, {
     headers: apiHeaders(accessToken, activeGroupId),
+    signal: AbortSignal.timeout(STOCK_ITEMS_FETCH_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();

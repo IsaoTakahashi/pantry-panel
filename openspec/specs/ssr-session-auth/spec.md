@@ -43,6 +43,24 @@
 - **WHEN** 確定的に無効と判定されたセッション cookie（例: 署名検証失敗の `AuthInvalidJwtError`）を持つユーザーが保護ルートにアクセスする
 - **THEN** `/login` へリダイレクトされ、かつそのレスポンスで `sb-*-auth-token` 系の cookie（チャンク分割されたものを含む）が失効（空値・即時期限切れ）した状態で返される
 
+### Requirement: middleware は認証済みリクエストを後続の Server Component に伝える
+
+`middleware.ts` は、`getClaims()` が確定的に認証済みと判定した場合（`data !== null`）、後続の Server Component（`layout.tsx` 等）がセッションを再検証せずに信頼できるよう、リクエストヘッダー `x-pp-authenticated: 1` を付与する SHALL。このヘッダーはクライアントが自ら送信した値を信頼してはならない MUST NOT——`middleware.ts` はリクエスト処理の最初でこのヘッダーを必ず一度削除してから、認証済みと確定した場合のみ改めて設定する MUST（クライアントによるなりすまし防止）。`EXCLUDED_PATHS`（`/login`, `/join`, `/auth/callback`）では `getClaims()` 自体を呼ばないため、このヘッダーは付与されない。
+
+このヘッダーは「middleware がこのリクエストを認証済みと判定した」という一度きりの事実の伝達に限定される MUST。認可の境界にはならない（本ファイル冒頭の「重要」注記と同様、各経路が独立してセッション・認可を検証する原則は変わらない）。
+
+#### Scenario: 認証済みリクエストにヘッダーが付与される
+- **WHEN** `getClaims()` が `data !== null` を返す（確定的に認証済み）
+- **THEN** リクエストヘッダーに `x-pp-authenticated: 1` が設定され、後続の Server Component から読み取れる
+
+#### Scenario: クライアントが偽装したヘッダーは無効化される
+- **WHEN** クライアントが `x-pp-authenticated: 1` を自らのリクエストに含めて送信するが、middleware の認証判定では未ログインまたは判定不能である
+- **THEN** middleware はこのヘッダーを削除し、後続の Server Component には伝わらない
+
+#### Scenario: 除外ルートではヘッダーが付与されない
+- **WHEN** リクエスト先が `EXCLUDED_PATHS`（`/login` 等）に一致する
+- **THEN** `getClaims()` が呼ばれないため、`x-pp-authenticated` ヘッダーは付与されない
+
 ### Requirement: OAuth サインインは PKCE + コールバックルートで完結する
 
 OAuth サインインフローは、Google からのリダイレクト先を `/auth/callback` とし、同ルートで認可コードをセッションに交換して cookie に書き込む SHALL。

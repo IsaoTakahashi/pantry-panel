@@ -19,3 +19,7 @@ export function getActiveGroupCookie(): string | undefined {
   if (!match) return undefined;
   return decodeURIComponent(match.slice(prefix.length));
 }
+
+export function clearActiveGroupCookie(): void {
+  document.cookie = `${ACTIVE_GROUP_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+}
