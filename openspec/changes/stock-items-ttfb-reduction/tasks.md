@@ -7,7 +7,7 @@
 
 ## 2. Phase 1: Vercel Function Regionの修正（最優先）
 
-- [ ] 2.1 `frontend/vercel.json` を新規作成し、`{"regions": ["hnd1"]}` を設定する
+- [x] 2.1 `frontend/vercel.json` を新規作成し、`{"regions": ["hnd1"]}` を設定する
 - [ ] 2.2 mainにマージ・本番デプロイし、`curl -sI https://pantry-panel-xi.vercel.app/api/health` 等の `x-vercel-id` ヘッダーで実行リージョンが `hnd1` になったことを確認する
 - [ ] 2.3 デプロイ後、Phase 0の計測ログ（`getInitialStockItems: fetchStockItems;dur=...`, middlewareの`Server-Timing: claims;dur=...`）を一定時間収集し、修正前(median 521ms/p90 653ms)と比較して`fetchStockItems`の所要時間が有意に短縮されたことを確認し、ユーザーに報告する
 
