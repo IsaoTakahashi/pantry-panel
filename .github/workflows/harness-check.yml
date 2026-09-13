@@ -1,0 +1,65 @@
+name: Harness Check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  harness-check:
+    runs-on: ubuntu-latest
+    steps:
+      # advisory check: ブランチ名規則・Closes #N 記載の逸脱を検知しコメントで知らせる。
+      # 違反があってもマージはブロックしない（job は必ず成功として終える）。
+      # continue-on-error はこの job を advisory（常に成功扱い）にするために必須。
+      # 外すと github API 呼び出し失敗時に job 自体が fail し、advisory の前提が崩れる。
+      - name: Check branch naming and Closes reference
+        uses: actions/github-script@v9
+        continue-on-error: true
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const branch = pr.head.ref;
+            const body = pr.body || "";
+            const warnings = [];
+
+            const branchPattern = /^[0-9]+-[a-z0-9-]+$/;
+            if (!branchPattern.test(branch)) {
+              warnings.push(
+                `- ブランチ名 \`${branch}\` が命名規則 \`{issue番号}-{概要}\`（例: \`4-stock-item-crud\`）に一致していません。`
+              );
+            }
+
+            const closesPattern = /Closes #\d+/i;
+            if (!closesPattern.test(body)) {
+              warnings.push(
+                "- PR本文に `Closes #N` の記載が見つかりません。マージ時に Issue を自動クローズするため記載してください。"
+              );
+            }
+
+            if (warnings.length === 0) {
+              console.log("No harness violations detected.");
+              return;
+            }
+
+            const message = [
+              "### Harness Check (advisory)",
+              "",
+              "このPRについて、運用ルール（`.claude/rules/general.md`）への違反の可能性があります。",
+              "これは advisory なコメントであり、マージはブロックされません。",
+              "",
+              ...warnings,
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: message,
+            });
