@@ -227,8 +227,10 @@ export const config = {
      * - _next/static, _next/image（Next.js 内部アセット）
      * - favicon.ico, manifest.webmanifest, icon-192.png, icon-512.png, icon.svg, sw.js
      *   （Serwist の pre-cache 対象・PWA アセット。next.config.ts 参照）
-     * - api（/api/health を含む。実 API は Go/Lambda 側の別サービスであり、
-     *   このアプリの /api/* は health check 用の1ルートのみ。認証不要）
+     * - api（/api/health, /api/warm/stock-items を含む。実 API は Go/Lambda
+     *   側の別サービスであり、このアプリの /api/* は health check・warm-up
+     *   用のルートのみ。認証不要。/api/warm/stock-items は自前の共有シークレット
+     *   検証で保護される）
      */
     "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|icon-192\\.png|icon-512\\.png|icon\\.svg|sw\\.js|api/).*)",
   ],

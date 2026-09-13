@@ -1,39 +1,4 @@
-# warmup-scheduler Specification
-
-## Purpose
-TBD - created by archiving change ppr-and-warmup-health. Update Purpose after archive.
-
-## Requirements
-### Requirement: External scheduler pings the warmup endpoint
-cron-job.org（このリポジトリ外で管理される外部サービス）が、Vercel 上の `/api/health` に対して2分間隔で GET リクエストを送信する SHALL。あわせて、バックエンド Lambda の Function URL の `/health` にも直接（Vercel を経由せず）2分間隔でリクエストを送信する SHALL。
-
-#### Scenario: Vercel health endpoint is pinged
-- **WHEN** cron-job.org のスケジュールが発火する
-- **THEN** `https://<vercel-app>/api/health` に GET リクエストが送信され、200 が返る
-
-#### Scenario: Backend Lambda health endpoint is pinged directly
-- **WHEN** cron-job.org のスケジュールが発火する
-- **THEN** Lambda Function URL の `/health` に直接 GET リクエストが送信され、200 が返る
-
-### Requirement: Warmup target must verifiably invoke a serverless function
-ウォームアップ対象のエンドポイントは、リクエストのたびに Vercel の Node.js Function（または同等の実行環境）を実際に起動するものでなければならず、CDN の静的キャッシュから完結する応答であってはならない SHALL。
-
-過去に `/login`（静的prerenderされCDNキャッシュから返るようになっていた）を対象にしたことで、pingは実行され続けていたにもかかわらず対象の関数が一切起動されない、という回帰が発生した（本 change の契機）。この失敗モードを再発させないため、対象選定時にレスポンスヘッダーで検証可能であることを要件とする。
-
-#### Scenario: Target is function-backed
-- **WHEN** ウォームアップ対象のURLにGETリクエストを送信する
-- **THEN** レスポンスに `x-matched-path` ヘッダーが含まれ、`x-vercel-cache` が `HIT` ではない（関数が実行されたことを示す）
-
-#### Scenario: Target regresses to a static cache
-- **WHEN** ウォームアップ対象のURLへの応答が `x-vercel-cache: HIT` を返し、かつ `age` がリクエスト間隔とほぼ1:1で増加し続ける（バックグラウンド revalidation が発生していない）
-- **THEN** そのURLはウォームアップ対象として不適格と判断し、別のURLに retarget する
-
-### Requirement: Warmup coverage is limited to the routes actually pinged
-Vercel はルートごとに個別の関数を割り当てるため、`/api/health` へのpingは `/api/health` 自身のコールドスタートのみを防ぎ、他のルート（例: `/stock-items`）のコールドスタートを防ぐとみなしてはならない SHALL NOT。認証が必要なルートのウォームアップが必要な場合は、別途そのルート専用の仕組みを設計する。
-
-#### Scenario: Pinging one route does not warm another
-- **WHEN** `/api/health` が2分間隔でpingされ続けている
-- **THEN** `/stock-items` のような別ルートの関数はこのpingによって温められない（別途の仕組みが必要）
+## ADDED Requirements
 
 ### Requirement: Protected routes are warmed via an authenticated internal round-trip
 `/stock-items` のような認証必須ルートは、外部スケジューラから直接ping SHALL NOT（未認証リクエストは middleware のリダイレクトで完結し、ページ本体の関数を起動しないため）。代わりに、専用の warm-up エンドポイント（例: `/api/warm/stock-items`）が、有効なセッションを自ら確立した上でこのアプリ自身の `/stock-items` に対してサーバーサイドから認証済みリクエストを発行する SHALL。
