@@ -14,4 +14,4 @@
 
 - [x] 3.1 `grep -rn "testing.md" .claude openspec specs` で「判断基準の更新ログ」を参照している既存の記述（general.mdのワークフロー表、`.claude/rules/general.md` 内の「レビューで確定した判断基準を testing.md の更新ログに追記」等）がないか確認し、あれば `specs/testing-decision-log.md` を指すように更新する（アーカイブ済みproposal.mdは履歴のため変更しない）。general.md の該当2箇所（完了処理の表、Step 2詳細の箇条書き）を更新済み。それ以外の `testing.md` 参照（general.md 27/61/88行目、docs/superpowers配下の過去計画、openspec/specs/scenario-driven-test-design/spec.md）はフォーマット/スコープ定義の参照か、履歴/archive時対応（Task 3.3）のため変更不要
 - [x] 3.2 `git diff --stat` で `testing.md` の削除行数と `specs/testing-decision-log.md` の追加行数が対応していることを目視確認する
-- [ ] 3.3 `opsx:archive` 実行時に、`openspec/specs/scenario-driven-test-design/spec.md` の `## Purpose` 行（「review decisions are accumulated there」= testing.md を指す記述）を、ログの蓄積先が `specs/testing-decision-log.md` に変わったことを反映するよう更新する（archive時に実施。本タスクの実装スコープ外）
+- [x] 3.3 `opsx:archive` 実行時に、`openspec/specs/scenario-driven-test-design/spec.md` の `## Purpose` 行（「review decisions are accumulated there」= testing.md を指す記述）を、ログの蓄積先が `specs/testing-decision-log.md` に変わったことを反映するよう更新する（archive時に実施。本タスクの実装スコープ外）
