@@ -63,7 +63,7 @@ Unit を厚く、Integration 中程度、E2E を薄く保つ（テストピラ�
 | ローカルE2E確認 | — | すべての実装完了後・push前に `cd frontend && npx playwright test` でローカルE2Eを実行してpassを確認する。**UIコンポーネント（モーダル・アニメーション）を変更した場合は必須**。dev server (`npm run dev`) が起動している状態で実行すること |
 | コードレビュー | **コードレビュー sub-agent** | 実装完了後、変更差分をレビューする → ユーザーが最終確認 |
 | CI 確認 | — | ローカルE2E確認後、`gh pr checks --watch` で PR 上の CI 結果を確認。失敗があれば原因を調査して修正する |
-| 完了処理 | `opsx:archive` | **PR マージ前**に実施。specs 同期・アーカイブのコミットも同じ feature ブランチに含める。加えて: (1) proposal.md のユーザーシナリオを関連 spec.md へ昇格、(2) レビューで確定した判断基準を `testing.md` の更新ログに追記 |
+| 完了処理 | `opsx:archive` | **PR マージ前**に実施。specs 同期・アーカイブのコミットも同じ feature ブランチに含める。加えて: (1) proposal.md のユーザーシナリオを関連 spec.md へ昇格、(2) レビューで確定した判断基準を `specs/testing-decision-log.md` の更新ログに追記 |
 
 設計が明確な場合は brainstorming を省略して `opsx:propose` から始めてよい。
 
@@ -87,7 +87,7 @@ Unit を厚く、Integration 中程度、E2E を薄く保つ（テストピラ�
 - **ユーザーシナリオ**（日本語）を列挙する。フロントエンド（ユーザー操作）とバックエンド（API契約）でセクションを分ける
 - **テスト設計**は `.claude/rules/testing.md` のハイブリッドフォーマットで行う：サマリテーブル + 各シナリオの G/W/T + スコープ別検証観点
 - 各シナリオについて **E2E判定**（Yes/No）と**理由**を明記する。E2E Mock / Preview の区別も判断ツリーに従って決定する
-- レビューでスコープ変更が承認された場合は `testing.md` の判断基準更新ログに追記する
+- レビューでスコープ変更が承認された場合は `specs/testing-decision-log.md` の判断基準更新ログに追記する
 
 ### 直接の修正依頼（opsx フロー外）の扱い
 
