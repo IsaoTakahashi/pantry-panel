@@ -4,10 +4,11 @@
 
 ## What Changes
 
+- **(優先・追加)** Phase 0で収集した本番Server-Timing/ログの分析により、`fetchStockItems()`（Go Lambda）が warm時でも一貫して500〜700ms程度かかっていることが判明。原因はコールドスタートではなく、**Vercelの Node.js serverless function が `iad1`（米国東海岸）で実行されており**、`ap-northeast-1`（東京）にあるGo Lambda・Supabaseへの呼び出しがすべて太平洋横断の往復になっていたこと。`frontend/vercel.json` に `regions: ["hnd1"]` を追加し、Function Regionを東京に固定する
 - SSRの`getInitialStockItems()`から重複したSupabase `getSession()`呼び出しを廃止し、middlewareが検証・リフレッシュ済みのトークンをcookieから直接読む
 - `middleware.ts`内で認証検証(`getClaims()`)とGo Lambdaへのstock itemsフェッチを`Promise.all`で並列発射する。未認証確定時は並行取得できていたフェッチ結果を破棄し、現行通り`/login`へリダイレクトする
 - 並列取得したstock itemsをheader経由でpageに引き継ぐ新しい伝達経路を追加する。ペイロードがサイズ閾値を超える場合・フェッチ失敗時はpage側の従来フェッチにフォールバックする
-- `middleware.ts`と`getInitialStockItems.ts`にServer-Timingによる区間計測を追加する（実装の最初のフェーズとして先行投入し、cold差分の内訳を確認してから並列発射の実装を確定する判断ゲートとする）
+- `middleware.ts`と`getInitialStockItems.ts`にServer-Timingによる区間計測を追加する（実装済み。この計測データがFunction Region問題の発見につながった）
 
 ## Capabilities
 
@@ -15,10 +16,12 @@
 - `stock-items-ssr-prefetch`: `/stock-items`ページのSSRが初期HTMLに実データを埋め込む挙動（既存実装だが未文書化だったIssue #182の成果）を正式化し、今回追加する「middlewareでの並列フェッチ・header経由の伝達・サイズ超過時のフォールバック・区間計測」の挙動を定義する
 
 ### Modified Capabilities
-（なし。`ssr-session-auth`のcookie保存・fail open判定・リダイレクト・`x-pp-authenticated`ヘッダーの意味に関する既存requirementのテキストは変更しない。middleware.ts内部に並列フェッチ処理を追加するのみで、認証まわりのrequirement自体は変わらない）
+- `production-frontend-runtime`: Vercelのserverless function実行リージョンが、バックエンド（Go Lambda・Supabase、共に`ap-northeast-1`）と同一リージョン（`hnd1`）であることを新しい要件として追加する
+
+（`ssr-session-auth`のcookie保存・fail open判定・リダイレクト・`x-pp-authenticated`ヘッダーの意味に関する既存requirementのテキストは変更しない）
 
 ## Impact
 
-- 変更対象: `frontend/src/middleware.ts`, `frontend/src/app/stock-items/getInitialStockItems.ts`
+- 変更対象: `frontend/vercel.json`（新規）, `frontend/src/middleware.ts`, `frontend/src/app/stock-items/getInitialStockItems.ts`
 - 変更なし: Go backend（JWT検証ロジックは今回のスコープ外）、cron-job.orgのwarmup設定（別issueとする）
 - 依存関係: `ssr-session-auth`（`x-pp-authenticated`ヘッダーの契約を前提として利用するが、その契約自体は変更しない）
