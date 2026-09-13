@@ -17,5 +17,5 @@
 
 ## 4. 動作確認
 
-- [ ] 4.1 意図的にブランチ名規則に違反するテストPR（または既存PRのdry-run）で警告コメントが投稿されることを確認する（PR作成・push後にCI上で確認が必要なため、このブランチのファイル変更のみでは未実施）
-- [ ] 4.2 `gh pr checks`でharness-check jobがadvisory（fail扱いにならない）として表示されることを確認する（同上、PR作成・push後に確認が必要）
+- [x] 4.1 意図的にブランチ名規則に違反するテストPR（または既存PRのdry-run）で警告コメントが投稿されることを確認する（使い捨てPR #295で検証: ブランチ名`harness-check-test-badname`・Closes記載なしの両方の違反コメントが投稿されたことを確認し、PRはクローズ・ブランチは削除済み）
+- [x] 4.2 `gh pr checks`でharness-check jobがadvisory（fail扱いにならない）として表示されることを確認する（#295・#294の両方で`harness-check pass`を確認）
