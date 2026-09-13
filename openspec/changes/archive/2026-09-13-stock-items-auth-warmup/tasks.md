@@ -21,7 +21,7 @@
 - [x] 3.1 After deploy, `curl -H "x-warmup-secret: <secret>" https://<vercel-app>/api/warm/stock-items` returns 200 — confirmed: 1st call 2.03s (cold sign-in + cold function + backend fetch), 2nd/3rd calls 200-300ms (session cache hit, as designed)
 - [x] 3.2 `curl https://<vercel-app>/api/warm/stock-items` (no secret) returns 401 — confirmed
 - [x] 3.3 Add a new cron-job.org job (2-minute interval) targeting the endpoint with the shared-secret header configured — confirmed
-- [ ] 3.4 After ~1 hour of the cron job running, spot-check that repeated warm pings are not each triggering a fresh Supabase sign-in (e.g. via Supabase Dashboard auth logs, if available) — confirms the session cache is working as designed
+- [x] 3.4 After ~1 hour of the cron job running, spot-check that repeated warm pings are not each triggering a fresh Supabase sign-in (e.g. via Supabase Dashboard auth logs, if available) — confirms the session cache is working as designed — checked via `auth.audit_log_entries`: 3 sign-ins in 31 minutes (more frequent than the ideal ~1/hour estimate, but harmless; see design.md Risks for analysis)
 
 ## 4. Archive
 
