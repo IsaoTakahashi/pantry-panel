@@ -25,12 +25,26 @@ export async function getInitialStockItems(): Promise<StockItem[] | null> {
   if (!supabase) return null;
 
   try {
+    const sessionStart = performance.now();
     const {
       data: { session },
     } = await supabase.auth.getSession();
+    // stock-items-ttfb-reduction Phase 0: 本番での cold 時 TTFB 内訳を
+    // 判断するための観測性のみの追加。middleware.ts の Server-Timing と
+    // 異なり、Server Component はレスポンスヘッダーを書けないため
+    // console.log による構造化ログで代替する（既存の console.error による
+    // observability パターンに倣う）。
+    console.log(
+      `getInitialStockItems: getSession;dur=${(performance.now() - sessionStart).toFixed(1)}`,
+    );
     if (!session) return null;
 
-    return await fetchStockItems(session.access_token, activeGroupId);
+    const fetchStart = performance.now();
+    const items = await fetchStockItems(session.access_token, activeGroupId);
+    console.log(
+      `getInitialStockItems: fetchStockItems;dur=${(performance.now() - fetchStart).toFixed(1)}`,
+    );
+    return items;
   } catch {
     return null;
   }

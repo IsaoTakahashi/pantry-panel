@@ -1,7 +1,7 @@
 ## 1. Phase 0: 観測性の追加（判断ゲート）
 
 - [x] 1.1 `middleware.ts` に `getClaims()` の実行時間を計測するコードを追加し、Server-Timingヘッダー（または構造化ログ）で出力する。ユニットテストでヘッダー/ログが付与されることを確認する
-- [ ] 1.2 `getInitialStockItems.ts` に既存の `getSession()` と `fetchStockItems()` それぞれの実行時間を計測するコードを追加し、同様に出力する。ユニットテストで確認する
+- [x] 1.2 `getInitialStockItems.ts` に既存の `getSession()` と `fetchStockItems()` それぞれの実行時間を計測するコードを追加し、同様に出力する。ユニットテストで確認する
 - [ ] 1.3 変更をmainにマージ・本番デプロイし、実アクセスのServer-Timingデータを一定期間（数日〜1週間程度）収集する
 - [ ] 1.4 収集データから、cold時の遅延が「Supabase/Lambdaへの実ネットワーク往復」由来か「Vercel関数自体のコールドスタート」由来かを判断し、ユーザーに報告してPhase 2着手の可否を確認する（設計の判断ゲート。Phase 2着手前に必ずユーザー確認を挟む）
 

@@ -117,4 +117,51 @@ describe("getInitialStockItems", () => {
 
     expect(result).toBeNull();
   });
+
+  // Phase 0 (stock-items-ttfb-reduction tasks.md 1.2): 本番での cold 時 TTFB
+  // 内訳を判断するため、getSession() と fetchStockItems() それぞれの所要時間を
+  // 計測しログ出力する。Server Component はレスポンスヘッダーを書けないため
+  // （middleware.ts の Server-Timing とは異なり）構造化ログで代替する。
+  describe("観測性: getSession/fetchStockItems の所要時間をログ出力する", () => {
+    it("cookieとセッションが揃っているとき、getSession と fetchStockItems 双方の所要時間がログ出力される", async () => {
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      mockCookiesGet.mockImplementation((name: string) =>
+        name === "pantry-panel-active-group" ? { value: "group-1" } : undefined,
+      );
+      mockGetSession.mockResolvedValue({
+        data: { session: { access_token: "tok" } },
+      });
+      vi.mocked(fetchStockItems).mockResolvedValue([]);
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      await getInitialStockItems();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/getSession.*dur=\d+(\.\d+)?/),
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/fetchStockItems.*dur=\d+(\.\d+)?/),
+      );
+      logSpy.mockRestore();
+    });
+
+    it("セッションが取得できないとき、getSession の所要時間のみログ出力され fetchStockItems 分は出力されない", async () => {
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      mockCookiesGet.mockImplementation((name: string) =>
+        name === "pantry-panel-active-group" ? { value: "group-1" } : undefined,
+      );
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      await getInitialStockItems();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/getSession.*dur=\d+(\.\d+)?/),
+      );
+      expect(logSpy).not.toHaveBeenCalledWith(
+        expect.stringMatching(/fetchStockItems.*dur=\d+(\.\d+)?/),
+      );
+      logSpy.mockRestore();
+    });
+  });
 });
