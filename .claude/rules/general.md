@@ -65,6 +65,8 @@ Unit を厚く、Integration 中程度、E2E を薄く保つ（テストピラ�
 | CI 確認 | — | ローカルE2E確認後、`gh pr checks --watch` で PR 上の CI 結果を確認。失敗があれば原因を調査して修正する |
 | 完了処理 | `opsx:archive` | **PR マージ前**に実施。specs 同期・アーカイブのコミットも同じ feature ブランチに含める。加えて: (1) proposal.md のユーザーシナリオを関連 spec.md へ昇格、(2) レビューで確定した判断基準を `specs/testing-decision-log.md` の更新ログに追記 |
 
+詳細な実行手順（各フェーズでの委譲先・呼び出し順序）は `pantry-panel-workflow` skill を参照する。
+
 設計が明確な場合は brainstorming を省略して `opsx:propose` から始めてよい。
 
 ## 開発フロー
