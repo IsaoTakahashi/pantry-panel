@@ -3,6 +3,7 @@
 - [x] 1.1 Create a dedicated warm-only user in the production Supabase project (Dashboard → Authentication → Add user, email+password, confirmed)
 - [x] 1.2 Create a group for the warm user and add one seed stock item (via the backend API, same pattern as `frontend/e2e/global-setup.ts`'s ephemeral group creation), so the SSR render exercises a non-empty list
 - [x] 1.3 Add `WARM_USER_EMAIL`, `WARM_USER_PASSWORD`, `WARM_GROUP_ID` (the group created in 1.2), `WARMUP_SHARED_SECRET` as Vercel production environment variables
+- [ ] 1.5 Add `WARM_TARGET_ORIGIN` (this app's own production URL, e.g. `https://pantry-panel-xi.vercel.app`) as a Vercel production environment variable — added after 1.3 during final review (fix for the request-derived-fetch-target finding; see design.md Decisions)
 - [x] 1.4 Check Supabase Dashboard → Authentication → Rate Limits for the sign-in rate limit and confirm the module-cache approach (~1 sign-in/hour) stays well under it — confirmed 150 req/5min (1800/hr), comfortably above even a naive per-ping sign-in rate
 
 ## 2. Implementation (TDD)

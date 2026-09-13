@@ -31,3 +31,17 @@
 #### Scenario: Missing or invalid secret is rejected before sign-in
 - **WHEN** warm-upエンドポイントへのリクエストに正しい共有シークレットヘッダーが含まれていない
 - **THEN** エンドポイントは401を返し、Supabaseへのsign-inリクエストを発行しない
+
+### Requirement: Warmup endpoint fails loudly on missing configuration
+warm-upエンドポイントが依存する必須の環境変数（Supabase接続情報、warmユーザー資格情報、warm対象グループID、内部fetch先オリジン）のいずれかが未設定の場合、空値のまま処理を続行してはならない SHALL NOT。共有シークレットの検証を通過した後、これらの必須値を検証し、欠落している場合はどの変数が欠落しているかを示す診断可能なエラーを返す SHALL。
+
+#### Scenario: Missing required env var produces a diagnosable failure, not a false-positive success
+- **WHEN** warm-upエンドポイントが依存する必須環境変数（例: warm対象グループID）が未設定の状態でpingされる
+- **THEN** エンドポイントは200ではなく、欠落した変数名を含む非200レスポンスを返す（内部的に`/stock-items`がクライアント側フォールバックで200を返してしまい、バックエンドへの実際のフェッチが行われないまま警告なく成功扱いになることを防ぐ）
+
+### Requirement: Internal warmup request targets a fixed origin, not a request-derived one
+warm-upエンドポイントが自身の`/stock-items`に対して発行する内部リクエスト（有効なセッションcookieを含む）の宛先は、固定の設定値から得る SHALL。受信したリクエストのHost/Originから宛先を導出してはならない SHALL NOT。
+
+#### Scenario: Internal fetch target is independent of the inbound request's origin
+- **WHEN** warm-upエンドポイントへの受信リクエストのOriginが、設定されたwarm対象オリジンと異なる
+- **THEN** 内部fetchは受信リクエストのOriginではなく、設定されたwarm対象オリジンに対して送信される
