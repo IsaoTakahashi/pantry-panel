@@ -408,4 +408,55 @@ describe("middleware", () => {
     expect(req.headers.get("x-pp-authenticated")).toBeNull();
     expect(getClaimsMock).not.toHaveBeenCalled();
   });
+
+  // Phase 0 (stock-items-ttfb-reduction tasks.md 1.1): cold時のTTFB内訳を
+  // 本番のServer-Timingデータから判断できるようにするため、getClaims()の
+  // 実行時間を計測しレスポンスヘッダーに載せる。挙動（redirect判定・
+  // fail-open/closed）自体は変更しない。
+  describe("Server-Timing: getClaims() の実行時間を計測する", () => {
+    it("認証済みで通過するとき、Server-Timing ヘッダーに claims の所要時間が含まれる", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      getClaimsMock.mockResolvedValue({
+        data: { claims: { sub: "user-1" } },
+        error: null,
+      });
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(makeRequest("/stock-items"));
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Server-Timing")).toMatch(
+        /claims;dur=\d+(\.\d+)?/,
+      );
+      errorSpy.mockRestore();
+    });
+
+    it("未ログイン確定で /login へリダイレクトするときも、Server-Timing ヘッダーに claims の所要時間が含まれる", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      getClaimsMock.mockResolvedValue({ data: null, error: null });
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(makeRequest("/stock-items"));
+
+      expect(res.status).toBe(307);
+      expect(res.headers.get("Server-Timing")).toMatch(
+        /claims;dur=\d+(\.\d+)?/,
+      );
+      errorSpy.mockRestore();
+    });
+
+    it("getClaims が例外を投げて fail open するときも、Server-Timing ヘッダーに claims の所要時間が含まれる", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      getClaimsMock.mockRejectedValue(new Error("network error"));
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(makeRequest("/stock-items"));
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Server-Timing")).toMatch(
+        /claims;dur=\d+(\.\d+)?/,
+      );
+      errorSpy.mockRestore();
+    });
+  });
 });

@@ -29,6 +29,21 @@ function matchesPath(pathname: string, paths: string[]): boolean {
   );
 }
 
+// stock-items-ttfb-reduction Phase 0: 本番での cold 時 TTFB 内訳を実測する
+// ための観測性のみの追加（判断ゲート）。既存の fail-open/fail-closed 判定・
+// redirect 分岐・cookie/ヘッダー付与ロジックは変更しない。
+// Server-Timing はレスポンスヘッダーとして仕様化された形式
+// （`<name>;dur=<ミリ秒>`、複数区間はカンマ区切り）に従う。
+function appendServerTiming(
+  res: NextResponse,
+  name: string,
+  durationMs: number,
+): void {
+  const entry = `${name};dur=${durationMs.toFixed(1)}`;
+  const existing = res.headers.get("Server-Timing");
+  res.headers.set("Server-Timing", existing ? `${existing}, ${entry}` : entry);
+}
+
 export async function middleware(request: NextRequest) {
   // クライアントが x-pp-authenticated を偽装して送ってきた場合に、下流の
   // Server Component（layout.tsx）がそれを「middleware が検証済み」と誤って
@@ -108,6 +123,8 @@ export async function middleware(request: NextRequest) {
   //   - data === null && error はそれ以外              → 未ログイン確定扱い（redirect 対象）
   //   - 例外が飛んだ場合                                → 判定不能（fail open、redirect しない）
   let isDefinitelyUnauthenticated = false;
+  let claimsDurationMs: number | undefined;
+  const claimsStart = performance.now();
   try {
     // getClaims() はセッションの有効期限が近ければ内部でリフレッシュしてから
     // 検証する（getSession() はリフレッシュはするが cookie 由来の値を無条件に
@@ -115,6 +132,7 @@ export async function middleware(request: NextRequest) {
     // クライアントを生成しただけではリフレッシュは走らないため、この呼び出しが
     // 必須。
     const { data, error } = await supabase.auth.getClaims();
+    claimsDurationMs = performance.now() - claimsStart;
     if (data !== null) {
       // 認証済みと判定できた事実を Server Component（layout.tsx）へ転送する
       // （Issue #182）。middleware は request/response のライフサイクルの中で
@@ -175,6 +193,7 @@ export async function middleware(request: NextRequest) {
       }
     }
   } catch (err) {
+    claimsDurationMs = performance.now() - claimsStart;
     // リフレッシュ処理自体が例外を投げても fail open。未ログイン扱いにはせず、
     // 「セッション状態が確認できなかった」として素通りさせる（保護ルートで
     // あってもリフレッシュ失敗だけを理由に /login へは飛ばさない）。
@@ -183,7 +202,12 @@ export async function middleware(request: NextRequest) {
       "middleware: getClaims threw, failing open (session refresh not confirmed)",
       err,
     );
+    appendServerTiming(response, "claims", claimsDurationMs);
     return response;
+  }
+
+  if (claimsDurationMs !== undefined) {
+    appendServerTiming(response, "claims", claimsDurationMs);
   }
 
   if (
@@ -213,6 +237,9 @@ export async function middleware(request: NextRequest) {
     }
     for (const [key, value] of Object.entries(cacheHeaders)) {
       redirectResponse.headers.set(key, value);
+    }
+    if (claimsDurationMs !== undefined) {
+      appendServerTiming(redirectResponse, "claims", claimsDurationMs);
     }
     return redirectResponse;
   }

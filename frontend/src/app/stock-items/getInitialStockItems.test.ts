@@ -117,4 +117,138 @@ describe("getInitialStockItems", () => {
 
     expect(result).toBeNull();
   });
+
+  // Phase 0 (stock-items-ttfb-reduction tasks.md 1.2): 本番での cold 時 TTFB
+  // 内訳を判断するため、getSession() と fetchStockItems() それぞれの所要時間を
+  // 計測しログ出力する。Server Component はレスポンスヘッダーを書けないため
+  // （middleware.ts の Server-Timing とは異なり）構造化ログで代替する。
+  describe("観測性: getSession/fetchStockItems の所要時間をログ出力する", () => {
+    it("cookieとセッションが揃っているとき、getSession と fetchStockItems 双方の所要時間がログ出力される", async () => {
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      mockCookiesGet.mockImplementation((name: string) =>
+        name === "pantry-panel-active-group" ? { value: "group-1" } : undefined,
+      );
+      mockGetSession.mockResolvedValue({
+        data: { session: { access_token: "tok" } },
+      });
+      vi.mocked(fetchStockItems).mockResolvedValue([]);
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      await getInitialStockItems();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/getSession.*dur=\d+(\.\d+)?/),
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/fetchStockItems.*dur=\d+(\.\d+)?/),
+      );
+      logSpy.mockRestore();
+    });
+
+    it("セッションが取得できないとき、getSession の所要時間のみログ出力され fetchStockItems 分は出力されない", async () => {
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      mockCookiesGet.mockImplementation((name: string) =>
+        name === "pantry-panel-active-group" ? { value: "group-1" } : undefined,
+      );
+      mockGetSession.mockResolvedValue({ data: { session: null } });
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      await getInitialStockItems();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/getSession.*dur=\d+(\.\d+)?/),
+      );
+      expect(logSpy).not.toHaveBeenCalledWith(
+        expect.stringMatching(/fetchStockItems.*dur=\d+(\.\d+)?/),
+      );
+      logSpy.mockRestore();
+    });
+
+    it("getSession が reject したとき、getSession の所要時間がログ出力される", async () => {
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      mockCookiesGet.mockImplementation((name: string) =>
+        name === "pantry-panel-active-group" ? { value: "group-1" } : undefined,
+      );
+      mockGetSession.mockRejectedValue(new Error("cookie JSON parse error"));
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      await getInitialStockItems();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/getSession.*dur=\d+(\.\d+)?/),
+      );
+      logSpy.mockRestore();
+    });
+
+    it("fetchStockItems が reject したとき、getSession と fetchStockItems 双方の所要時間がログ出力される", async () => {
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      mockCookiesGet.mockImplementation((name: string) =>
+        name === "pantry-panel-active-group" ? { value: "group-1" } : undefined,
+      );
+      mockGetSession.mockResolvedValue({
+        data: { session: { access_token: "tok" } },
+      });
+      vi.mocked(fetchStockItems).mockRejectedValue(new Error("HTTP 500"));
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      await getInitialStockItems();
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/getSession.*dur=\d+(\.\d+)?/),
+      );
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/fetchStockItems.*dur=\d+(\.\d+)?/),
+      );
+      logSpy.mockRestore();
+    });
+
+    // reject時の所要時間ログは成功時と同一の書式（`<name>;dur=<ms>`）になる
+    // ため、ログの数値だけでは「遅い成功」と「失敗」を区別できない。
+    // middleware.ts の claimsDurationMs 計測は console.error でエラー内容も
+    // 併記しており、失敗を識別可能にしている。ここでも同様に、reject時は
+    // console.error でエラーを記録し、失敗したリクエストが計測データに
+    // 紛れ込まないようにする。
+    it("getSession が reject したとき、console.error でエラーが記録される", async () => {
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      mockCookiesGet.mockImplementation((name: string) =>
+        name === "pantry-panel-active-group" ? { value: "group-1" } : undefined,
+      );
+      const sessionError = new Error("cookie JSON parse error");
+      mockGetSession.mockRejectedValue(sessionError);
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      await getInitialStockItems();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("getSession"),
+        sessionError,
+      );
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+    });
+
+    it("fetchStockItems が reject したとき、console.error でエラーが記録される", async () => {
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      mockCookiesGet.mockImplementation((name: string) =>
+        name === "pantry-panel-active-group" ? { value: "group-1" } : undefined,
+      );
+      mockGetSession.mockResolvedValue({
+        data: { session: { access_token: "tok" } },
+      });
+      const fetchError = new Error("HTTP 500");
+      vi.mocked(fetchStockItems).mockRejectedValue(fetchError);
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      await getInitialStockItems();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("fetchStockItems"),
+        fetchError,
+      );
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+    });
+  });
 });
