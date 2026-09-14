@@ -4,7 +4,18 @@ import {
   isAuthRetryableFetchError,
 } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
+import { ACTIVE_GROUP_COOKIE_NAME } from "@/lib/activeGroupCookie";
+import { fetchStockItems } from "@/lib/api";
+import { readAccessTokenFromCookies } from "@/lib/sessionCookie";
 import { createSupabaseServerClient } from "@/lib/supabaseServerClient";
+import type { StockItem } from "@/types/stockItem";
+
+// stock-items-ttfb-reduction Phase 2 (tasks.md 4.1): getInitialStockItems()
+// が呼ばれるのは /stock-items の SSR だけであるため、それ以外のパスで
+// Go Lambda への在庫データフェッチを発射しても無駄な待ち時間・バックエンド
+// 負荷にしかならない（design.md はこの区別を明示していないが、実装上の
+// 必然として追加する）。
+const STOCK_ITEMS_PATH = "/stock-items";
 
 // 保護対象ルート（有効なセッション cookie が無ければ /login へリダイレクトする）。
 // `/` は page.tsx が即座に /stock-items へ redirect() するため、保護対象に含める
@@ -122,16 +133,62 @@ export async function middleware(request: NextRequest) {
   //   - data === null && error は Retryable/RefreshDiscarded → 判定不能（fail open、redirect しない）
   //   - data === null && error はそれ以外              → 未ログイン確定扱い（redirect 対象）
   //   - 例外が飛んだ場合                                → 判定不能（fail open、redirect しない）
+  // stock-items-ttfb-reduction Phase 2 (tasks.md 4.1): 認証検証(getClaims())
+  // と Go Lambda への在庫データフェッチ(fetchStockItems())を並列発射する。
+  // どちらも await する前に開始しておく必要があるため、claimsPromise /
+  // stockItemsPromise は Promise.all に渡す直前まで一切 await しない。
+  //
+  // stockItemsPromise は内部で自分の失敗を握り込み（.catch 相当の分岐で
+  // undefined を返す）、決して reject しない。これにより Promise.all は
+  // claimsPromise が reject したときだけ reject し、Lambda 側の失敗が
+  // 認証検証の既存のエラーハンドリング（fail-open/fail-closed の分岐）に
+  // 影響しないようにする。
+  //
+  // トークンは getSession()（design.md Decision 1 案）ではなく
+  // readAccessTokenFromCookies()（3.1 で実装、getInitialStockItems.ts と
+  // 共有）で読む。getSession() は内部の __loadSession が「期限切れ間近なら
+  // リフレッシュする」ため（@supabase/auth-js の実装）、ネットワーク往復が
+  // 発生し得て並列化の意図（ローカル読み取りのみ）を満たさず、getClaims()
+  // 自身のリフレッシュとも競合しうる。cookie の直接読み取りは常にローカルで
+  // 完結するため、この意図をより厳密に満たす。
+  let itemsDurationMs: number | undefined;
+  const stockItemsPromise: Promise<StockItem[] | undefined> = (async () => {
+    if (request.nextUrl.pathname !== STOCK_ITEMS_PATH) return undefined;
+    const activeGroupId = request.cookies.get(ACTIVE_GROUP_COOKIE_NAME)?.value;
+    if (!activeGroupId) return undefined;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return undefined;
+    const accessToken = await readAccessTokenFromCookies(
+      supabaseUrl,
+      (name) => request.cookies.get(name)?.value,
+    );
+    if (!accessToken) return undefined;
+
+    const itemsStart = performance.now();
+    try {
+      return await fetchStockItems(accessToken, activeGroupId);
+    } catch (err) {
+      console.error("middleware: fetchStockItems threw", err);
+      return undefined;
+    } finally {
+      itemsDurationMs = performance.now() - itemsStart;
+    }
+  })();
+
   let isDefinitelyUnauthenticated = false;
   let claimsDurationMs: number | undefined;
   const claimsStart = performance.now();
+  // getClaims() はセッションの有効期限が近ければ内部でリフレッシュしてから
+  // 検証する（getSession() はリフレッシュはするが cookie 由来の値を無条件に
+  // 信頼してしまうため、サーバー側での認証チェックには非推奨とされている）。
+  // クライアントを生成しただけではリフレッシュは走らないため、この呼び出しが
+  // 必須。
+  const claimsPromise = supabase.auth.getClaims();
   try {
-    // getClaims() はセッションの有効期限が近ければ内部でリフレッシュしてから
-    // 検証する（getSession() はリフレッシュはするが cookie 由来の値を無条件に
-    // 信頼してしまうため、サーバー側での認証チェックには非推奨とされている）。
-    // クライアントを生成しただけではリフレッシュは走らないため、この呼び出しが
-    // 必須。
-    const { data, error } = await supabase.auth.getClaims();
+    const [{ data, error }] = await Promise.all([
+      claimsPromise,
+      stockItemsPromise,
+    ]);
     claimsDurationMs = performance.now() - claimsStart;
     if (data !== null) {
       // 認証済みと判定できた事実を Server Component（layout.tsx）へ転送する
@@ -209,6 +266,9 @@ export async function middleware(request: NextRequest) {
   if (claimsDurationMs !== undefined) {
     appendServerTiming(response, "claims", claimsDurationMs);
   }
+  if (itemsDurationMs !== undefined) {
+    appendServerTiming(response, "items", itemsDurationMs);
+  }
 
   if (
     isDefinitelyUnauthenticated &&
@@ -240,6 +300,9 @@ export async function middleware(request: NextRequest) {
     }
     if (claimsDurationMs !== undefined) {
       appendServerTiming(redirectResponse, "claims", claimsDurationMs);
+    }
+    if (itemsDurationMs !== undefined) {
+      appendServerTiming(redirectResponse, "items", itemsDurationMs);
     }
     return redirectResponse;
   }

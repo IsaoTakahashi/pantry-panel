@@ -3,9 +3,12 @@ import {
   AuthInvalidJwtError,
   AuthRefreshDiscardedError,
   AuthRetryableFetchError,
+  type Session,
 } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fetchStockItems } from "@/lib/api";
+import { buildSessionCookies } from "@/lib/sessionCookie";
 
 // @supabase/ssr の createServerClient を mock し、middleware が
 // getClaims() の結果 / エラーに応じてどう振る舞うかを確認する。
@@ -17,6 +20,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // するには、getClaimsMock の実装内から setAll を呼び出して「@supabase/ssr
 // がリフレッシュ中に内部で cookie を書き込む」挙動を再現する必要がある
 // （route.test.ts の capturedCookieMethods パターンを踏襲）。
+//
+// createServerClient だけを差し替え、他のエクスポート（combineChunks 等）は
+// 実物を通す。middleware.ts が読み取りに使う readAccessTokenFromCookies
+// （lib/sessionCookie.ts）はこれらの実物の関数に依存しているため、
+// 全体を差し替えると壊れる。
 type CapturedCookieMethods = {
   getAll: () => { name: string; value: string }[];
   setAll?: (
@@ -27,18 +35,27 @@ type CapturedCookieMethods = {
 
 let capturedCookieMethods: CapturedCookieMethods | null = null;
 const getClaimsMock = vi.fn();
-vi.mock("@supabase/ssr", () => ({
-  createServerClient: (
-    _url: string,
-    _key: string,
-    options: { cookies: CapturedCookieMethods },
-  ) => {
-    capturedCookieMethods = options.cookies;
-    return {
-      auth: { getClaims: getClaimsMock },
-    };
-  },
-}));
+vi.mock("@supabase/ssr", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@supabase/ssr")>();
+  return {
+    ...actual,
+    createServerClient: (
+      _url: string,
+      _key: string,
+      options: { cookies: CapturedCookieMethods },
+    ) => {
+      capturedCookieMethods = options.cookies;
+      return {
+        auth: { getClaims: getClaimsMock },
+      };
+    },
+  };
+});
+
+// stock-items-ttfb-reduction Phase 2 (tasks.md 4.1): middleware は Go Lambda
+// への在庫データフェッチをここで発射するようになるため、実際のネットワーク
+// 呼び出し（localhost:8080）が発生しないようモックする。
+vi.mock("@/lib/api", () => ({ fetchStockItems: vi.fn() }));
 
 function makeRequest(
   path: string,
@@ -54,10 +71,22 @@ function makeRequest(
   return new NextRequest(new URL(path, "https://example.com"), init);
 }
 
+// stock-items-ttfb-reduction Phase 2 (tasks.md 4.1): middleware は
+// readAccessTokenFromCookies（getInitialStockItems.ts と同じヘルパー、3.1で
+// 実装済み）で access_token を cookie から直接読み取る。buildSessionCookies
+// で実際に @supabase/ssr と同じ形式の cookie を作り、ラウンドトリップさせる。
+function authTokenCookies(
+  accessToken: string,
+): { name: string; value: string }[] {
+  const session = { access_token: accessToken } as unknown as Session;
+  return buildSessionCookies("https://example.supabase.co", session);
+}
+
 describe("middleware", () => {
   beforeEach(() => {
     vi.resetModules();
     getClaimsMock.mockReset();
+    vi.mocked(fetchStockItems).mockReset();
     capturedCookieMethods = null;
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
@@ -456,6 +485,103 @@ describe("middleware", () => {
       expect(res.headers.get("Server-Timing")).toMatch(
         /claims;dur=\d+(\.\d+)?/,
       );
+      errorSpy.mockRestore();
+    });
+  });
+
+  // stock-items-ttfb-reduction Phase 2 (tasks.md 4.1): getClaims()（認証検証）
+  // と fetchStockItems()（Go Lambda への在庫データフェッチ）を Promise.all で
+  // 並列発射する。ヘッダー経由でpageに伝達するロジック（4.2〜4.4）は別テストで
+  // 検証する。ここでは「いつ fetchStockItems が呼ばれる/呼ばれないか」の
+  // ゲーティング条件と、区間計測（Server-Timing）を確認する。
+  describe("Phase 2: middleware内でのstock itemsフェッチの並列発射", () => {
+    const ACTIVE_GROUP_COOKIE = "pantry-panel-active-group";
+
+    it("/stock-items へのアクセスで access_token・activeGroupId cookie が揃っているとき fetchStockItems が呼ばれる", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      getClaimsMock.mockResolvedValue({
+        data: { claims: { sub: "user-1" } },
+        error: null,
+      });
+      vi.mocked(fetchStockItems).mockResolvedValue([]);
+      const { middleware } = await import("./middleware");
+
+      await middleware(
+        makeRequest("/stock-items", [
+          ...authTokenCookies("tok"),
+          { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+        ]),
+      );
+
+      expect(fetchStockItems).toHaveBeenCalledWith("tok", "group-1");
+      errorSpy.mockRestore();
+    });
+
+    it("activeGroupId cookie が無いとき fetchStockItems は呼ばれない", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      getClaimsMock.mockResolvedValue({
+        data: { claims: { sub: "user-1" } },
+        error: null,
+      });
+      const { middleware } = await import("./middleware");
+
+      await middleware(makeRequest("/stock-items", authTokenCookies("tok")));
+
+      expect(fetchStockItems).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it("access_token cookie が無いとき fetchStockItems は呼ばれない", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      getClaimsMock.mockResolvedValue({ data: null, error: null });
+      const { middleware } = await import("./middleware");
+
+      await middleware(
+        makeRequest("/stock-items", [
+          { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+        ]),
+      );
+
+      expect(fetchStockItems).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it("/stock-items 以外のパスでは、cookieが揃っていても fetchStockItems は呼ばれない", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      getClaimsMock.mockResolvedValue({
+        data: { claims: { sub: "user-1" } },
+        error: null,
+      });
+      const { middleware } = await import("./middleware");
+
+      await middleware(
+        makeRequest("/no-group", [
+          ...authTokenCookies("tok"),
+          { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+        ]),
+      );
+
+      expect(fetchStockItems).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it("認証済みで通過するとき、Server-Timing ヘッダーに items の所要時間が含まれる", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      getClaimsMock.mockResolvedValue({
+        data: { claims: { sub: "user-1" } },
+        error: null,
+      });
+      vi.mocked(fetchStockItems).mockResolvedValue([]);
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(
+        makeRequest("/stock-items", [
+          ...authTokenCookies("tok"),
+          { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+        ]),
+      );
+
+      expect(res.headers.get("Server-Timing")).toMatch(/items;dur=\d+(\.\d+)?/);
       errorSpy.mockRestore();
     });
   });

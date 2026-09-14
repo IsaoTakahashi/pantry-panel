@@ -17,7 +17,7 @@
 
 ## 4. Phase 2: middleware内での並列発射とヘッダー伝達
 
-- [ ] 4.1 `middleware.ts` 内で `getSession()`（ローカルのcookie読み取り）からアクセストークンと `activeGroupId` を取得し、`getClaims()` と `fetchStockItems()` を `Promise.all` で並列発射する
+- [x] 4.1 `middleware.ts` 内で `getSession()`（ローカルのcookie読み取り）からアクセストークンと `activeGroupId` を取得し、`getClaims()` と `fetchStockItems()` を `Promise.all` で並列発射する（実装ではトークン取得を `readAccessTokenFromCookies()` に変更。理由は最終報告に記載）
 - [ ] 4.2 認証済みと判定できた場合、フェッチ結果をシリアライズして `x-pp-initial-items` ヘッダーに付与する。サイズ閾値（暫定6KB、実データ分布を見て調整）を超える場合は付与しないロジックを実装し、ユニットテストで閾値前後双方の挙動を確認する
 - [ ] 4.3 `getClaims()` が未認証確定と判定した場合、取得済みのLambda結果を破棄し `x-pp-initial-items` ヘッダーを付与しないことをユニットテストで確認する（未認証確定時にデータが応答に含まれないことの直接的な確認）
 - [ ] 4.4 fail-open（判定不能）時の挙動は既存のredirect基準を変更せずに実装し、既存の該当ユニットテストが全て通ることを確認する
