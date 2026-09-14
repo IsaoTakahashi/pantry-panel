@@ -13,7 +13,7 @@
 
 ## 3. Phase 2: 認証検証の一化
 
-- [ ] 3.1 `getInitialStockItems.ts` から `supabase.auth.getSession()` 呼び出しを削除し、middlewareが検証・リフレッシュ済みのcookieから直接アクセストークンを読み取るように変更する。ユニットテストで、この経路でSupabaseへの呼び出しが発生しないことをspyで確認する
+- [x] 3.1 `getInitialStockItems.ts` から `supabase.auth.getSession()` 呼び出しを削除し、middlewareが検証・リフレッシュ済みのcookieから直接アクセストークンを読み取るように変更する。ユニットテストで、この経路でSupabaseへの呼び出しが発生しないことをspyで確認する
 
 ## 4. Phase 2: middleware内での並列発射とヘッダー伝達
 
