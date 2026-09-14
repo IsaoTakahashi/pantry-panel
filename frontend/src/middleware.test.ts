@@ -766,6 +766,50 @@ describe("middleware", () => {
       errorSpy.mockRestore();
     });
 
+    it("Retryableエラーでfail openする分岐でも、setAll()によるcookie書き込みとitems付与が両立する", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const req = makeRequest("/stock-items", [
+        ...authTokenCookies("tok"),
+        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+      ]);
+      getClaimsMock.mockImplementation(async () => {
+        // fail-open するエラーを resolve する前に、リフレッシュ試行の途中で
+        // 一部の cookie 書き込みだけが行われるようなケースを再現する
+        // （S-7 と同じ setAll パターン）。
+        capturedCookieMethods?.setAll?.(
+          [
+            {
+              name: "sb-example-auth-token",
+              value: "partially-refreshed-value",
+              options: { path: "/" },
+            },
+          ],
+          {
+            "Cache-Control":
+              "private, no-cache, no-store, must-revalidate, max-age=0",
+          },
+        );
+        return {
+          data: null,
+          error: new AuthRetryableFetchError("fetch failed", 0),
+        };
+      });
+      const items = [makeStockItem()];
+      vi.mocked(fetchStockItems).mockResolvedValue(items);
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(req);
+
+      expect(res.status).toBe(200);
+      expect(res.cookies.get("sb-example-auth-token")?.value).toBe(
+        "partially-refreshed-value",
+      );
+      const headerValue = req.headers.get("x-pp-initial-items");
+      expect(headerValue).not.toBeNull();
+      expect(decodeInitialItemsHeader(headerValue as string)).toEqual(items);
+      errorSpy.mockRestore();
+    });
+
     it("AuthRefreshDiscardedError でresolveしてfail openする場合も、並行フェッチが成功していれば x-pp-initial-items が付与される", async () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const req = makeRequest("/stock-items", [
@@ -809,6 +853,70 @@ describe("middleware", () => {
 
       expect(res.status).toBe(200);
       expect(req.headers.get("x-pp-initial-items")).toBeNull();
+      errorSpy.mockRestore();
+    });
+
+    // stock-items-ttfb-reduction Phase 2 (advisor レビュー指摘): stockItemsPromise
+    // は claimsPromise の完了を待たずに（＝ getClaims() 内部のリフレッシュが
+    // 走る前に）request.cookies から access_token を読む。トークンが期限切れ
+    // 間近の cold visit では、この読み取りタイミングがリフレッシュ前の古い
+    // トークンを掴む可能性があり、fetchStockItems がそれで失敗しうる。
+    // ここではその状況を再現し、(a) 古いトークンでの並行フェッチが失敗しても
+    // x-pp-initial-items は付与されない（データが欠けるだけで安全側に倒れる）、
+    // (b) それでもリフレッシュ後の新しい cookie は正しく応答・
+    // request（＝下流の Server Component が cookies() で読む値）に反映される
+    // ことを確認する。(b) が保証されていれば、getInitialStockItems.ts の
+    // フォールバック取得（5.2）は新しいトークンで再試行でき、
+    // 「リフレッシュが起きた cold visit で二重に失敗する」ことはない。
+    it("access_tokenがリフレッシュされる場合、古いトークンでの並行フェッチが失敗しても新しいcookieは正しく反映される", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const req = makeRequest("/stock-items", [
+        ...authTokenCookies("stale-tok"),
+        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+      ]);
+      getClaimsMock.mockImplementation(async () => {
+        // @supabase/ssr が getClaims() 内部でリフレッシュを検知し、新しい
+        // アクセストークンを cookie に書き込む挙動を再現する（S-7と同じ
+        // パターン）。stockItemsPromise がこの setAll より前に古い cookie を
+        // 読んでいることを検証したいので、リフレッシュが完了する前に
+        // fetchStockItems が古いトークンで呼ばれているはずである。
+        capturedCookieMethods?.setAll?.(
+          [
+            {
+              name: "sb-example-auth-token",
+              value: "refreshed-cookie-value",
+              options: { path: "/" },
+            },
+          ],
+          {
+            "Cache-Control":
+              "private, no-cache, no-store, must-revalidate, max-age=0",
+          },
+        );
+        return { data: { claims: { sub: "user-1" } }, error: null };
+      });
+      // Go backend が期限切れ間近/失効済みの古いトークンを拒否する挙動を
+      // 再現する。
+      vi.mocked(fetchStockItems).mockRejectedValue(new Error("HTTP 401"));
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(req);
+
+      // 古いトークンでのフェッチが失敗 → データは無いので付与されない
+      // （安全側。古いトークンで取得できてしまったデータを誤って新しい
+      // トークンのユーザーとして返すよりはるかに安全）。
+      expect(fetchStockItems).toHaveBeenCalledWith("stale-tok", "group-1");
+      expect(req.headers.get("x-pp-initial-items")).toBeNull();
+      // リフレッシュ結果は response（ブラウザ向け Set-Cookie）と
+      // request（下流の Server Component が cookies() で読む値）の両方に
+      // 反映されている。後者が満たされていることで、getInitialStockItems.ts
+      // のフォールバック取得（5.2）は新しいトークンを読める。
+      expect(res.cookies.get("sb-example-auth-token")?.value).toBe(
+        "refreshed-cookie-value",
+      );
+      expect(req.cookies.get("sb-example-auth-token")?.value).toBe(
+        "refreshed-cookie-value",
+      );
       errorSpy.mockRestore();
     });
 
