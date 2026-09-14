@@ -1,8 +1,45 @@
-import { cookies } from "next/headers";
+import { stringFromBase64URL } from "@supabase/ssr";
+import { cookies, headers } from "next/headers";
 import { ACTIVE_GROUP_COOKIE_NAME } from "@/lib/activeGroupCookie";
 import { fetchStockItems } from "@/lib/api";
 import { readAccessTokenFromCookies } from "@/lib/sessionCookie";
 import type { StockItem } from "@/types/stockItem";
+
+const INITIAL_ITEMS_HEADER_NAME = "x-pp-initial-items";
+
+// stock-items-ttfb-reduction Phase 2 (tasks.md 5.1): middleware.ts が
+// Promise.all で並行取得した在庫データを x-pp-initial-items ヘッダー
+// （base64url エンコードされた JSON 配列）経由で渡してきた場合、それを
+// そのままデコードして返す。追加の cookie 読み取り・Supabase 呼び出し・
+// Lambda 呼び出しは一切行わない（middleware が既に認証検証・データ取得の
+// 両方を済ませているため）。
+//
+// デコード結果が配列でない場合（想定される JSON 形状と食い違う）は
+// 「middleware側の異常」として扱い、null を返さずフォールバック取得に進む
+// （tasks.md 5.2）。空配列 [] は「在庫が0件」という有効なデータであり、
+// 「取得できなかった」という意味ではないため、配列である限りそのまま返す。
+function tryReadInitialItemsHeader(
+  headerValue: string | undefined,
+): StockItem[] | undefined {
+  if (!headerValue) return undefined;
+  try {
+    const decoded = stringFromBase64URL(headerValue);
+    const parsed: unknown = JSON.parse(decoded);
+    if (!Array.isArray(parsed)) {
+      console.error(
+        "getInitialStockItems: x-pp-initial-items header did not decode to an array, falling back",
+      );
+      return undefined;
+    }
+    return parsed as StockItem[];
+  } catch (err) {
+    console.error(
+      "getInitialStockItems: failed to decode x-pp-initial-items header, falling back",
+      err,
+    );
+    return undefined;
+  }
+}
 
 // stock-items ページの Server Component から呼ばれる（Issue #182）。cookie に
 // 保存されたアクティブグループIDがあれば、Go API から商品一覧を取得して SSR
@@ -18,6 +55,17 @@ import type { StockItem } from "@/types/stockItem";
 // （Server Component はどのみち cookie を書き換えられずリフレッシュは
 // 行えないため、ここで Supabase クライアントを生成する理由が元々無かった）。
 export async function getInitialStockItems(): Promise<StockItem[] | null> {
+  const headerStore = await headers();
+  const initialItems = tryReadInitialItemsHeader(
+    headerStore.get(INITIAL_ITEMS_HEADER_NAME) ?? undefined,
+  );
+  if (initialItems !== undefined) return initialItems;
+
+  // stock-items-ttfb-reduction Phase 2 (tasks.md 5.2): ヘッダーが無い場合
+  // （サイズ超過・フェッチ失敗・middleware側の異常等）のフォールバック取得。
+  // spec.md MUST: 認証検証をやり直さない。readAccessTokenFromCookies は
+  // middleware が検証・リフレッシュ済みの cookie をローカルで読むだけで
+  // あり、Supabase への問い合わせ（＝認証検証のやり直し）は発生しない。
   const cookieStore = await cookies();
   const activeGroupId = cookieStore.get(ACTIVE_GROUP_COOKIE_NAME)?.value;
   if (!activeGroupId) return null;

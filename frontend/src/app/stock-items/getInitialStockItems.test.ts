@@ -1,14 +1,19 @@
+import { stringToBase64URL } from "@supabase/ssr";
 import type { Session } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchStockItems } from "@/lib/api";
 import { buildSessionCookies } from "@/lib/sessionCookie";
+import type { StockItem } from "@/types/stockItem";
 
 const SUPABASE_URL = "https://abcdefghijklmnop.supabase.co";
 const ACTIVE_GROUP_COOKIE = "pantry-panel-active-group";
+const INITIAL_ITEMS_HEADER_NAME = "x-pp-initial-items";
 
 const mockCookiesGet = vi.fn();
+const mockHeadersGet = vi.fn();
 vi.mock("next/headers", () => ({
   cookies: () => Promise.resolve({ get: mockCookiesGet }),
+  headers: () => Promise.resolve({ get: mockHeadersGet }),
 }));
 
 vi.mock("@/lib/api", () => ({ fetchStockItems: vi.fn() }));
@@ -32,6 +37,10 @@ function authTokenCookieEntries(accessToken: string): Record<string, string> {
   const session = { access_token: accessToken } as unknown as Session;
   const cookies = buildSessionCookies(SUPABASE_URL, session);
   return Object.fromEntries(cookies.map((c) => [c.name, c.value]));
+}
+
+function encodeInitialItemsHeader(items: unknown): string {
+  return stringToBase64URL(JSON.stringify(items));
 }
 
 describe("getInitialStockItems", () => {
@@ -222,6 +231,124 @@ describe("getInitialStockItems", () => {
       );
       errorSpy.mockRestore();
       logSpy.mockRestore();
+    });
+  });
+
+  // stock-items-ttfb-reduction Phase 2 (tasks.md 5.1): middleware が並行取得
+  // した在庫データを x-pp-initial-items ヘッダーで渡してきた場合、それを
+  // そのまま使い、追加の Supabase 呼び出し・Lambda 呼び出しを一切行わない。
+  describe("x-pp-initial-items ヘッダーの読み取り（middlewareからの事前取得データ）", () => {
+    it("ヘッダーが存在するとき、そのデータをそのまま返し、cookie・fetchStockItemsを一切呼ばない", async () => {
+      const items: StockItem[] = [
+        {
+          id: "1",
+          name: "商品A",
+          category: "調味料",
+          imageUrl: null,
+          sourceUrl: null,
+          wantToBuy: false,
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          sortedAt: "2026-01-01T00:00:00Z",
+        },
+      ];
+      mockHeadersGet.mockImplementation((name: string) =>
+        name === INITIAL_ITEMS_HEADER_NAME
+          ? encodeInitialItemsHeader(items)
+          : undefined,
+      );
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      const result = await getInitialStockItems();
+
+      expect(result).toEqual(items);
+      expect(mockCookiesGet).not.toHaveBeenCalled();
+      expect(fetchStockItems).not.toHaveBeenCalled();
+    });
+
+    it("ヘッダーの中身が空配列のときも、空配列をそのまま返す（0件は有効なデータであり、フォールバックしてはならない）", async () => {
+      mockHeadersGet.mockImplementation((name: string) =>
+        name === INITIAL_ITEMS_HEADER_NAME
+          ? encodeInitialItemsHeader([])
+          : undefined,
+      );
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      const result = await getInitialStockItems();
+
+      expect(result).toEqual([]);
+      expect(fetchStockItems).not.toHaveBeenCalled();
+    });
+  });
+
+  // stock-items-ttfb-reduction Phase 2 (tasks.md 5.2): ヘッダーが存在しない
+  // 場合（サイズ超過・フェッチ失敗・middleware側の異常等）は、既存の
+  // cookieベースのフォールバック取得を行う。フォールバックは認証検証を
+  // やり直さない（spec.md MUST: 既に検証済みのセッション情報を再利用する。
+  // readAccessTokenFromCookies は Supabase を呼ばずローカルの cookie を
+  // 読むだけであり、この要件を満たす）。
+  describe("x-pp-initial-items ヘッダーが無いときのフォールバック取得", () => {
+    it("ヘッダーが存在しないとき、cookieベースのフォールバック取得が行われる", async () => {
+      process.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE_URL;
+      mockHeadersGet.mockReturnValue(undefined);
+      mockCookiesGet.mockImplementation(
+        cookieMap({
+          [ACTIVE_GROUP_COOKIE]: "group-1",
+          ...authTokenCookieEntries("tok"),
+        }),
+      );
+      const items: StockItem[] = [];
+      vi.mocked(fetchStockItems).mockResolvedValue(items);
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      const result = await getInitialStockItems();
+
+      expect(result).toEqual(items);
+      expect(fetchStockItems).toHaveBeenCalledWith("tok", "group-1");
+    });
+
+    it("ヘッダーの値がbase64/JSONとしてデコードできないとき、フォールバック取得が行われる（middleware側の異常等）", async () => {
+      process.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE_URL;
+      mockHeadersGet.mockImplementation((name: string) =>
+        name === INITIAL_ITEMS_HEADER_NAME ? "not-a-valid-value" : undefined,
+      );
+      mockCookiesGet.mockImplementation(
+        cookieMap({
+          [ACTIVE_GROUP_COOKIE]: "group-1",
+          ...authTokenCookieEntries("tok"),
+        }),
+      );
+      const items: StockItem[] = [];
+      vi.mocked(fetchStockItems).mockResolvedValue(items);
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      const result = await getInitialStockItems();
+
+      expect(result).toEqual(items);
+      expect(fetchStockItems).toHaveBeenCalledWith("tok", "group-1");
+    });
+
+    it("ヘッダーの値が配列でないJSONのとき、フォールバック取得が行われる", async () => {
+      process.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE_URL;
+      mockHeadersGet.mockImplementation((name: string) =>
+        name === INITIAL_ITEMS_HEADER_NAME
+          ? encodeInitialItemsHeader({ not: "an array" })
+          : undefined,
+      );
+      mockCookiesGet.mockImplementation(
+        cookieMap({
+          [ACTIVE_GROUP_COOKIE]: "group-1",
+          ...authTokenCookieEntries("tok"),
+        }),
+      );
+      const items: StockItem[] = [];
+      vi.mocked(fetchStockItems).mockResolvedValue(items);
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      const result = await getInitialStockItems();
+
+      expect(result).toEqual(items);
+      expect(fetchStockItems).toHaveBeenCalledWith("tok", "group-1");
     });
   });
 });
