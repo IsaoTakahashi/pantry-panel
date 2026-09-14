@@ -693,6 +693,52 @@ describe("middleware", () => {
       errorSpy.mockRestore();
     });
 
+    // stock-items-ttfb-reduction Phase 2 (tasks.md 4.3): spec.md の MUST NOT
+    // 要件（未認証確定時にデータが応答に含まれない）の直接的な確認。並行
+    // フェッチが実際に成功していても（＝ stockItems は取得できていても）、
+    // getClaims() が未認証確定と判定すれば x-pp-initial-items は絶対に
+    // 付与されない。isDefinitelyUnauthenticated になる2経路（(a) data/error
+    // 共に null, (b) AuthInvalidJwtError resolve）の両方を確認する
+    // （S-9 と同じ2経路）。
+    it("(a) 未ログイン確定(data/error共にnull)のとき、並行フェッチが成功していても x-pp-initial-items は付与されない", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const req = makeRequest("/stock-items", [
+        ...authTokenCookies("tok"),
+        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+      ]);
+      getClaimsMock.mockResolvedValue({ data: null, error: null });
+      vi.mocked(fetchStockItems).mockResolvedValue([makeStockItem()]);
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(req);
+
+      expect(res.status).toBe(307);
+      expect(req.headers.get("x-pp-initial-items")).toBeNull();
+      expect(res.headers.get("x-pp-initial-items")).toBeNull();
+      errorSpy.mockRestore();
+    });
+
+    it("(b) AuthInvalidJwtError resolve で未ログイン確定のとき、並行フェッチが成功していても x-pp-initial-items は付与されない", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const req = makeRequest("/stock-items", [
+        ...authTokenCookies("tok"),
+        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+      ]);
+      getClaimsMock.mockResolvedValue({
+        data: null,
+        error: new AuthInvalidJwtError("Token signature is invalid"),
+      });
+      vi.mocked(fetchStockItems).mockResolvedValue([makeStockItem()]);
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(req);
+
+      expect(res.status).toBe(307);
+      expect(req.headers.get("x-pp-initial-items")).toBeNull();
+      expect(res.headers.get("x-pp-initial-items")).toBeNull();
+      errorSpy.mockRestore();
+    });
+
     it("クライアントが x-pp-initial-items を偽装して送っても、middleware が取得していないなら除去される", async () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       getClaimsMock.mockResolvedValue({ data: null, error: null });
