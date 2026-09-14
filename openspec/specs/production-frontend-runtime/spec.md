@@ -79,3 +79,10 @@ monorepo 構成のため、Vercel プロジェクト設定で Root Directory を
 - **WHEN** ログイン・ログアウト・グループ切替・`/stock-items` での Supabase Realtime 経由のリアルタイム反映を行う
 - **THEN** 変更前と同じ見た目・挙動で動作する
 
+### Requirement: Vercel serverless functionはバックエンドと同一リージョンで実行される
+Frontendのserverless function（Node.jsランタイムで実行されるページのサーバーサイドレンダリング・Route Handlers）は、バックエンド(Go Lambda)およびデータベース(Supabase Postgres)と同一リージョン(`ap-northeast-1`、Vercelのregionコードで`hnd1`)で実行される SHALL。
+
+#### Scenario: サーバーサイドで実行されるリクエストが東京リージョンで処理される
+- **WHEN** `/stock-items` や `/api/health` など、Node.js serverless functionがサーバーサイドでSupabase・Go Lambdaへのネットワーク呼び出しを行うルートにリクエストが届く
+- **THEN** レスポンスの `x-vercel-id` ヘッダーに含まれる実行リージョンが `hnd1` である
+
