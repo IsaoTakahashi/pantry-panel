@@ -1,4 +1,4 @@
-import type { CookieOptions } from "@supabase/ssr";
+import { type CookieOptions, stringToBase64URL } from "@supabase/ssr";
 import {
   isAuthRefreshDiscardedError,
   isAuthRetryableFetchError,
@@ -55,12 +55,40 @@ function appendServerTiming(
   res.headers.set("Server-Timing", existing ? `${existing}, ${entry}` : entry);
 }
 
+// stock-items-ttfb-reduction Phase 2 (tasks.md 4.2): middleware で並行取得
+// した在庫データを x-pp-initial-items ヘッダー経由で page（Server Component）
+// に引き継ぐ。HTTPヘッダー値は生の JSON をそのまま渡すと日本語等の非ASCII
+// 文字がヘッダーのシリアライズ層で壊れる/例外になる恐れがあるため、
+// @supabase/ssr が cookie 値の格納に使っているのと同じ base64url エンコード
+// を使う（sessionCookie.ts と対称）。
+//
+// サイズ閾値（暫定6KiB、design.md Open Questions）はこのエンコード後の
+// 文字列に対して適用する。base64url のアルファベットは ASCII のみなので、
+// 文字数＝バイト数であり、実際にヘッダーとして送出されるバイト数を直接
+// 数えられる（base64 はエンコードで約1.33倍に膨らむため、元のJSON文字列の
+// 長さに対して閾値を適用すると実際のヘッダーサイズを過小評価してしまう）。
+const MAX_INITIAL_ITEMS_HEADER_BYTES = 6 * 1024;
+
+function serializeStockItemsForHeader(
+  items: StockItem[] | undefined,
+): string | undefined {
+  if (items === undefined) return undefined;
+  const encoded = stringToBase64URL(JSON.stringify(items));
+  if (encoded.length > MAX_INITIAL_ITEMS_HEADER_BYTES) return undefined;
+  return encoded;
+}
+
 export async function middleware(request: NextRequest) {
   // クライアントが x-pp-authenticated を偽装して送ってきた場合に、下流の
   // Server Component（layout.tsx）がそれを「middleware が検証済み」と誤って
   // 信頼しないよう、response を組み立てる前に必ず一度取り除く（Issue #182）。
   // 認証済みと判定できたときだけ、この関数が改めて付与し直す。
+  // x-pp-initial-items も同じ理由で取り除く（tasks.md 4.2）。クライアントが
+  // このヘッダーを偽装しても実害は認証情報の漏洩ではないが、middleware が
+  // 実際に取得していないデータを getInitialStockItems.ts が信頼してしまう
+  // 経路を作らないため、他の内部専用ヘッダーと同じ扱いにする。
   request.headers.delete("x-pp-authenticated");
+  request.headers.delete("x-pp-initial-items");
   let response = NextResponse.next({ request });
   // setAll() が実際に呼ばれて cookie を書き換えた場合の Cache-Control 等の
   // header を控えておく。/login へリダイレクトする場合は response とは別の
@@ -185,7 +213,7 @@ export async function middleware(request: NextRequest) {
   // 必須。
   const claimsPromise = supabase.auth.getClaims();
   try {
-    const [{ data, error }] = await Promise.all([
+    const [{ data, error }, stockItems] = await Promise.all([
       claimsPromise,
       stockItemsPromise,
     ]);
@@ -197,6 +225,10 @@ export async function middleware(request: NextRequest) {
       // が同じ検証をもう一度行う（＝二重のネットワーク呼び出し）のを避ける
       // ため、ヘッダー経由で結果だけを渡す。
       //
+      // 並行取得した在庫データも同じ理由でヘッダー経由で渡す
+      // （tasks.md 4.2）。認証済みと確定した経路でのみ付与すること
+      // （4.3: 未認証確定時は絶対に付与しない）。
+      //
       // request.headers への書き込みを下流（layout.tsx）に伝えるには
       // NextResponse.next({ request }) を呼び直して response を作り直す
       // 必要がある（Next.js は呼び出し時点の request.headers を元に転送用
@@ -206,6 +238,10 @@ export async function middleware(request: NextRequest) {
       // Cache-Control が失われるため、setAll() と同じパターンで
       // pendingCookies・cacheHeaders を積み直す（S-7 回帰）。
       request.headers.set("x-pp-authenticated", "1");
+      const serializedItems = serializeStockItemsForHeader(stockItems);
+      if (serializedItems !== undefined) {
+        request.headers.set("x-pp-initial-items", serializedItems);
+      }
       response = NextResponse.next({ request });
       for (const { name, value, options } of pendingCookies) {
         response.cookies.set(name, value, options);

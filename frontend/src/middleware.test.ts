@@ -1,4 +1,4 @@
-import type { CookieOptions } from "@supabase/ssr";
+import { type CookieOptions, stringFromBase64URL } from "@supabase/ssr";
 import {
   AuthInvalidJwtError,
   AuthRefreshDiscardedError,
@@ -9,6 +9,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchStockItems } from "@/lib/api";
 import { buildSessionCookies } from "@/lib/sessionCookie";
+import type { StockItem } from "@/types/stockItem";
 
 // @supabase/ssr の createServerClient を mock し、middleware が
 // getClaims() の結果 / エラーに応じてどう振る舞うかを確認する。
@@ -80,6 +81,35 @@ function authTokenCookies(
 ): { name: string; value: string }[] {
   const session = { access_token: accessToken } as unknown as Session;
   return buildSessionCookies("https://example.supabase.co", session);
+}
+
+function makeStockItem(overrides: Partial<StockItem> = {}): StockItem {
+  return {
+    id: "1",
+    name: "商品A",
+    category: "調味料",
+    imageUrl: null,
+    sourceUrl: null,
+    wantToBuy: false,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    sortedAt: "2026-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+// 6KiB の閾値（暫定、design.md Open Questions）を確実に超えさせるための
+// 大量アイテム。個々のフィールドサイズから、6KiB を超えるには十分すぎる件数
+// にしてある（境界値そのものの厳密な検証ではなく「超える/超えない」の
+// 二値の確認が目的）。
+function makeManyStockItems(count: number): StockItem[] {
+  return Array.from({ length: count }, (_, i) =>
+    makeStockItem({ id: `id-${i}`, name: `商品-${i}-${"x".repeat(50)}` }),
+  );
+}
+
+function decodeInitialItemsHeader(headerValue: string): unknown {
+  return JSON.parse(stringFromBase64URL(headerValue));
 }
 
 describe("middleware", () => {
@@ -582,6 +612,113 @@ describe("middleware", () => {
       );
 
       expect(res.headers.get("Server-Timing")).toMatch(/items;dur=\d+(\.\d+)?/);
+      errorSpy.mockRestore();
+    });
+  });
+
+  // stock-items-ttfb-reduction Phase 2 (tasks.md 4.2): 認証済みと判定できた
+  // 場合、並行取得した在庫データを x-pp-initial-items ヘッダー（base64url
+  // エンコード。日本語の商品名等がヘッダー値として壊れず往復することを
+  // 確認する）として request に付与する。サイズ閾値（暫定6KiB）を超える
+  // 場合は付与しない。
+  describe("Phase 2: x-pp-initial-items ヘッダーへのシリアライズ・付与", () => {
+    const ACTIVE_GROUP_COOKIE = "pantry-panel-active-group";
+
+    function makeAuthenticatedRequest(items: unknown): {
+      req: NextRequest;
+      run: () => Promise<import("next/server").NextResponse>;
+    } {
+      const req = makeRequest("/stock-items", [
+        ...authTokenCookies("tok"),
+        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+      ]);
+      getClaimsMock.mockResolvedValue({
+        data: { claims: { sub: "user-1" } },
+        error: null,
+      });
+      vi.mocked(fetchStockItems).mockResolvedValue(items as StockItem[]);
+      return {
+        req,
+        run: async () => {
+          const { middleware } = await import("./middleware");
+          return middleware(req);
+        },
+      };
+    }
+
+    it("フェッチ結果が x-pp-initial-items ヘッダーとして付与され、日本語を含んでも正しく往復する", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const items = [makeStockItem()];
+      const { req, run } = makeAuthenticatedRequest(items);
+
+      await run();
+
+      const headerValue = req.headers.get("x-pp-initial-items");
+      expect(headerValue).not.toBeNull();
+      expect(decodeInitialItemsHeader(headerValue as string)).toEqual(items);
+      errorSpy.mockRestore();
+    });
+
+    it("サイズが閾値(6KiB)を超えるとき x-pp-initial-items ヘッダーは付与されない", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const items = makeManyStockItems(100);
+      // 前提確認: このフィクスチャが本当に閾値を超えていることを検証する
+      // （閾値未満のフィクスチャに変わってしまうと、このテストは意図せず
+      // 常に green になり検知力を失う）。
+      expect(JSON.stringify(items).length).toBeGreaterThan(6 * 1024);
+      const { req, run } = makeAuthenticatedRequest(items);
+
+      await run();
+
+      expect(req.headers.get("x-pp-initial-items")).toBeNull();
+      errorSpy.mockRestore();
+    });
+
+    it("fetchStockItems が失敗したとき x-pp-initial-items ヘッダーは付与されない", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const req = makeRequest("/stock-items", [
+        ...authTokenCookies("tok"),
+        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+      ]);
+      getClaimsMock.mockResolvedValue({
+        data: { claims: { sub: "user-1" } },
+        error: null,
+      });
+      vi.mocked(fetchStockItems).mockRejectedValue(new Error("HTTP 500"));
+      const { middleware } = await import("./middleware");
+
+      await middleware(req);
+
+      expect(req.headers.get("x-pp-initial-items")).toBeNull();
+      errorSpy.mockRestore();
+    });
+
+    it("クライアントが x-pp-initial-items を偽装して送っても、middleware が取得していないなら除去される", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      getClaimsMock.mockResolvedValue({ data: null, error: null });
+      const req = new NextRequest(new URL("/health", "https://example.com"), {
+        headers: { "x-pp-initial-items": "forged-value" },
+      });
+      const { middleware } = await import("./middleware");
+
+      await middleware(req);
+
+      expect(req.headers.get("x-pp-initial-items")).toBeNull();
+      errorSpy.mockRestore();
+    });
+
+    it("activeGroupId cookie が無く在庫データを取得していないとき、認証済みでも x-pp-initial-items ヘッダーは付与されない", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const req = makeRequest("/stock-items", authTokenCookies("tok"));
+      getClaimsMock.mockResolvedValue({
+        data: { claims: { sub: "user-1" } },
+        error: null,
+      });
+      const { middleware } = await import("./middleware");
+
+      await middleware(req);
+
+      expect(req.headers.get("x-pp-initial-items")).toBeNull();
       errorSpy.mockRestore();
     });
   });
