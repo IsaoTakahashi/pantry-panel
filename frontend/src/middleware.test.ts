@@ -739,6 +739,79 @@ describe("middleware", () => {
       errorSpy.mockRestore();
     });
 
+    // stock-items-ttfb-reduction Phase 2 (tasks.md 4.4): fail-open（判定不能）
+    // 時は既存のredirect基準を変えない。design.md Decision 3 は、並行取得した
+    // Lambda結果が実際に成功していれば forward してよいとしている
+    // （Goバックエンド自身のJWT検証が最終的な安全境界のため）。
+    it("AuthRetryableFetchError でresolveしてfail openする場合、並行フェッチが成功していれば x-pp-initial-items が付与される", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const req = makeRequest("/stock-items", [
+        ...authTokenCookies("tok"),
+        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+      ]);
+      getClaimsMock.mockResolvedValue({
+        data: null,
+        error: new AuthRetryableFetchError("fetch failed", 0),
+      });
+      const items = [makeStockItem()];
+      vi.mocked(fetchStockItems).mockResolvedValue(items);
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(req);
+
+      expect(res.status).toBe(200);
+      const headerValue = req.headers.get("x-pp-initial-items");
+      expect(headerValue).not.toBeNull();
+      expect(decodeInitialItemsHeader(headerValue as string)).toEqual(items);
+      errorSpy.mockRestore();
+    });
+
+    it("AuthRefreshDiscardedError でresolveしてfail openする場合も、並行フェッチが成功していれば x-pp-initial-items が付与される", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const req = makeRequest("/stock-items", [
+        ...authTokenCookies("tok"),
+        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+      ]);
+      getClaimsMock.mockResolvedValue({
+        data: null,
+        error: new AuthRefreshDiscardedError(),
+      });
+      const items = [makeStockItem()];
+      vi.mocked(fetchStockItems).mockResolvedValue(items);
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(req);
+
+      expect(res.status).toBe(200);
+      const headerValue = req.headers.get("x-pp-initial-items");
+      expect(headerValue).not.toBeNull();
+      expect(decodeInitialItemsHeader(headerValue as string)).toEqual(items);
+      errorSpy.mockRestore();
+    });
+
+    // getClaims() が例外を投げるケースは、並行フェッチの結果を待たずに即座に
+    // fail-open で返す設計判断（advisor指摘: fetchStockItemsのタイムアウトは
+    // 10秒あり、ここで待つとfail-openのはずの応答が最大10秒ブロックされうる）。
+    // そのため、たとえ並行フェッチが実際には成功する見込みだったとしても、
+    // このパスでは x-pp-initial-items は付与されない
+    // （getInitialStockItems.ts のフォールバック取得に委ねる、5.2で実装）。
+    it("getClaims が例外を投げてfail openする場合、x-pp-initial-items は付与されない（並行フェッチの結果を待たない）", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const req = makeRequest("/stock-items", [
+        ...authTokenCookies("tok"),
+        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+      ]);
+      getClaimsMock.mockRejectedValue(new Error("network error"));
+      vi.mocked(fetchStockItems).mockResolvedValue([makeStockItem()]);
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(req);
+
+      expect(res.status).toBe(200);
+      expect(req.headers.get("x-pp-initial-items")).toBeNull();
+      errorSpy.mockRestore();
+    });
+
     it("クライアントが x-pp-initial-items を偽装して送っても、middleware が取得していないなら除去される", async () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       getClaimsMock.mockResolvedValue({ data: null, error: null });

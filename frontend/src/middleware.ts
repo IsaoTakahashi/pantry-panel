@@ -110,6 +110,26 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // request.headers への書き込みを下流（layout.tsx / getInitialStockItems.ts）
+  // に伝えるには NextResponse.next({ request }) を呼び直して response を
+  // 作り直す必要がある（Next.js は呼び出し時点の request.headers を元に
+  // 転送用 header をエンコードするため、response 構築後の request 変更は
+  // 反映されない）。ただし作り直すと setAll()（getClaims() 内部でのセッション
+  // リフレッシュ）が既に response に積んでいた Set-Cookie / Cache-Control が
+  // 失われるため、setAll() と同じパターンで pendingCookies・cacheHeaders を
+  // 積み直す（S-7 回帰）。x-pp-authenticated（既存）・x-pp-initial-items
+  // （tasks.md 4.2/4.4）のどちらを request に付与する場合も、この再構築が
+  // 必要という点は同じなので共通化する。
+  function rebuildResponseFromRequest(): void {
+    response = NextResponse.next({ request });
+    for (const { name, value, options } of pendingCookies) {
+      response.cookies.set(name, value, options);
+    }
+    for (const [key, value] of Object.entries(cacheHeaders)) {
+      response.headers.set(key, value);
+    }
+  }
+
   const supabase = createSupabaseServerClient({
     getAll() {
       return request.cookies.getAll();
@@ -227,28 +247,14 @@ export async function middleware(request: NextRequest) {
       //
       // 並行取得した在庫データも同じ理由でヘッダー経由で渡す
       // （tasks.md 4.2）。認証済みと確定した経路でのみ付与すること
-      // （4.3: 未認証確定時は絶対に付与しない）。
-      //
-      // request.headers への書き込みを下流（layout.tsx）に伝えるには
-      // NextResponse.next({ request }) を呼び直して response を作り直す
-      // 必要がある（Next.js は呼び出し時点の request.headers を元に転送用
-      // header をエンコードするため、response 構築後の request 変更は
-      // 反映されない）。ただし作り直すと setAll()（getClaims() 内部での
-      // セッションリフレッシュ）が既に response に積んでいた Set-Cookie /
-      // Cache-Control が失われるため、setAll() と同じパターンで
-      // pendingCookies・cacheHeaders を積み直す（S-7 回帰）。
+      // （4.3: 未認証確定時は絶対に付与しない）。rebuildResponseFromRequest()
+      // が request.headers の変更を下流に伝えるための再構築を行う。
       request.headers.set("x-pp-authenticated", "1");
       const serializedItems = serializeStockItemsForHeader(stockItems);
       if (serializedItems !== undefined) {
         request.headers.set("x-pp-initial-items", serializedItems);
       }
-      response = NextResponse.next({ request });
-      for (const { name, value, options } of pendingCookies) {
-        response.cookies.set(name, value, options);
-      }
-      for (const [key, value] of Object.entries(cacheHeaders)) {
-        response.headers.set(key, value);
-      }
+      rebuildResponseFromRequest();
     } else if (data === null && error === null) {
       isDefinitelyUnauthenticated = true;
     } else if (data === null && error !== null) {
@@ -273,6 +279,17 @@ export async function middleware(request: NextRequest) {
           "middleware: getClaims resolved with an error, failing open (session refresh not confirmed)",
           error,
         );
+        // stock-items-ttfb-reduction Phase 2 (tasks.md 4.4, design.md
+        // Decision 3): fail-open（判定不能）時は既存のredirect基準を変えない
+        // が、並行取得したLambda結果が実際に成功していればforwardしてよい
+        // （Goバックエンド自身のJWT検証が最終的な安全境界のため）。
+        // stockItems はこの分岐に来た時点で Promise.all により解決済みで
+        // 追加の待ちは発生しない。
+        const serializedItems = serializeStockItemsForHeader(stockItems);
+        if (serializedItems !== undefined) {
+          request.headers.set("x-pp-initial-items", serializedItems);
+          rebuildResponseFromRequest();
+        }
       } else {
         // Retryable でも RefreshDiscarded でもない resolve エラー（例:
         // AuthInvalidJwtError）は、リトライしても解消しない明確な判定不能
