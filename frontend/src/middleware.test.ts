@@ -856,6 +856,104 @@ describe("middleware", () => {
       errorSpy.mockRestore();
     });
 
+    // stock-items-ttfb-reduction Phase 2 (コードレビュー指摘): getClaims() が
+    // throw し、かつ「並行取得側」（middleware.ts の stockItemsPromise を
+    // 構築する IIFE）も reject する組み合わせを直接再現する。
+    // fetchStockItems() 自体の reject は IIFE 内の try/catch (4.1) で常に
+    // 握り込まれ、決して stockItemsPromise を reject させないため、ここでは
+    // その手前——readAccessTokenFromCookies() 内の `new URL(supabaseUrl)`
+    // （自身の try/catch の外）が例外を投げる経路を使って、IIFE 自体が
+    // reject する状況を作る。
+    // Promise.all([claimsPromise, stockItemsPromise]) の両方が reject して
+    // も、Node/Vitest が unhandled rejection として検知しないこと、
+    // 既存の fail-open 挙動（redirect しない・observability ログを残す・
+    // x-pp-initial-items は付与しない）が変わらないことを確認する。
+    it("getClaims が例外を投げ、かつ並行フェッチ側(stockItemsPromise)も reject する場合、unhandled rejection を起こさず fail open する", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const unhandledReasons: unknown[] = [];
+      const onUnhandledRejection = (reason: unknown) => {
+        unhandledReasons.push(reason);
+      };
+      process.on("unhandledRejection", onUnhandledRejection);
+
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "not-a-valid-url";
+      const req = makeRequest("/stock-items", [
+        ...authTokenCookies("tok"),
+        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+      ]);
+      const claimsThrown = new Error("network error");
+      getClaimsMock.mockRejectedValue(claimsThrown);
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(req);
+      // unhandledRejection はマイクロタスクが一巡した後に発火する可能性が
+      // あるため、アサーション前に明示的に1周させる。
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("location")).toBeNull();
+      expect(req.headers.get("x-pp-initial-items")).toBeNull();
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("threw"),
+        claimsThrown,
+      );
+      expect(unhandledReasons).toEqual([]);
+
+      process.off("unhandledRejection", onUnhandledRejection);
+      errorSpy.mockRestore();
+    });
+
+    // 上記と同じ「stockItemsPromise が reject する」経路を、getClaims() が
+    // throw せず素直に resolve するケースと組み合わせる。Promise.all は
+    // 構成する全プロミスが fulfill しないと fulfill しない（一部が resolve
+    // でも他が reject なら全体が reject する）ため、stockItemsPromise が
+    // reject すると getClaims() の resolve 結果（今回は
+    // data===null && error===null、つまり保護ルートでは redirect すべき
+    // 「未ログイン確定」）を見る分岐に一切到達せず、"getClaims threw" 用の
+    // catch に落ちて誤って fail open（redirect しない）してしまう
+    // ——という回帰を検出するテスト。
+    it("getClaims は正常に resolve(未ログイン確定)しても、stockItemsPromise が reject すると保護ルートで /login へのリダイレクトが必要", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "not-a-valid-url";
+      const req = makeRequest("/stock-items", [
+        ...authTokenCookies("tok"),
+        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+      ]);
+      getClaimsMock.mockResolvedValue({ data: null, error: null });
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(req);
+
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe("https://example.com/login");
+      errorSpy.mockRestore();
+    });
+
+    // 同じ回帰の認証済み側。stockItemsPromise が reject すると、
+    // getClaims() が認証済み(data !== null)で resolve していても
+    // "getClaims threw" 用の catch に落ちてしまい、x-pp-authenticated が
+    // 付与されない（layout.tsx が再度 getClaims() 相当の検証を行う二重
+    // ネットワーク呼び出しが発生してしまう、Issue #182 が防ぎたかった事象）。
+    it("getClaims は正常に resolve(認証済み)しても、stockItemsPromise が reject すると x-pp-authenticated が付与される", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "not-a-valid-url";
+      const req = makeRequest("/stock-items", [
+        ...authTokenCookies("tok"),
+        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+      ]);
+      getClaimsMock.mockResolvedValue({
+        data: { claims: { sub: "user-1" } },
+        error: null,
+      });
+      const { middleware } = await import("./middleware");
+
+      const res = await middleware(req);
+
+      expect(res.status).toBe(200);
+      expect(req.headers.get("x-pp-authenticated")).toBe("1");
+      errorSpy.mockRestore();
+    });
+
     // stock-items-ttfb-reduction Phase 2 (advisor レビュー指摘): stockItemsPromise
     // は claimsPromise の完了を待たずに（＝ getClaims() 内部のリフレッシュが
     // 走る前に）request.cookies から access_token を読む。トークンが期限切れ

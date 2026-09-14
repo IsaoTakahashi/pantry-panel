@@ -192,6 +192,18 @@ export async function middleware(request: NextRequest) {
   // 認証検証の既存のエラーハンドリング（fail-open/fail-closed の分岐）に
   // 影響しないようにする。
   //
+  // 上記の「握り込み」は fetchStockItems() 自体の失敗（下記 IIFE 内の
+  // try/catch）にしか及ばない。IIFE 内でそれより前の処理（例:
+  // readAccessTokenFromCookies() が不正な Supabase URL で `new URL()` から
+  // 投げる等、想定していない今後の変更を含む）が例外を投げた場合、この
+  // try/catch には引っかからず IIFE 自身が reject してしまう。その場合
+  // Promise.all は claimsPromise の resolve/reject に関わらず reject し、
+  // getClaims() の判定結果（未ログイン確定→redirect 等）に一切到達せず
+  // 「getClaims threw」用の catch に落ちて誤って fail open する
+  // （保護ルートで redirect すべきユーザーを通過させてしまう回帰）。
+  // これを防ぐため、IIFE 全体にも防御的な .catch を重ねて「絶対に reject
+  // しない」ことを保証する（コードレビュー指摘）。
+  //
   // トークンは getSession()（design.md Decision 1 案）ではなく
   // readAccessTokenFromCookies()（3.1 で実装、getInitialStockItems.ts と
   // 共有）で読む。getSession() は内部の __loadSession が「期限切れ間近なら
@@ -221,7 +233,17 @@ export async function middleware(request: NextRequest) {
     } finally {
       itemsDurationMs = performance.now() - itemsStart;
     }
-  })();
+  })().catch((err) => {
+    // 上記コメントの通り、ここに来るのは fetchStockItems() 自体の失敗以外
+    // （IIFE 内の try/catch より前で投げられた例外）のみ。fetchStockItems()
+    // 自体の失敗は既に内側の catch でログ済みなので、ここでの二重ログは
+    // 発生しない。
+    console.error(
+      "middleware: stockItemsPromise threw outside its own error handling, failing open",
+      err,
+    );
+    return undefined;
+  });
 
   let isDefinitelyUnauthenticated = false;
   let claimsDurationMs: number | undefined;
@@ -312,6 +334,16 @@ export async function middleware(request: NextRequest) {
       "middleware: getClaims threw, failing open (session refresh not confirmed)",
       err,
     );
+    // ここで Server-Timing に "items"（fetchStockItems の所要時間）区間を
+    // 追加しないのは意図的。stockItemsPromise は上記の防御的 .catch により
+    // 決して reject しないため、この catch に来る理由は getClaims() 自身が
+    // throw したことのみ（並行フェッチ側の失敗ではない）。ただし
+    // itemsDurationMs は並行実行中の stockItemsPromise 側で非同期に
+    // セットされる値であり、claimsPromise が reject した時点で既に確定して
+    // いるか（=セット済み）はタイミング次第で不定（レース）。この不確実な
+    // 値を Server-Timing に出すと「items の所要時間として意味のある値」と
+    // 誤解されるため、あえて出さない。将来「items が抜けているのはバグでは
+    // ないか」と疑われた場合の手がかりとして、このコメントを残す。
     appendServerTiming(response, "claims", claimsDurationMs);
     return response;
   }

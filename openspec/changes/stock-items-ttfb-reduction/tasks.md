@@ -29,6 +29,6 @@
 
 ## 6. 回帰確認
 
-- [ ] 6.1 `cd frontend && npx playwright test e2e/ssr-stock-items.spec.ts` を実行し、`javaScriptEnabled: false` でも初期HTMLに実データが含まれることを確認する（design.md D2/D3の維持を担保）
-- [ ] 6.2 `cd frontend && npm test` で既存のmiddleware/AuthGuard関連ユニット・統合テストが全て通ることを確認する
+- [x] 6.1 `cd frontend && npx playwright test e2e/ssr-stock-items.spec.ts` を実行し、`javaScriptEnabled: false` でも初期HTMLに実データが含まれることを確認する（design.md D2/D3の維持を担保）。**結果: `mock` project は pass（javaScriptEnabled: false での実データ確認を含む）。`preview` project は `PREVIEW_URL` 未設定のローカル環境では実行不可（既存の環境依存の制約、今回の変更とは無関係）で fail**
+- [x] 6.2 `cd frontend && npm test` で既存のmiddleware/AuthGuard関連ユニット・統合テストが全て通ることを確認する。**結果: 39 files / 476 tests 全て pass**
 - [ ] 6.3 `gh pr checks --watch` でPR上のCI結果を確認する
