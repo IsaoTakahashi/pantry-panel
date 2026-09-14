@@ -8,8 +8,8 @@
 ## 2. Phase 1: Vercel Function Regionの修正（最優先）
 
 - [x] 2.1 `frontend/vercel.json` を新規作成し、`{"regions": ["hnd1"]}` を設定する
-- [ ] 2.2 mainにマージ・本番デプロイし、`curl -sI https://pantry-panel-xi.vercel.app/api/health` 等の `x-vercel-id` ヘッダーで実行リージョンが `hnd1` になったことを確認する
-- [ ] 2.3 デプロイ後、Phase 0の計測ログ（`getInitialStockItems: fetchStockItems;dur=...`, middlewareの`Server-Timing: claims;dur=...`）を一定時間収集し、修正前(median 521ms/p90 653ms)と比較して`fetchStockItems`の所要時間が有意に短縮されたことを確認し、ユーザーに報告する
+- [x] 2.2 mainにマージ・本番デプロイし、`curl -sI https://pantry-panel-xi.vercel.app/api/health` 等の `x-vercel-id` ヘッダーで実行リージョンが `hnd1` になったことを確認する（PR #298。`hnd1::hnd1::...`となり`iad1`が消えたことを確認済み）
+- [x] 2.3 デプロイ後、Phase 0の計測ログ（`getInitialStockItems: fetchStockItems;dur=...`, middlewareの`Server-Timing: claims;dur=...`）を一定時間収集し、修正前(median 521ms/p90 653ms)と比較して`fetchStockItems`の所要時間が有意に短縮されたことを確認し、ユーザーに報告する。**結果(2026-09-14、デプロイから約24時間後の実測): median 51.8ms/p90 70ms/max 118.6ms(n=30、直近1時間分)。修正前と比べて約10倍の短縮で、24時間を通して安定している。`get_runtime_errors`でエラーも0件。**Vercel(Hobbyプラン)のログ取得は`ExceedsBillingLimitError`により直近1〜2時間程度に制限されており、深夜帯等のより古いサンプルは遡って確認できないという制約が判明した。
 
 ## 3. Phase 2: 認証検証の一化
 
