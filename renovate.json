@@ -9,14 +9,28 @@
   "vulnerabilityAlerts": {
     "enabled": true
   },
+  "customManagers": [
+    {
+      "description": "Keep the E2E Playwright container image in lockstep with @playwright/test (browser binaries must match)",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/e2e(-preview)?\\.yml$/"],
+      "matchStrings": ["mcr\\.microsoft\\.com/playwright:v(?<currentValue>\\d+\\.\\d+\\.\\d+)-noble"],
+      "depNameTemplate": "@playwright/test",
+      "datasourceTemplate": "npm"
+    }
+  ],
   "packageRules": [
+    {
+      "matchPackageNames": ["@playwright/test"],
+      "groupName": "playwright"
+    },
     {
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "minor-and-patch",
       "automerge": true
     },
     {
-      "matchManagers": ["npm", "gomod", "dockerfile", "github-actions"],
+      "matchManagers": ["npm", "gomod", "dockerfile", "github-actions", "custom.regex"],
       "minimumReleaseAge": "3 days",
       "internalChecksFilter": "strict"
     }
