@@ -7,6 +7,7 @@ import {
   extractFromUrlStream,
   fetchHealth,
   fetchStockItems,
+  HttpError,
   ImageSearchError,
   searchImages,
   updateStockItem,
@@ -72,6 +73,19 @@ describe("fetchStockItems", () => {
     );
 
     await expect(fetchStockItems()).rejects.toThrow("HTTP 500");
+  });
+
+  it("401 で status を持つ HttpError を throw し、メッセージは HTTP 401 のまま", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      new Response(null, { status: 401 }),
+    );
+
+    const err = await fetchStockItems().catch((e) => e);
+
+    expect(err).toBeInstanceOf(HttpError);
+    expect(err).toBeInstanceOf(Error);
+    expect(err.status).toBe(401);
+    expect(err.message).toBe("HTTP 401");
   });
 
   it("accessToken を渡すと Authorization ヘッダーが付加される", async () => {

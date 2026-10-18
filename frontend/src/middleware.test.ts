@@ -300,6 +300,16 @@ describe("middleware", () => {
     expect(getClaimsMock).not.toHaveBeenCalled();
   });
 
+  it("/auth/clear-session は除外ルートなので getClaims を呼ばず通過させる", async () => {
+    const { middleware } = await import("./middleware");
+
+    const res = await middleware(makeRequest("/auth/clear-session"));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+    expect(getClaimsMock).not.toHaveBeenCalled();
+  });
+
   it("非保護ルート・セッション無しでもリダイレクトしない", async () => {
     getClaimsMock.mockResolvedValue({ data: null, error: null });
     const { middleware } = await import("./middleware");

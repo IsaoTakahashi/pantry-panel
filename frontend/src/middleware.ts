@@ -6,6 +6,7 @@ import {
 import { type NextRequest, NextResponse } from "next/server";
 import { ACTIVE_GROUP_COOKIE_NAME } from "@/lib/activeGroupCookie";
 import { fetchStockItems } from "@/lib/api";
+import { AUTH_TOKEN_COOKIE_PATTERN } from "@/lib/authCookie";
 import { readAccessTokenFromCookies } from "@/lib/sessionCookie";
 import { createSupabaseServerClient } from "@/lib/supabaseServerClient";
 import type { StockItem } from "@/types/stockItem";
@@ -27,12 +28,12 @@ const PROTECTED_PATHS = ["/", "/stock-items", "/invite", "/no-group"];
 // セッションリフレッシュ（Supabase への問い合わせ）自体も行わない。
 // 特に /auth/callback は Task 4 で追加される OAuth コールバックルートであり、
 // ここで余計な処理を挟んで壊してはならない。
-const EXCLUDED_PATHS = ["/login", "/join", "/auth/callback"];
-
-// @supabase/ssr の cookie 名パターン。project ref を含むため固定名では
-// 拾えず、かつ大きなセッションはチャンク分割される（`.0`, `.1` ...）ため
-// 数値サフィックスも許容する（Issue #260）。
-const AUTH_TOKEN_COOKIE_PATTERN = /^sb-.+-auth-token(\.\d+)?$/;
+const EXCLUDED_PATHS = [
+  "/login",
+  "/join",
+  "/auth/callback",
+  "/auth/clear-session",
+];
 
 function matchesPath(pathname: string, paths: string[]): boolean {
   return paths.some(

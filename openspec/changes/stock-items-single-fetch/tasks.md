@@ -5,12 +5,12 @@
 
 ## 2. エラー型
 
-- [ ] 2.1 `frontend/src/lib/api.ts` に `status` を持つ `Error` のサブクラスを追加し、`fetchStockItems` が `!response.ok` でそれを投げるようにする（メッセージは `HTTP <status>` のまま）。401 で `instanceof` と `status` が判定できること、メッセージが変わらないことをユニットテストで確認する
+- [x] 2.1 `frontend/src/lib/api.ts` に `status` を持つ `Error` のサブクラスを追加し、`fetchStockItems` が `!response.ok` でそれを投げるようにする（メッセージは `HTTP <status>` のまま）。401 で `instanceof` と `status` が判定できること、メッセージが変わらないことをユニットテストで確認する
 
 ## 3. cookie を消して /login へ送るルート
 
-- [ ] 3.1 `sb-*-auth-token` 系 cookie（チャンク分割を含む）を失効させて `/login` へリダイレクトする Route Handler を追加する。リダイレクト先は `/login` 固定で、クエリによる行き先指定を受け付けない。ユニットテストで、失効した Set-Cookie と `/login` への 307/303 リダイレクトを確認する
-- [ ] 3.2 このルートを middleware の `EXCLUDED_PATHS` に加え、セッション判定を通さないことをユニットテストで確認する
+- [x] 3.1 `sb-*-auth-token` 系 cookie（チャンク分割を含む）を失効させて `/login` へリダイレクトする Route Handler を追加する。リダイレクト先は `/login` 固定で、クエリによる行き先指定を受け付けない。ユニットテストで、失効した Set-Cookie と `/login` への 307/303 リダイレクトを確認する
+- [x] 3.2 このルートを middleware の `EXCLUDED_PATHS` に加え、セッション判定を通さないことをユニットテストで確認する
 
 ## 4. middleware（/stock-items）
 
