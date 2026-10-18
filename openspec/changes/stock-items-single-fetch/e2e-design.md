@@ -93,11 +93,11 @@
 ### S-5: 期限内だが署名が不正なトークンで開くと、在庫は HTML に載らず、cookie が消されて `/login` に着地する（ループしない）
 **Given:** `exp` は期限内だが署名部だけを書き換えたアクセストークンを含むセッション cookie と、有効な activeGroupId cookie を持っている
 **When:**  `/stock-items` にアクセスする
-**Then:**  middleware は期限内として通すが、Go API が 401 を返す。page は HTML を返す前に、cookie を消す Route Handler へリダイレクトする。Route Handler が cookie を失効させて `/login` へ送る。ブラウザは `/login` に留まり、`/stock-items` へ押し戻されない。応答のどこにも在庫データは含まれない
+**Then:**  middleware は期限内として通すが、Go API が 401 を返す。page は在庫データを含む HTML を返さず、cookie を消す Route Handler（`/auth/clear-session`）へリダイレクトする（dev では 3xx。本番のストリーミング応答では 200 + HTML 内のリダイレクト（RSC ペイロードの redirect digest）になりうる）。Route Handler が cookie を失効させて `/login` へ送る。ブラウザは `/login` に留まり、`/stock-items` へ押し戻されない。応答のどこにも在庫データは含まれない
 
 | スコープ | 検証観点 | 備考 |
 |---------|---------|------|
-| E2E Mock（`ssr-stock-items.spec.ts` に追加、または新しい spec） | (1) `request` を `maxRedirects: 0` で送り、`/stock-items` の応答が 3xx で cookie を消す Route Handler に向いていること、本文に seed した商品名が無いことを確認する。(2) JS 有効のブラウザで `page.goto("/stock-items")` し、最終的な URL が `/login` で一定時間留まること、`context.cookies()` に `sb-*-auth-token` が残っていないことを確認する | 改ざんしたトークンは、E2E のテストユーザーでログインして得た実際のトークンから、署名部だけを書き換えて作る。`exp` と `expires_at` は期限内のまま残す。**activeGroupId cookie を必ずセットする**（無いと page が API を呼ばずに `null` を返し、検証が空振りする）。`storageState` は `browser.newContext()` に明示的に渡して組み立てる（decision-log 2026-09-10） |
+| E2E Mock（`ssr-stock-items.spec.ts` に追加、または新しい spec） | (1) `request` を `maxRedirects: 0` で送り、`/stock-items` の応答が cookie を消す Route Handler に向いていることを確認する。3xx なら `location` が `/auth/clear-session`、200 なら本文に `/auth/clear-session` への redirect digest（`NEXT_REDIRECT;replace;/auth/clear-session;307;`）または meta refresh があること。どちらの場合も本文に seed した商品名が無いことを確認する（dev は 3xx、本番ビルドの preview は 200 になる）。(2) JS 有効のブラウザで `page.goto("/stock-items")` し、最終的な URL が `/login` で一定時間留まること、`context.cookies()` に `sb-*-auth-token` が残っていないことを確認する | 改ざんしたトークンは、E2E のテストユーザーでログインして得た実際のトークンから、署名部だけを書き換えて作る。`exp` と `expires_at` は期限内のまま残す。**activeGroupId cookie を必ずセットする**（無いと page が API を呼ばずに `null` を返し、検証が空振りする）。`storageState` は `browser.newContext()` に明示的に渡して組み立てる（decision-log 2026-09-10） |
 | Frontend Unit（`getInitialStockItems.test.ts`） | `fetchStockItems` が `status: 401` のエラーを投げ、cookie のトークンの `exp` が未来のとき、Route Handler のパスへ `redirect()` する。`redirect` モックは throw するようにし、`getInitialStockItems()` が reject すること（`null` を resolve しないこと）を確認する | 前提の 2 点目を参照。`exp` が現在時刻ちょうどの境界は、期限切れ側として扱う |
 
 **E2E判定:** Yes（E2E Mock）

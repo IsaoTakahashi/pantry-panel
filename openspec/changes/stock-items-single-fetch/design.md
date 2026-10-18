@@ -31,7 +31,7 @@
 - 代替案: ヘッダーの上限を上げる・圧縮する → 件数が増えれば再び上限に当たり、Vercel のヘッダー全体の制限にも近づく（ユーザーが不採用とした）
 
 ### D3: SSR の 401 は `exp` で分岐する
-- 期限内のトークンで 401 → 確定的に無効。cookie を消して `/login` へリダイレクトする Route Handler に `redirect()` する
+- 期限内のトークンで 401 → 確定的に無効。cookie を消して `/login` へリダイレクトする Route Handler に `redirect()` する。在庫データを含む HTML は返さない。dev では 307 になるが、本番ビルドでは PPR の静的シェルを先に流すためステータスが 200 で確定済みで、Next.js は RSC ペイロードに redirect の digest（`NEXT_REDIRECT;replace;/auth/clear-session;307;`）を埋め込み、クライアントのルーターが遷移する。3xx にするには middleware での fetch を戻す必要があるため、この挙動を受け入れる
 - 期限切れのトークンで 401 → middleware の更新が一時障害で失敗した fail open のケース。`null` を返してクライアントの `useStockItems` に任せる
 - `exp` は cookie のトークンの payload を base64url デコードして読む（署名検証はしない。判断材料は「期限内かどうか」だけで、信頼の根拠ではない）。page はこの `exp` だけで判定し、セッションの `expires_at` は使わない。`exp <= 現在時刻` を期限切れとする（境界はログアウトさせない側に倒す）
 - `exp` を読み取れないトークン（payload が壊れている、`exp` が無い）で 401 → 確定的に無効として、期限内と同じく cookie を消して `/login` へ送る（一時障害で起きる状態ではないため）
@@ -54,7 +54,7 @@
 
 - [`getSession()` は cookie を検証しない] → `/stock-items` で middleware を通過しても、データは Go API の検証を通らないと取れない。`x-pp-authenticated` は画面の初期状態のヒントにのみ使う（spec `ssr-session-auth` に明記）
 - [Go API の JWKS 取得失敗（未知の鍵 ID 等）でも 401 になる] → 期限内トークンなら `/login` へ送られる。鍵ローテーション時の一時的な事象で、再ログインで回復する。発生頻度は低いため許容する
-- [署名が不正な cookie を持つリクエストで、画面の枠の描画に `x-pp-authenticated=1` が使われる] → page は在庫取得の 401 を受けて HTML を返す前にリダイレクトするため、枠が表示されることはない
+- [署名が不正な cookie を持つリクエストで、画面の枠の描画に `x-pp-authenticated=1` が使われる] → 本番のストリーミング応答では、PPR の静的シェル（在庫データを含まない枠）が 200 で先に返りうる。ただし在庫データは載らず、同じ応答内の redirect digest によりクライアントが直ちに `/auth/clear-session` → `/login` へ遷移するため、枠は一瞬表示されうるだけで、在庫の漏えいや操作可能な状態にはならない
 - [ウォームアップ（`/api/warm/stock-items`）の効果が変わる] → ウォームアップは `/stock-items` を内部で叩くだけなので、新しい経路をそのまま温める
 
 ## Migration Plan

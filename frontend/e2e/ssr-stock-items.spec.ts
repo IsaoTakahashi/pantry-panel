@@ -219,16 +219,28 @@ test.describe("SSR stock-items: 署名が不正なトークン (Issue #306)", ()
       // 明示的に渡す（decision-log 2026-09-10）
       const context = await browser.newContext({ storageState });
 
-      // (1) リダイレクトを追わずに /stock-items の応答そのものを見る
+      // (1) リダイレクトを追わずに /stock-items の応答そのものを見る。
+      // dev では redirect() が 307 になるが、本番ビルド（PPR の静的シェルを
+      // 先に流すストリーミング応答）ではステータスが 200 で確定済みのため、
+      // Next.js は RSC ペイロード内に redirect の digest
+      // （`NEXT_REDIRECT;replace;/auth/clear-session;307;`）を埋め込み、
+      // クライアントのルーターが遷移する。どちらの形でも行き先が
+      // /auth/clear-session であることと、在庫が載らないことを確認する
       const direct = await context.request.get("/stock-items", {
         maxRedirects: 0,
       });
-      expect(direct.status()).toBeGreaterThanOrEqual(300);
-      expect(direct.status()).toBeLessThan(400);
-      expect(new URL(direct.headers().location ?? "", baseURL).pathname).toBe(
-        "/auth/clear-session",
-      );
-      expect(await direct.text()).not.toContain(itemName);
+      const directBody = await direct.text();
+      if (direct.status() >= 300 && direct.status() < 400) {
+        expect(new URL(direct.headers().location ?? "", baseURL).pathname).toBe(
+          "/auth/clear-session",
+        );
+      } else {
+        expect(direct.status()).toBe(200);
+        expect(directBody).toMatch(
+          /NEXT_REDIRECT;(?:replace|push);\/auth\/clear-session;30[78];|http-equiv="refresh"[^>]*url=\/auth\/clear-session/,
+        );
+      }
+      expect(directBody).not.toContain(itemName);
 
       // (2) JS 有効のブラウザで開き、/login に着地して留まることを確認する
       const page = await context.newPage();
