@@ -594,6 +594,14 @@ describe("middleware", () => {
       );
       expect(res.headers.get("Cache-Control")).toContain("no-store");
       expect(req.headers.get("x-pp-authenticated")).toBe("1");
+      // 更新後のトークンが後続の Server Component（page）へ転送されること。
+      // Next は request header の上書きを response の x-middleware-request-* に載せる。
+      expect(res.headers.get("x-middleware-override-headers")).toContain(
+        "cookie",
+      );
+      expect(res.headers.get("x-middleware-request-cookie")).toContain(
+        "refreshed-token-value",
+      );
       expect(errorSpy).not.toHaveBeenCalled();
       errorSpy.mockRestore();
     });

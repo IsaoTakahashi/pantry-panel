@@ -86,7 +86,7 @@ export async function getInitialStockItems(): Promise<StockItem[] | null> {
         );
         return null;
       }
-      console.log(
+      console.error(
         "getInitialStockItems: 401 with unexpired token, redirecting to /auth/clear-session",
       );
       // redirect() は例外を投げる。catch 内からの throw はそのまま伝播し、

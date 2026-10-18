@@ -26,7 +26,7 @@
 
 ### Requirement: middleware は認証済みリクエストを後続の Server Component に伝える
 
-`middleware.ts` は、リクエストを認証済みと判定した場合、後続の Server Component（`layout.tsx` 等）がセッションを再検証せずに初期状態を決められるよう、リクエストヘッダー `x-pp-authenticated: 1` を付与する SHALL。判定の根拠はパスによって異なる。`/stock-items` 以外の保護ルートでは `getClaims()` が確定的に認証済みと判定した場合（`data !== null`）、`/stock-items` では期限内のセッションが存在する場合（署名は未検証）とする。このヘッダーはクライアントが自ら送信した値を信頼してはならない MUST NOT——`middleware.ts` はリクエスト処理の最初でこのヘッダーを必ず一度削除してから、認証済みと判定した場合のみ改めて設定する MUST（クライアントによるなりすまし防止）。`EXCLUDED_PATHS`（`/login`, `/join`, `/auth/callback`）ではセッションの判定自体を行わないため、このヘッダーは付与されない。
+`middleware.ts` は、リクエストを認証済みと判定した場合、後続の Server Component（`layout.tsx` 等）がセッションを再検証せずに初期状態を決められるよう、リクエストヘッダー `x-pp-authenticated: 1` を付与する SHALL。判定の根拠はパスによって異なる。`/stock-items` 以外の保護ルートでは `getClaims()` が確定的に認証済みと判定した場合（`data !== null`）、`/stock-items` では期限内のセッションが存在する場合（署名は未検証）とする。このヘッダーはクライアントが自ら送信した値を信頼してはならない MUST NOT——`middleware.ts` はリクエスト処理の最初でこのヘッダーを必ず一度削除してから、認証済みと判定した場合のみ改めて設定する MUST（クライアントによるなりすまし防止）。`EXCLUDED_PATHS`（`/login`, `/join`, `/auth/callback`, `/auth/clear-session`）ではセッションの判定自体を行わないため、このヘッダーは付与されない。
 
 このヘッダーは「middleware がこのリクエストを認証済みと判定した」という一度きりの事実の伝達に限定される MUST。認可の境界にはならない（本ファイル冒頭の「重要」注記と同様、各経路が独立してセッション・認可を検証する原則は変わらない）。
 

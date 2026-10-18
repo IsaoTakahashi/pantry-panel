@@ -55,7 +55,7 @@ middleware と page はメモリを共有できない。データを渡す手段
 
 - cookie のアクセストークンと activeGroupId で Go API を 1 回呼ぶ（今のフォールバック経路と同じ処理が常に走る形）
 - **Go API が 401 を返した場合**は、cookie のアクセストークンの期限（`exp`）を手元で確認して分岐する（**Claude の判断**）。`exp` は署名を検証せずに payload を読むだけで分かる
-  - **期限内のトークンで 401**: トークンが確定的に無効と判断する。HTML を返す前に cookie を消して `/login` へ送る。Server Component は cookie を書けないため、cookie を消してから `/login` へリダイレクトする Route Handler を用意し、そこへ `redirect()` する（**Claude の判断**: 既存 middleware の「確定的に無効なら cookie を消して redirect」と同じ結果になり、ループを防ぐ）
+  - **期限内のトークンで 401**: トークンが確定的に無効と判断する。cookie を消して `/login` へ送る。在庫データはどの HTML にも載らない。本番のストリーミングではレスポンスが 200 のまま HTML 内リダイレクトになることがある（dev では 307）。Server Component は cookie を書けないため、cookie を消してから `/login` へリダイレクトする Route Handler を用意し、そこへ `redirect()` する（**Claude の判断**: 既存 middleware の「確定的に無効なら cookie を消して redirect」と同じ結果になり、ループを防ぐ）
   - **期限切れのトークンで 401**: middleware での更新が一時エラーで失敗し、fail open で通ってきたケース。`/login` には送らず `null` を返し、クライアント側の取得に任せる（アンチゴール「一時的な障害でログイン済みのユーザーを `/login` に飛ばさない」を守るため）。middleware から page への新しい内部ヘッダーは不要
 - 401 とそれ以外を区別するため、`frontend/src/lib/api.ts` にステータスコードを持つエラー型を追加し、`fetchStockItems` はそれを投げる（**Claude の判断**）。`Error` のサブクラスにしてメッセージ（`HTTP 401` 等）も今と同じにし、クライアントなどほかの呼び出し元の挙動は変えない
 - 401 以外の失敗（403・5xx・タイムアウト等）は今と同じく `null` を返し、クライアント側の `useStockItems` の取得に任せる

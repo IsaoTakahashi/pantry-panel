@@ -257,17 +257,17 @@ describe("getInitialStockItems", () => {
     it("401 でトークンの exp が未来のとき、/auth/clear-session へ redirect し、null を resolve しない", async () => {
       setupCookies(jwtWithPayload({ exp: nowSec() + 3600 }));
       vi.mocked(fetchStockItems).mockRejectedValue(new HttpError(401));
-      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const { getInitialStockItems } = await import("./getInitialStockItems");
 
       await expect(getInitialStockItems()).rejects.toThrow(
         "NEXT_REDIRECT:/auth/clear-session",
       );
       expect(mockRedirect).toHaveBeenCalledWith("/auth/clear-session");
-      expect(logSpy).toHaveBeenCalledWith(
+      expect(errSpy).toHaveBeenCalledWith(
         expect.stringContaining("401 with unexpired token, redirecting"),
       );
-      logSpy.mockRestore();
+      errSpy.mockRestore();
     });
 
     it("401 で exp が読み取れないトークン(payload 壊れ)のとき、redirect する", async () => {
