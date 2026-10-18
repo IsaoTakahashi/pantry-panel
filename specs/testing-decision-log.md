@@ -140,3 +140,13 @@
   1. `cookies()`/`headers()`/`params`/`searchParams` を共通レイアウト（複数ルートの祖先）で無条件に読む変更を加える場合、影響範囲は「その値を使う特定ルート」だけでなく**そのレイアウトの子孫である全ルート**であると認識し、design.md の既存E2Eへの影響セクションではその全ルートを対象に確認する
   2. Next.js dev server のログ（`Route "...": Next.js encountered runtime data during prerendering.` 等の警告）は、ローカル E2E フル実行時に一度は目を通す。警告が出ているルートと、flaky/failing な E2E spec のルートが一致していないか照合する
   3. `getByText(...)`（非exact）を使う既存 E2E は、ページに Next.js Dev Tools のオーバーレイ（issue バッジ・code frame）が重なりうる場合、意図しない部分一致の温床になる。dev-only の挙動に依存した flaky の疑いがあれば、`{ exact: true }` またはより具体的なロケータへの置き換えを検討する。**追記**: CI の e2e.yml も `--project=mock`（`npm run dev` の dev server）で実行するため preview 限定の問題ではなくCI再現性があると判明し、`health.spec.ts` は `{ exact: true }` へその場で修正した（`--repeat-each=5` で5/5 green、フルスイート再実行でも flaky 消失を確認）
+
+### 2026-10-19: middleware から下流（Server Component）へ cookie が届くことは、`req.cookies` ではなく Next が転送するヘッダーで assert する
+
+- **対象シナリオ:** middleware.test.ts S-2（Issue #306 / openspec change `stock-items-single-fetch`。`/stock-items` で期限切れトークンを middleware が更新し、page がその新しいトークンで Go API を 1 回だけ呼ぶ）
+- **変更前:** S-2 は `res.cookies`（ブラウザに返す Set-Cookie）だけを確認していた。削除された旧テストは `req.cookies.get(...)` で下流に届く値を確認していた
+- **変更後:** `res.headers` の `x-middleware-override-headers` に `cookie` が含まれ、`x-middleware-request-cookie` に更新後のトークンが含まれることを assert する。middleware.ts の `setAll` から `request.cookies.set` を外すと red になることを確認した（PR #308 の全体レビューで指摘、ユーザー承認）
+- **理由:** `setAll` は `request.cookies` に直接書き込むため、`req.cookies` を見る assert はほぼトートロジーで、`NextResponse.next({ request })` の作り直しが退行して下流に届かなくなっても green のままになる。しかもこの退行は、古いトークンで Go が 401 → 期限切れなので `null` → クライアントが取り直す、という形で黙って二重取得に戻るだけで、E2E でも検出されない
+- **一般化した基準:**
+  1. middleware が request を書き換えて下流に渡す処理は、Next.js が下流への転送のためにレスポンスへ載せるヘッダー（`x-middleware-override-headers` / `x-middleware-request-*`）で assert する。これは Unit のモック境界の内側で観測できる、最も下流の地点
+  2. 退行が「エラーにならず、性能だけが元に戻る」形で現れる箇所は、E2E では検出されないため、Unit でつなぎ目を直接押さえる

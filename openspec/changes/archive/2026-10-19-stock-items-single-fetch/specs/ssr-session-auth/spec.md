@@ -1,0 +1,57 @@
+## MODIFIED Requirements
+
+### Requirement: middleware は全リクエストでセッションをリフレッシュする
+
+`middleware.ts` は全ページリクエストに対してセッション cookie のリフレッシュを試みる SHALL。**セッション状態を確定できない場合**（ネットワーク障害等の retryable なエラー、または並行する `signOut` によりリフレッシュ結果が破棄された場合）は、リクエストの処理を継続する MUST（fail open）。一方、**トークンが確定的に無効と判定された場合**（署名検証失敗、refresh token の無効等）は、fail open の対象としない MUST NOT——未ログイン扱いとして扱い、保護ルートであれば通常の未ログインリダイレクト（次の Requirement）に従う。
+
+ただし `/stock-items` では、middleware はトークンの署名を検証しない SHALL（Requirement「`/stock-items` ではトークンの署名検証を Go API に委ねる」を参照）。`/stock-items` で middleware が確定的に無効と判定するのは、セッション cookie が無い場合と、期限切れトークンの更新が確定的なエラー（refresh token の無効等）で失敗した場合に限られる。
+
+#### Scenario: 有効なセッションはリフレッシュされる
+- **WHEN** 有効なセッション cookie を持つユーザーがページに遷移する
+- **THEN** セッション cookie が最新の状態にリフレッシュされる
+
+#### Scenario: リフレッシュ失敗時もリクエストを継続する（fail open は retryable なエラー・discard 系のレースに限る）
+- **WHEN** セッションリフレッシュ処理が一時的な障害（ネットワーク断・Supabase 側の retryable なエラー等）で失敗する、または並行する `signOut` によってリフレッシュ結果が破棄される
+- **THEN** リクエストはブロックされずに後続の処理（ページレンダリング等）に進む
+
+#### Scenario: 確定的に無効なトークンは fail open の対象外
+- **WHEN** `/stock-items` 以外の保護ルートで、セッション cookie は存在するが、トークンの署名検証失敗等により確定的に無効と判定される
+- **THEN** fail open せず、未ログイン扱いとして扱う（`/login` へリダイレクトする）
+
+#### Scenario: /stock-items では期限内のトークンはネットワーク通信なしで通過する
+- **WHEN** 期限内のアクセストークンを含むセッション cookie を持つリクエストが `/stock-items` に届く
+- **THEN** middleware は Supabase Auth と通信せず（JWKS の取得もせず）にリクエストを後続の処理に進める
+
+**重要（アーキテクチャ上の注意）**: middleware のセッション確認は UX 向上のためのゲートであり、認可の境界ではない。サーバー側でデータを扱う経路（Server Component・Route Handler・Server Action 等）は、middleware を通過したことに関わらず、各経路が独立してセッション・認可を検証する SHALL。本 Requirement の改善（fail open の対象を狭めること）は、middleware 通過＝認可済みという前提を作るものではない。
+
+### Requirement: middleware は認証済みリクエストを後続の Server Component に伝える
+
+`middleware.ts` は、リクエストを認証済みと判定した場合、後続の Server Component（`layout.tsx` 等）がセッションを再検証せずに初期状態を決められるよう、リクエストヘッダー `x-pp-authenticated: 1` を付与する SHALL。判定の根拠はパスによって異なる。`/stock-items` 以外の保護ルートでは `getClaims()` が確定的に認証済みと判定した場合（`data !== null`）、`/stock-items` では期限内のセッションが存在する場合（署名は未検証）とする。このヘッダーはクライアントが自ら送信した値を信頼してはならない MUST NOT——`middleware.ts` はリクエスト処理の最初でこのヘッダーを必ず一度削除してから、認証済みと判定した場合のみ改めて設定する MUST（クライアントによるなりすまし防止）。`EXCLUDED_PATHS`（`/login`, `/join`, `/auth/callback`, `/auth/clear-session`）ではセッションの判定自体を行わないため、このヘッダーは付与されない。
+
+このヘッダーは「middleware がこのリクエストを認証済みと判定した」という一度きりの事実の伝達に限定される MUST。認可の境界にはならない（本ファイル冒頭の「重要」注記と同様、各経路が独立してセッション・認可を検証する原則は変わらない）。
+
+#### Scenario: 認証済みリクエストにヘッダーが付与される
+- **WHEN** `/stock-items` 以外の保護ルートで `getClaims()` が `data !== null` を返す、または `/stock-items` で期限内のセッションが存在する
+- **THEN** リクエストヘッダーに `x-pp-authenticated: 1` が設定され、後続の Server Component から読み取れる
+
+#### Scenario: クライアントが偽装したヘッダーは無効化される
+- **WHEN** クライアントが `x-pp-authenticated: 1` を自らのリクエストに含めて送信するが、middleware の認証判定では未ログインまたは判定不能である
+- **THEN** middleware はこのヘッダーを削除し、後続の Server Component には伝わらない
+
+#### Scenario: 除外ルートではヘッダーが付与されない
+- **WHEN** リクエスト先が `EXCLUDED_PATHS`（`/login` 等）に一致する
+- **THEN** セッションの判定が行われないため、`x-pp-authenticated` ヘッダーは付与されない
+
+## ADDED Requirements
+
+### Requirement: /stock-items ではトークンの署名検証を Go API に委ねる
+
+`/stock-items` へのリクエストでは、トークンの署名とグループ所属の検証を Go API が担う SHALL。SSR が Go API から在庫を取得したとき、Go API が 401 を返し、かつ cookie のアクセストークンが期限内である場合、そのトークンは確定的に無効とみなす MUST。この場合、在庫データを含む HTML を返さず、`sb-*-auth-token` 系のセッション cookie（チャンク分割されたものを含む）を失効させる `/auth/clear-session` を経由して `/login` へ送る SHALL。本番のストリーミング応答では、`/stock-items` の応答は 3xx ではなく 200 + HTML 内のリダイレクト（RSC ペイロードの redirect digest）になりうる。cookie のアクセストークンが期限切れである場合（middleware での更新が一時的な障害で失敗し、fail open で通過した場合）は、`/login` へリダイレクトしてはならない MUST NOT。
+
+#### Scenario: 署名が不正なトークンでは在庫が返らず /login へ送られる
+- **WHEN** 期限内だが署名が不正なアクセストークンを含むセッション cookie で `/stock-items` にアクセスする
+- **THEN** 応答は `/auth/clear-session` へのリダイレクト（3xx、または本番のストリーミング応答では 200 + HTML 内のリダイレクト）となり、セッション cookie は失効させられたうえで `/login` に着地し、在庫データは応答のどこにも含まれない
+
+#### Scenario: 一時的な障害で期限切れのまま通過した場合はログアウトさせない
+- **WHEN** アクセストークンが期限切れで、middleware での更新が一時的な障害で失敗し、`/stock-items` の SSR が Go API から 401 を受け取る
+- **THEN** `/login` へはリダイレクトされず、セッション cookie も消されず、ページはクライアント側の取得にフォールバックして表示される

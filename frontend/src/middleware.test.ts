@@ -1,5 +1,6 @@
-import { type CookieOptions, stringFromBase64URL } from "@supabase/ssr";
+import type { CookieOptions } from "@supabase/ssr";
 import {
+  AuthApiError,
   AuthInvalidJwtError,
   AuthRefreshDiscardedError,
   AuthRetryableFetchError,
@@ -9,21 +10,22 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchStockItems } from "@/lib/api";
 import { buildSessionCookies } from "@/lib/sessionCookie";
-import type { StockItem } from "@/types/stockItem";
 
 // @supabase/ssr の createServerClient を mock し、middleware が
-// getClaims() の結果 / エラーに応じてどう振る舞うかを確認する。
+// getClaims() / getSession() の結果 / エラーに応じてどう振る舞うかを確認する。
+// /stock-items は getSession()、それ以外の保護ルートは getClaims() で判定する
+// （stock-items-single-fetch design.md D1）。
 // S-7（リフレッシュ成功時に Set-Cookie が付与される）/ S-8（リフレッシュ
 // 失敗時も fail open で通過する）は下記の専用テストで検証する。
 //
 // createServerClient に渡される cookies オプション（getAll/setAll）も
 // 捕捉する。S-7（リフレッシュ成功時に Set-Cookie が付与される）を検証
-// するには、getClaimsMock の実装内から setAll を呼び出して「@supabase/ssr
-// がリフレッシュ中に内部で cookie を書き込む」挙動を再現する必要がある
-// （route.test.ts の capturedCookieMethods パターンを踏襲）。
+// するには、getClaimsMock / getSessionMock の実装内から setAll を呼び出して
+// 「@supabase/ssr がリフレッシュ中に内部で cookie を書き込む」挙動を再現する
+// 必要がある（route.test.ts の capturedCookieMethods パターンを踏襲）。
 //
 // createServerClient だけを差し替え、他のエクスポート（combineChunks 等）は
-// 実物を通す。middleware.ts が読み取りに使う readAccessTokenFromCookies
+// 実物を通す。テストで cookie を組み立てる buildSessionCookies
 // （lib/sessionCookie.ts）はこれらの実物の関数に依存しているため、
 // 全体を差し替えると壊れる。
 type CapturedCookieMethods = {
@@ -36,6 +38,7 @@ type CapturedCookieMethods = {
 
 let capturedCookieMethods: CapturedCookieMethods | null = null;
 const getClaimsMock = vi.fn();
+const getSessionMock = vi.fn();
 vi.mock("@supabase/ssr", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@supabase/ssr")>();
   return {
@@ -47,14 +50,14 @@ vi.mock("@supabase/ssr", async (importOriginal) => {
     ) => {
       capturedCookieMethods = options.cookies;
       return {
-        auth: { getClaims: getClaimsMock },
+        auth: { getClaims: getClaimsMock, getSession: getSessionMock },
       };
     },
   };
 });
 
-// stock-items-ttfb-reduction Phase 2 (tasks.md 4.1): middleware は Go Lambda
-// への在庫データフェッチをここで発射するようになるため、実際のネットワーク
+// middleware は Go API を呼ばない（stock-items-single-fetch design.md D2）。
+// 呼んでいないことを確認するため、また万一呼んだ場合に実際のネットワーク
 // 呼び出し（localhost:8080）が発生しないようモックする。
 vi.mock("@/lib/api", () => ({ fetchStockItems: vi.fn() }));
 
@@ -72,10 +75,9 @@ function makeRequest(
   return new NextRequest(new URL(path, "https://example.com"), init);
 }
 
-// stock-items-ttfb-reduction Phase 2 (tasks.md 4.1): middleware は
-// readAccessTokenFromCookies（getInitialStockItems.ts と同じヘルパー、3.1で
-// 実装済み）で access_token を cookie から直接読み取る。buildSessionCookies
-// で実際に @supabase/ssr と同じ形式の cookie を作り、ラウンドトリップさせる。
+// @supabase/ssr と同じ形式のセッション cookie（buildSessionCookies）を作る。
+// /stock-items で「cookie がすべて揃っていても在庫を先読みしない」ことを
+// 確認するために使う。
 function authTokenCookies(
   accessToken: string,
 ): { name: string; value: string }[] {
@@ -83,39 +85,11 @@ function authTokenCookies(
   return buildSessionCookies("https://example.supabase.co", session);
 }
 
-function makeStockItem(overrides: Partial<StockItem> = {}): StockItem {
-  return {
-    id: "1",
-    name: "商品A",
-    category: "調味料",
-    imageUrl: null,
-    sourceUrl: null,
-    wantToBuy: false,
-    createdAt: "2026-01-01T00:00:00Z",
-    updatedAt: "2026-01-01T00:00:00Z",
-    sortedAt: "2026-01-01T00:00:00Z",
-    ...overrides,
-  };
-}
-
-// 6KiB の閾値（暫定、design.md Open Questions）を確実に超えさせるための
-// 大量アイテム。個々のフィールドサイズから、6KiB を超えるには十分すぎる件数
-// にしてある（境界値そのものの厳密な検証ではなく「超える/超えない」の
-// 二値の確認が目的）。
-function makeManyStockItems(count: number): StockItem[] {
-  return Array.from({ length: count }, (_, i) =>
-    makeStockItem({ id: `id-${i}`, name: `商品-${i}-${"x".repeat(50)}` }),
-  );
-}
-
-function decodeInitialItemsHeader(headerValue: string): unknown {
-  return JSON.parse(stringFromBase64URL(headerValue));
-}
-
 describe("middleware", () => {
   beforeEach(() => {
     vi.resetModules();
     getClaimsMock.mockReset();
+    getSessionMock.mockReset();
     vi.mocked(fetchStockItems).mockReset();
     capturedCookieMethods = null;
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
@@ -127,7 +101,7 @@ describe("middleware", () => {
     getClaimsMock.mockResolvedValue({ data: null, error: null });
     const { middleware } = await import("./middleware");
 
-    const res = await middleware(makeRequest("/stock-items"));
+    const res = await middleware(makeRequest("/invite"));
 
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe("https://example.com/login");
@@ -143,7 +117,7 @@ describe("middleware", () => {
     });
     const { middleware } = await import("./middleware");
 
-    const res = await middleware(makeRequest("/stock-items"));
+    const res = await middleware(makeRequest("/invite"));
 
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();
@@ -173,7 +147,7 @@ describe("middleware", () => {
     });
     const { middleware } = await import("./middleware");
 
-    const res = await middleware(makeRequest("/stock-items"));
+    const res = await middleware(makeRequest("/invite"));
 
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();
@@ -191,7 +165,7 @@ describe("middleware", () => {
     getClaimsMock.mockRejectedValue(thrown);
     const { middleware } = await import("./middleware");
 
-    const res = await middleware(makeRequest("/stock-items"));
+    const res = await middleware(makeRequest("/invite"));
 
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();
@@ -221,7 +195,7 @@ describe("middleware", () => {
     getClaimsMock.mockResolvedValue({ data: null, error: claimsError });
     const { middleware } = await import("./middleware");
 
-    const res = await middleware(makeRequest("/stock-items"));
+    const res = await middleware(makeRequest("/invite"));
 
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();
@@ -244,7 +218,7 @@ describe("middleware", () => {
     getClaimsMock.mockResolvedValue({ data: null, error: claimsError });
     const { middleware } = await import("./middleware");
 
-    const res = await middleware(makeRequest("/stock-items"));
+    const res = await middleware(makeRequest("/invite"));
 
     expect(res.status).toBe(200);
     expect(res.headers.get("location")).toBeNull();
@@ -268,7 +242,7 @@ describe("middleware", () => {
     getClaimsMock.mockResolvedValue({ data: null, error: claimsError });
     const { middleware } = await import("./middleware");
 
-    const res = await middleware(makeRequest("/stock-items"));
+    const res = await middleware(makeRequest("/invite"));
 
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe("https://example.com/login");
@@ -297,6 +271,16 @@ describe("middleware", () => {
     const res = await middleware(makeRequest("/login"));
 
     expect(res.status).toBe(200);
+    expect(getClaimsMock).not.toHaveBeenCalled();
+  });
+
+  it("/auth/clear-session は除外ルートなので getClaims を呼ばず通過させる", async () => {
+    const { middleware } = await import("./middleware");
+
+    const res = await middleware(makeRequest("/auth/clear-session"));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
     expect(getClaimsMock).not.toHaveBeenCalled();
   });
 
@@ -333,7 +317,7 @@ describe("middleware", () => {
       const { middleware } = await import("./middleware");
 
       const res = await middleware(
-        makeRequest("/stock-items", [
+        makeRequest("/invite", [
           { name: "sb-fakeref-auth-token", value: "stale-value" },
         ]),
       );
@@ -350,7 +334,7 @@ describe("middleware", () => {
       const { middleware } = await import("./middleware");
 
       const res = await middleware(
-        makeRequest("/stock-items", [
+        makeRequest("/invite", [
           { name: "sb-fakeref-auth-token.0", value: "chunk0" },
           { name: "sb-fakeref-auth-token.1", value: "chunk1" },
         ]),
@@ -369,7 +353,7 @@ describe("middleware", () => {
       const { middleware } = await import("./middleware");
 
       const res = await middleware(
-        makeRequest("/stock-items", [
+        makeRequest("/invite", [
           { name: "sb-fakeref-auth-token", value: "stale-value" },
         ]),
       );
@@ -387,7 +371,7 @@ describe("middleware", () => {
       const { middleware } = await import("./middleware");
 
       const res = await middleware(
-        makeRequest("/stock-items", [
+        makeRequest("/invite", [
           { name: "sb-fakeref-auth-token.0", value: "chunk0" },
           { name: "sb-fakeref-auth-token.1", value: "chunk1" },
         ]),
@@ -411,7 +395,7 @@ describe("middleware", () => {
     });
     const { middleware } = await import("./middleware");
 
-    const req = makeRequest("/stock-items");
+    const req = makeRequest("/invite");
     await middleware(req);
 
     expect(req.headers.get("x-pp-authenticated")).toBe("1");
@@ -421,7 +405,7 @@ describe("middleware", () => {
     getClaimsMock.mockResolvedValue({ data: null, error: null });
     const { middleware } = await import("./middleware");
 
-    const req = makeRequest("/stock-items");
+    const req = makeRequest("/invite");
     await middleware(req);
 
     expect(req.headers.get("x-pp-authenticated")).toBeNull();
@@ -445,12 +429,9 @@ describe("middleware", () => {
     getClaimsMock.mockResolvedValue({ data: null, error: null });
     const { middleware } = await import("./middleware");
 
-    const req = new NextRequest(
-      new URL("/stock-items", "https://example.com"),
-      {
-        headers: { "x-pp-authenticated": "1" },
-      },
-    );
+    const req = new NextRequest(new URL("/invite", "https://example.com"), {
+      headers: { "x-pp-authenticated": "1" },
+    });
     await middleware(req);
 
     expect(req.headers.get("x-pp-authenticated")).toBeNull();
@@ -481,7 +462,7 @@ describe("middleware", () => {
       });
       const { middleware } = await import("./middleware");
 
-      const res = await middleware(makeRequest("/stock-items"));
+      const res = await middleware(makeRequest("/invite"));
 
       expect(res.status).toBe(200);
       expect(res.headers.get("Server-Timing")).toMatch(
@@ -495,7 +476,7 @@ describe("middleware", () => {
       getClaimsMock.mockResolvedValue({ data: null, error: null });
       const { middleware } = await import("./middleware");
 
-      const res = await middleware(makeRequest("/stock-items"));
+      const res = await middleware(makeRequest("/invite"));
 
       expect(res.status).toBe(307);
       expect(res.headers.get("Server-Timing")).toMatch(
@@ -509,7 +490,7 @@ describe("middleware", () => {
       getClaimsMock.mockRejectedValue(new Error("network error"));
       const { middleware } = await import("./middleware");
 
-      const res = await middleware(makeRequest("/stock-items"));
+      const res = await middleware(makeRequest("/invite"));
 
       expect(res.status).toBe(200);
       expect(res.headers.get("Server-Timing")).toMatch(
@@ -518,471 +499,80 @@ describe("middleware", () => {
       errorSpy.mockRestore();
     });
   });
-
-  // stock-items-ttfb-reduction Phase 2 (tasks.md 4.1): getClaims()（認証検証）
-  // と fetchStockItems()（Go Lambda への在庫データフェッチ）を Promise.all で
-  // 並列発射する。ヘッダー経由でpageに伝達するロジック（4.2〜4.4）は別テストで
-  // 検証する。ここでは「いつ fetchStockItems が呼ばれる/呼ばれないか」の
-  // ゲーティング条件と、区間計測（Server-Timing）を確認する。
-  describe("Phase 2: middleware内でのstock itemsフェッチの並列発射", () => {
+  // stock-items-single-fetch (tasks.md 4.1〜4.3, e2e-design.md S-1〜S-4・
+  // S-11): /stock-items だけは getClaims()（JWKS 取得を伴う署名検証）ではなく
+  // getSession()（期限内なら cookie を読むだけ）でセッションを判定する。
+  // 認証の最終的な境界は Go API の JWT 検証であり、middleware は在庫の先読み
+  // もしない。「通信しない」こと自体はモック境界の外（e2e-design.md 前提）
+  // なので、ここでは getClaims / fetchStockItems のモックが呼ばれないことまでを
+  // 確認する。
+  describe("/stock-items: getSession() による判定（getClaims・在庫先読みなし）", () => {
     const ACTIVE_GROUP_COOKIE = "pantry-panel-active-group";
 
-    it("/stock-items へのアクセスで access_token・activeGroupId cookie が揃っているとき fetchStockItems が呼ばれる", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      getClaimsMock.mockResolvedValue({
-        data: { claims: { sub: "user-1" } },
-        error: null,
-      });
-      vi.mocked(fetchStockItems).mockResolvedValue([]);
-      const { middleware } = await import("./middleware");
-
-      await middleware(
-        makeRequest("/stock-items", [
-          ...authTokenCookies("tok"),
-          { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-        ]),
-      );
-
-      expect(fetchStockItems).toHaveBeenCalledWith("tok", "group-1");
-      errorSpy.mockRestore();
-    });
-
-    it("activeGroupId cookie が無いとき fetchStockItems は呼ばれない", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      getClaimsMock.mockResolvedValue({
-        data: { claims: { sub: "user-1" } },
-        error: null,
-      });
-      const { middleware } = await import("./middleware");
-
-      await middleware(makeRequest("/stock-items", authTokenCookies("tok")));
-
-      expect(fetchStockItems).not.toHaveBeenCalled();
-      errorSpy.mockRestore();
-    });
-
-    it("access_token cookie が無いとき fetchStockItems は呼ばれない", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      getClaimsMock.mockResolvedValue({ data: null, error: null });
-      const { middleware } = await import("./middleware");
-
-      await middleware(
-        makeRequest("/stock-items", [
-          { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-        ]),
-      );
-
-      expect(fetchStockItems).not.toHaveBeenCalled();
-      errorSpy.mockRestore();
-    });
-
-    it("/stock-items 以外のパスでは、cookieが揃っていても fetchStockItems は呼ばれない", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      getClaimsMock.mockResolvedValue({
-        data: { claims: { sub: "user-1" } },
-        error: null,
-      });
-      const { middleware } = await import("./middleware");
-
-      await middleware(
-        makeRequest("/no-group", [
-          ...authTokenCookies("tok"),
-          { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-        ]),
-      );
-
-      expect(fetchStockItems).not.toHaveBeenCalled();
-      errorSpy.mockRestore();
-    });
-
-    it("認証済みで通過するとき、Server-Timing ヘッダーに items の所要時間が含まれる", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      getClaimsMock.mockResolvedValue({
-        data: { claims: { sub: "user-1" } },
-        error: null,
-      });
-      vi.mocked(fetchStockItems).mockResolvedValue([]);
-      const { middleware } = await import("./middleware");
-
-      const res = await middleware(
-        makeRequest("/stock-items", [
-          ...authTokenCookies("tok"),
-          { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-        ]),
-      );
-
-      expect(res.headers.get("Server-Timing")).toMatch(/items;dur=\d+(\.\d+)?/);
-      errorSpy.mockRestore();
-    });
-  });
-
-  // stock-items-ttfb-reduction Phase 2 (tasks.md 4.2): 認証済みと判定できた
-  // 場合、並行取得した在庫データを x-pp-initial-items ヘッダー（base64url
-  // エンコード。日本語の商品名等がヘッダー値として壊れず往復することを
-  // 確認する）として request に付与する。サイズ閾値（暫定6KiB）を超える
-  // 場合は付与しない。
-  describe("Phase 2: x-pp-initial-items ヘッダーへのシリアライズ・付与", () => {
-    const ACTIVE_GROUP_COOKIE = "pantry-panel-active-group";
-
-    function makeAuthenticatedRequest(items: unknown): {
-      req: NextRequest;
-      run: () => Promise<import("next/server").NextResponse>;
-    } {
-      const req = makeRequest("/stock-items", [
-        ...authTokenCookies("tok"),
-        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-      ]);
-      getClaimsMock.mockResolvedValue({
-        data: { claims: { sub: "user-1" } },
-        error: null,
-      });
-      vi.mocked(fetchStockItems).mockResolvedValue(items as StockItem[]);
+    function validSession(): Session {
       return {
-        req,
-        run: async () => {
-          const { middleware } = await import("./middleware");
-          return middleware(req);
-        },
-      };
+        access_token: "tok",
+        refresh_token: "refresh",
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        token_type: "bearer",
+        user: { id: "user-1" },
+      } as unknown as Session;
     }
 
-    it("フェッチ結果が x-pp-initial-items ヘッダーとして付与され、日本語を含んでも正しく往復する", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const items = [makeStockItem()];
-      const { req, run } = makeAuthenticatedRequest(items);
-
-      await run();
-
-      const headerValue = req.headers.get("x-pp-initial-items");
-      expect(headerValue).not.toBeNull();
-      expect(decodeInitialItemsHeader(headerValue as string)).toEqual(items);
-      errorSpy.mockRestore();
-    });
-
-    it("サイズが閾値(6KiB)を超えるとき x-pp-initial-items ヘッダーは付与されない", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const items = makeManyStockItems(100);
-      // 前提確認: このフィクスチャが本当に閾値を超えていることを検証する
-      // （閾値未満のフィクスチャに変わってしまうと、このテストは意図せず
-      // 常に green になり検知力を失う）。
-      expect(JSON.stringify(items).length).toBeGreaterThan(6 * 1024);
-      const { req, run } = makeAuthenticatedRequest(items);
-
-      await run();
-
-      expect(req.headers.get("x-pp-initial-items")).toBeNull();
-      errorSpy.mockRestore();
-    });
-
-    it("fetchStockItems が失敗したとき x-pp-initial-items ヘッダーは付与されない", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const req = makeRequest("/stock-items", [
+    function stockItemsRequest(
+      extraCookies: { name: string; value: string }[] = [],
+    ): NextRequest {
+      return makeRequest("/stock-items", [
         ...authTokenCookies("tok"),
         { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
+        ...extraCookies,
       ]);
-      getClaimsMock.mockResolvedValue({
-        data: { claims: { sub: "user-1" } },
+    }
+
+    it("S-1: 期限内のセッションなら getSession だけで通過し、x-pp-authenticated: 1 を付ける（getClaims は呼ばない）", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      getSessionMock.mockResolvedValue({
+        data: { session: validSession() },
         error: null,
       });
-      vi.mocked(fetchStockItems).mockRejectedValue(new Error("HTTP 500"));
       const { middleware } = await import("./middleware");
 
-      await middleware(req);
-
-      expect(req.headers.get("x-pp-initial-items")).toBeNull();
-      errorSpy.mockRestore();
-    });
-
-    // stock-items-ttfb-reduction Phase 2 (tasks.md 4.3): spec.md の MUST NOT
-    // 要件（未認証確定時にデータが応答に含まれない）の直接的な確認。並行
-    // フェッチが実際に成功していても（＝ stockItems は取得できていても）、
-    // getClaims() が未認証確定と判定すれば x-pp-initial-items は絶対に
-    // 付与されない。isDefinitelyUnauthenticated になる2経路（(a) data/error
-    // 共に null, (b) AuthInvalidJwtError resolve）の両方を確認する
-    // （S-9 と同じ2経路）。
-    it("(a) 未ログイン確定(data/error共にnull)のとき、並行フェッチが成功していても x-pp-initial-items は付与されない", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const req = makeRequest("/stock-items", [
-        ...authTokenCookies("tok"),
-        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-      ]);
-      getClaimsMock.mockResolvedValue({ data: null, error: null });
-      vi.mocked(fetchStockItems).mockResolvedValue([makeStockItem()]);
-      const { middleware } = await import("./middleware");
-
+      const req = stockItemsRequest();
       const res = await middleware(req);
-
-      expect(res.status).toBe(307);
-      expect(req.headers.get("x-pp-initial-items")).toBeNull();
-      expect(res.headers.get("x-pp-initial-items")).toBeNull();
-      errorSpy.mockRestore();
-    });
-
-    it("(b) AuthInvalidJwtError resolve で未ログイン確定のとき、並行フェッチが成功していても x-pp-initial-items は付与されない", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const req = makeRequest("/stock-items", [
-        ...authTokenCookies("tok"),
-        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-      ]);
-      getClaimsMock.mockResolvedValue({
-        data: null,
-        error: new AuthInvalidJwtError("Token signature is invalid"),
-      });
-      vi.mocked(fetchStockItems).mockResolvedValue([makeStockItem()]);
-      const { middleware } = await import("./middleware");
-
-      const res = await middleware(req);
-
-      expect(res.status).toBe(307);
-      expect(req.headers.get("x-pp-initial-items")).toBeNull();
-      expect(res.headers.get("x-pp-initial-items")).toBeNull();
-      errorSpy.mockRestore();
-    });
-
-    // stock-items-ttfb-reduction Phase 2 (tasks.md 4.4): fail-open（判定不能）
-    // 時は既存のredirect基準を変えない。design.md Decision 3 は、並行取得した
-    // Lambda結果が実際に成功していれば forward してよいとしている
-    // （Goバックエンド自身のJWT検証が最終的な安全境界のため）。
-    it("AuthRetryableFetchError でresolveしてfail openする場合、並行フェッチが成功していれば x-pp-initial-items が付与される", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const req = makeRequest("/stock-items", [
-        ...authTokenCookies("tok"),
-        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-      ]);
-      getClaimsMock.mockResolvedValue({
-        data: null,
-        error: new AuthRetryableFetchError("fetch failed", 0),
-      });
-      const items = [makeStockItem()];
-      vi.mocked(fetchStockItems).mockResolvedValue(items);
-      const { middleware } = await import("./middleware");
-
-      const res = await middleware(req);
-
-      expect(res.status).toBe(200);
-      const headerValue = req.headers.get("x-pp-initial-items");
-      expect(headerValue).not.toBeNull();
-      expect(decodeInitialItemsHeader(headerValue as string)).toEqual(items);
-      errorSpy.mockRestore();
-    });
-
-    it("Retryableエラーでfail openする分岐でも、setAll()によるcookie書き込みとitems付与が両立する", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const req = makeRequest("/stock-items", [
-        ...authTokenCookies("tok"),
-        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-      ]);
-      getClaimsMock.mockImplementation(async () => {
-        // fail-open するエラーを resolve する前に、リフレッシュ試行の途中で
-        // 一部の cookie 書き込みだけが行われるようなケースを再現する
-        // （S-7 と同じ setAll パターン）。
-        capturedCookieMethods?.setAll?.(
-          [
-            {
-              name: "sb-example-auth-token",
-              value: "partially-refreshed-value",
-              options: { path: "/" },
-            },
-          ],
-          {
-            "Cache-Control":
-              "private, no-cache, no-store, must-revalidate, max-age=0",
-          },
-        );
-        return {
-          data: null,
-          error: new AuthRetryableFetchError("fetch failed", 0),
-        };
-      });
-      const items = [makeStockItem()];
-      vi.mocked(fetchStockItems).mockResolvedValue(items);
-      const { middleware } = await import("./middleware");
-
-      const res = await middleware(req);
-
-      expect(res.status).toBe(200);
-      expect(res.cookies.get("sb-example-auth-token")?.value).toBe(
-        "partially-refreshed-value",
-      );
-      const headerValue = req.headers.get("x-pp-initial-items");
-      expect(headerValue).not.toBeNull();
-      expect(decodeInitialItemsHeader(headerValue as string)).toEqual(items);
-      errorSpy.mockRestore();
-    });
-
-    it("AuthRefreshDiscardedError でresolveしてfail openする場合も、並行フェッチが成功していれば x-pp-initial-items が付与される", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const req = makeRequest("/stock-items", [
-        ...authTokenCookies("tok"),
-        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-      ]);
-      getClaimsMock.mockResolvedValue({
-        data: null,
-        error: new AuthRefreshDiscardedError(),
-      });
-      const items = [makeStockItem()];
-      vi.mocked(fetchStockItems).mockResolvedValue(items);
-      const { middleware } = await import("./middleware");
-
-      const res = await middleware(req);
-
-      expect(res.status).toBe(200);
-      const headerValue = req.headers.get("x-pp-initial-items");
-      expect(headerValue).not.toBeNull();
-      expect(decodeInitialItemsHeader(headerValue as string)).toEqual(items);
-      errorSpy.mockRestore();
-    });
-
-    // getClaims() が例外を投げるケースは、並行フェッチの結果を待たずに即座に
-    // fail-open で返す設計判断（advisor指摘: fetchStockItemsのタイムアウトは
-    // 10秒あり、ここで待つとfail-openのはずの応答が最大10秒ブロックされうる）。
-    // そのため、たとえ並行フェッチが実際には成功する見込みだったとしても、
-    // このパスでは x-pp-initial-items は付与されない
-    // （getInitialStockItems.ts のフォールバック取得に委ねる、5.2で実装）。
-    it("getClaims が例外を投げてfail openする場合、x-pp-initial-items は付与されない（並行フェッチの結果を待たない）", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const req = makeRequest("/stock-items", [
-        ...authTokenCookies("tok"),
-        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-      ]);
-      getClaimsMock.mockRejectedValue(new Error("network error"));
-      vi.mocked(fetchStockItems).mockResolvedValue([makeStockItem()]);
-      const { middleware } = await import("./middleware");
-
-      const res = await middleware(req);
-
-      expect(res.status).toBe(200);
-      expect(req.headers.get("x-pp-initial-items")).toBeNull();
-      errorSpy.mockRestore();
-    });
-
-    // stock-items-ttfb-reduction Phase 2 (コードレビュー指摘): getClaims() が
-    // throw し、かつ「並行取得側」（middleware.ts の stockItemsPromise を
-    // 構築する IIFE）も reject する組み合わせを直接再現する。
-    // fetchStockItems() 自体の reject は IIFE 内の try/catch (4.1) で常に
-    // 握り込まれ、決して stockItemsPromise を reject させないため、ここでは
-    // その手前——readAccessTokenFromCookies() 内の `new URL(supabaseUrl)`
-    // （自身の try/catch の外）が例外を投げる経路を使って、IIFE 自体が
-    // reject する状況を作る。
-    // Promise.all([claimsPromise, stockItemsPromise]) の両方が reject して
-    // も、Node/Vitest が unhandled rejection として検知しないこと、
-    // 既存の fail-open 挙動（redirect しない・observability ログを残す・
-    // x-pp-initial-items は付与しない）が変わらないことを確認する。
-    it("getClaims が例外を投げ、かつ並行フェッチ側(stockItemsPromise)も reject する場合、unhandled rejection を起こさず fail open する", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const unhandledReasons: unknown[] = [];
-      const onUnhandledRejection = (reason: unknown) => {
-        unhandledReasons.push(reason);
-      };
-      process.on("unhandledRejection", onUnhandledRejection);
-
-      process.env.NEXT_PUBLIC_SUPABASE_URL = "not-a-valid-url";
-      const req = makeRequest("/stock-items", [
-        ...authTokenCookies("tok"),
-        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-      ]);
-      const claimsThrown = new Error("network error");
-      getClaimsMock.mockRejectedValue(claimsThrown);
-      const { middleware } = await import("./middleware");
-
-      const res = await middleware(req);
-      // unhandledRejection はマイクロタスクが一巡した後に発火する可能性が
-      // あるため、アサーション前に明示的に1周させる。
-      await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(res.status).toBe(200);
       expect(res.headers.get("location")).toBeNull();
-      expect(req.headers.get("x-pp-initial-items")).toBeNull();
-      expect(errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("threw"),
-        claimsThrown,
-      );
-      expect(unhandledReasons).toEqual([]);
-
-      process.off("unhandledRejection", onUnhandledRejection);
+      expect(getSessionMock).toHaveBeenCalledTimes(1);
+      expect(getClaimsMock).not.toHaveBeenCalled();
+      expect(req.headers.get("x-pp-authenticated")).toBe("1");
+      expect(errorSpy).not.toHaveBeenCalled();
       errorSpy.mockRestore();
     });
 
-    // 上記と同じ「stockItemsPromise が reject する」経路を、getClaims() が
-    // throw せず素直に resolve するケースと組み合わせる。Promise.all は
-    // 構成する全プロミスが fulfill しないと fulfill しない（一部が resolve
-    // でも他が reject なら全体が reject する）ため、stockItemsPromise が
-    // reject すると getClaims() の resolve 結果（今回は
-    // data===null && error===null、つまり保護ルートでは redirect すべき
-    // 「未ログイン確定」）を見る分岐に一切到達せず、"getClaims threw" 用の
-    // catch に落ちて誤って fail open（redirect しない）してしまう
-    // ——という回帰を検出するテスト。
-    it("getClaims は正常に resolve(未ログイン確定)しても、stockItemsPromise が reject すると保護ルートで /login へのリダイレクトが必要", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      process.env.NEXT_PUBLIC_SUPABASE_URL = "not-a-valid-url";
-      const req = makeRequest("/stock-items", [
-        ...authTokenCookies("tok"),
-        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-      ]);
-      getClaimsMock.mockResolvedValue({ data: null, error: null });
-      const { middleware } = await import("./middleware");
-
-      const res = await middleware(req);
-
-      expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toBe("https://example.com/login");
-      errorSpy.mockRestore();
-    });
-
-    // 同じ回帰の認証済み側。stockItemsPromise が reject すると、
-    // getClaims() が認証済み(data !== null)で resolve していても
-    // "getClaims threw" 用の catch に落ちてしまい、x-pp-authenticated が
-    // 付与されない（layout.tsx が再度 getClaims() 相当の検証を行う二重
-    // ネットワーク呼び出しが発生してしまう、Issue #182 が防ぎたかった事象）。
-    it("getClaims は正常に resolve(認証済み)しても、stockItemsPromise が reject すると x-pp-authenticated が付与される", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      process.env.NEXT_PUBLIC_SUPABASE_URL = "not-a-valid-url";
-      const req = makeRequest("/stock-items", [
-        ...authTokenCookies("tok"),
-        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-      ]);
-      getClaimsMock.mockResolvedValue({
-        data: { claims: { sub: "user-1" } },
+    it("S-1/S-4: cookie がすべて揃っていても middleware は fetchStockItems を呼ばず、x-pp-initial-items を付けない", async () => {
+      getSessionMock.mockResolvedValue({
+        data: { session: validSession() },
         error: null,
       });
       const { middleware } = await import("./middleware");
 
+      const req = stockItemsRequest();
       const res = await middleware(req);
 
-      expect(res.status).toBe(200);
-      expect(req.headers.get("x-pp-authenticated")).toBe("1");
-      errorSpy.mockRestore();
+      expect(fetchStockItems).not.toHaveBeenCalled();
+      expect(req.headers.get("x-pp-initial-items")).toBeNull();
+      expect(res.headers.get("x-pp-initial-items")).toBeNull();
     });
 
-    // stock-items-ttfb-reduction Phase 2 (advisor レビュー指摘): stockItemsPromise
-    // は claimsPromise の完了を待たずに（＝ getClaims() 内部のリフレッシュが
-    // 走る前に）request.cookies から access_token を読む。トークンが期限切れ
-    // 間近の cold visit では、この読み取りタイミングがリフレッシュ前の古い
-    // トークンを掴む可能性があり、fetchStockItems がそれで失敗しうる。
-    // ここではその状況を再現し、(a) 古いトークンでの並行フェッチが失敗しても
-    // x-pp-initial-items は付与されない（データが欠けるだけで安全側に倒れる）、
-    // (b) それでもリフレッシュ後の新しい cookie は正しく応答・
-    // request（＝下流の Server Component が cookies() で読む値）に反映される
-    // ことを確認する。(b) が保証されていれば、getInitialStockItems.ts の
-    // フォールバック取得（5.2）は新しいトークンで再試行でき、
-    // 「リフレッシュが起きた cold visit で二重に失敗する」ことはない。
-    it("access_tokenがリフレッシュされる場合、古いトークンでの並行フェッチが失敗しても新しいcookieは正しく反映される", async () => {
+    it("S-2: getSession 内でセッションが更新されたとき、新しい cookie と Cache-Control が response に載り、x-pp-authenticated も付く", async () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const req = makeRequest("/stock-items", [
-        ...authTokenCookies("stale-tok"),
-        { name: ACTIVE_GROUP_COOKIE, value: "group-1" },
-      ]);
-      getClaimsMock.mockImplementation(async () => {
-        // @supabase/ssr が getClaims() 内部でリフレッシュを検知し、新しい
-        // アクセストークンを cookie に書き込む挙動を再現する（S-7と同じ
-        // パターン）。stockItemsPromise がこの setAll より前に古い cookie を
-        // 読んでいることを検証したいので、リフレッシュが完了する前に
-        // fetchStockItems が古いトークンで呼ばれているはずである。
+      getSessionMock.mockImplementation(async () => {
         capturedCookieMethods?.setAll?.(
           [
             {
-              name: "sb-example-auth-token",
-              value: "refreshed-cookie-value",
+              name: "sb-access-token",
+              value: "refreshed-token-value",
               options: { path: "/" },
             },
           ],
@@ -991,60 +581,287 @@ describe("middleware", () => {
               "private, no-cache, no-store, must-revalidate, max-age=0",
           },
         );
-        return { data: { claims: { sub: "user-1" } }, error: null };
+        return { data: { session: validSession() }, error: null };
       });
-      // Go backend が期限切れ間近/失効済みの古いトークンを拒否する挙動を
-      // 再現する。
-      vi.mocked(fetchStockItems).mockRejectedValue(new Error("HTTP 401"));
       const { middleware } = await import("./middleware");
 
+      const req = stockItemsRequest();
       const res = await middleware(req);
 
-      // 古いトークンでのフェッチが失敗 → データは無いので付与されない
-      // （安全側。古いトークンで取得できてしまったデータを誤って新しい
-      // トークンのユーザーとして返すよりはるかに安全）。
-      expect(fetchStockItems).toHaveBeenCalledWith("stale-tok", "group-1");
-      expect(req.headers.get("x-pp-initial-items")).toBeNull();
-      // リフレッシュ結果は response（ブラウザ向け Set-Cookie）と
-      // request（下流の Server Component が cookies() で読む値）の両方に
-      // 反映されている。後者が満たされていることで、getInitialStockItems.ts
-      // のフォールバック取得（5.2）は新しいトークンを読める。
-      expect(res.cookies.get("sb-example-auth-token")?.value).toBe(
-        "refreshed-cookie-value",
+      expect(res.status).toBe(200);
+      expect(res.cookies.get("sb-access-token")?.value).toBe(
+        "refreshed-token-value",
       );
-      expect(req.cookies.get("sb-example-auth-token")?.value).toBe(
-        "refreshed-cookie-value",
+      expect(res.headers.get("Cache-Control")).toContain("no-store");
+      expect(req.headers.get("x-pp-authenticated")).toBe("1");
+      // 更新後のトークンが後続の Server Component（page）へ転送されること。
+      // Next は request header の上書きを response の x-middleware-request-* に載せる。
+      expect(res.headers.get("x-middleware-override-headers")).toContain(
+        "cookie",
       );
+      expect(res.headers.get("x-middleware-request-cookie")).toContain(
+        "refreshed-token-value",
+      );
+      expect(errorSpy).not.toHaveBeenCalled();
       errorSpy.mockRestore();
     });
 
-    it("クライアントが x-pp-initial-items を偽装して送っても、middleware が取得していないなら除去される", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      getClaimsMock.mockResolvedValue({ data: null, error: null });
-      const req = new NextRequest(new URL("/health", "https://example.com"), {
-        headers: { "x-pp-initial-items": "forged-value" },
+    describe("S-3: getSession の結果の分類", () => {
+      it("(a) AuthRetryableFetchError で resolve したら fail open（redirect せず、x-pp-authenticated も付けない）。console.error でログされる", async () => {
+        const errorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        const sessionError = new AuthRetryableFetchError("fetch failed", 0);
+        getSessionMock.mockResolvedValue({
+          data: { session: null },
+          error: sessionError,
+        });
+        const { middleware } = await import("./middleware");
+
+        const req = stockItemsRequest();
+        const res = await middleware(req);
+
+        expect(res.status).toBe(200);
+        expect(res.headers.get("location")).toBeNull();
+        expect(req.headers.get("x-pp-authenticated")).toBeNull();
+        expect(errorSpy).toHaveBeenCalledTimes(1);
+        expect(errorSpy).toHaveBeenCalledWith(
+          expect.stringContaining("getSession resolved with an error"),
+          sessionError,
+        );
+        errorSpy.mockRestore();
       });
-      const { middleware } = await import("./middleware");
 
-      await middleware(req);
+      it("(b) AuthRefreshDiscardedError で resolve したら fail open。console.error でログされる", async () => {
+        const errorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        const sessionError = new AuthRefreshDiscardedError();
+        getSessionMock.mockResolvedValue({
+          data: { session: null },
+          error: sessionError,
+        });
+        const { middleware } = await import("./middleware");
 
-      expect(req.headers.get("x-pp-initial-items")).toBeNull();
-      errorSpy.mockRestore();
+        const req = stockItemsRequest();
+        const res = await middleware(req);
+
+        expect(res.status).toBe(200);
+        expect(res.headers.get("location")).toBeNull();
+        expect(req.headers.get("x-pp-authenticated")).toBeNull();
+        expect(errorSpy).toHaveBeenCalledTimes(1);
+        expect(errorSpy).toHaveBeenCalledWith(
+          expect.stringContaining("getSession resolved with an error"),
+          sessionError,
+        );
+        errorSpy.mockRestore();
+      });
+
+      it("(c) 例外を投げたら fail open。console.error でログされる", async () => {
+        const errorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        const thrown = new Error("network error");
+        getSessionMock.mockRejectedValue(thrown);
+        const { middleware } = await import("./middleware");
+
+        const req = stockItemsRequest();
+        const res = await middleware(req);
+
+        expect(res.status).toBe(200);
+        expect(res.headers.get("location")).toBeNull();
+        expect(req.headers.get("x-pp-authenticated")).toBeNull();
+        expect(errorSpy).toHaveBeenCalledTimes(1);
+        expect(errorSpy).toHaveBeenCalledWith(
+          expect.stringContaining("getSession threw"),
+          thrown,
+        );
+        errorSpy.mockRestore();
+      });
+
+      // (d) が fail open の対象を広げすぎていないかの discriminator。
+      // refresh token が無効などの確定的なエラーは、未ログイン確定として
+      // cookie を失効させて /login へ送る。
+      it("(d) それ以外のエラー（AuthApiError 等）で resolve したら、単一の auth-token cookie を失効させて /login へリダイレクトする", async () => {
+        const errorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        getSessionMock.mockResolvedValue({
+          data: { session: null },
+          error: new AuthApiError(
+            "Invalid Refresh Token",
+            400,
+            "refresh_token_not_found",
+          ),
+        });
+        const { middleware } = await import("./middleware");
+
+        const req = makeRequest("/stock-items", [
+          { name: "sb-fakeref-auth-token", value: "stale-value" },
+        ]);
+        const res = await middleware(req);
+
+        expect(res.status).toBe(307);
+        expect(res.headers.get("location")).toBe("https://example.com/login");
+        expect(res.cookies.get("sb-fakeref-auth-token")?.value).toBe("");
+        expect(res.headers.get("set-cookie")).toMatch(
+          /sb-fakeref-auth-token=;.*Max-Age=0/i,
+        );
+        expect(req.headers.get("x-pp-authenticated")).toBeNull();
+        errorSpy.mockRestore();
+      });
+
+      it("(d) それ以外のエラーで resolve したら、チャンク分割された auth-token cookie を両方失効させる", async () => {
+        const errorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        getSessionMock.mockResolvedValue({
+          data: { session: null },
+          error: new AuthApiError(
+            "Invalid Refresh Token",
+            400,
+            "refresh_token_not_found",
+          ),
+        });
+        const { middleware } = await import("./middleware");
+
+        const res = await middleware(
+          makeRequest("/stock-items", [
+            { name: "sb-fakeref-auth-token.0", value: "chunk0" },
+            { name: "sb-fakeref-auth-token.1", value: "chunk1" },
+          ]),
+        );
+
+        expect(res.status).toBe(307);
+        expect(res.cookies.get("sb-fakeref-auth-token.0")?.value).toBe("");
+        expect(res.cookies.get("sb-fakeref-auth-token.1")?.value).toBe("");
+        errorSpy.mockRestore();
+      });
+
+      it("(e) session === null かつエラーなしなら、auth-token cookie を失効させて /login へリダイレクトする（正常系なのでログしない）", async () => {
+        const errorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        getSessionMock.mockResolvedValue({
+          data: { session: null },
+          error: null,
+        });
+        const { middleware } = await import("./middleware");
+
+        const res = await middleware(
+          makeRequest("/stock-items", [
+            { name: "sb-fakeref-auth-token.0", value: "chunk0" },
+            { name: "sb-fakeref-auth-token.1", value: "chunk1" },
+          ]),
+        );
+
+        expect(res.status).toBe(307);
+        expect(res.headers.get("location")).toBe("https://example.com/login");
+        expect(res.cookies.get("sb-fakeref-auth-token.0")?.value).toBe("");
+        expect(res.cookies.get("sb-fakeref-auth-token.1")?.value).toBe("");
+        expect(errorSpy).not.toHaveBeenCalled();
+        errorSpy.mockRestore();
+      });
+
+      it("(e) クライアントが偽装した x-pp-authenticated は、セッションなしのとき伝わらない", async () => {
+        getSessionMock.mockResolvedValue({
+          data: { session: null },
+          error: null,
+        });
+        const { middleware } = await import("./middleware");
+
+        const req = new NextRequest(
+          new URL("/stock-items", "https://example.com"),
+          { headers: { "x-pp-authenticated": "1" } },
+        );
+        await middleware(req);
+
+        expect(req.headers.get("x-pp-authenticated")).toBeNull();
+      });
     });
 
-    it("activeGroupId cookie が無く在庫データを取得していないとき、認証済みでも x-pp-initial-items ヘッダーは付与されない", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const req = makeRequest("/stock-items", authTokenCookies("tok"));
+    describe("S-11: Server-Timing は claims 区間（getSession の所要時間）だけで、items 区間は無い", () => {
+      it("通過するとき", async () => {
+        getSessionMock.mockResolvedValue({
+          data: { session: validSession() },
+          error: null,
+        });
+        const { middleware } = await import("./middleware");
+
+        const res = await middleware(stockItemsRequest());
+
+        const timing = res.headers.get("Server-Timing");
+        expect(timing).toMatch(/claims;dur=\d+(\.\d+)?/);
+        expect(timing).not.toContain("items");
+      });
+
+      it("/login へリダイレクトするとき", async () => {
+        getSessionMock.mockResolvedValue({
+          data: { session: null },
+          error: null,
+        });
+        const { middleware } = await import("./middleware");
+
+        const res = await middleware(stockItemsRequest());
+
+        expect(res.status).toBe(307);
+        const timing = res.headers.get("Server-Timing");
+        expect(timing).toMatch(/claims;dur=\d+(\.\d+)?/);
+        expect(timing).not.toContain("items");
+      });
+
+      it("例外で fail open するとき", async () => {
+        const errorSpy = vi
+          .spyOn(console, "error")
+          .mockImplementation(() => {});
+        getSessionMock.mockRejectedValue(new Error("network error"));
+        const { middleware } = await import("./middleware");
+
+        const res = await middleware(stockItemsRequest());
+
+        expect(res.status).toBe(200);
+        const timing = res.headers.get("Server-Timing");
+        expect(timing).toMatch(/claims;dur=\d+(\.\d+)?/);
+        expect(timing).not.toContain("items");
+        errorSpy.mockRestore();
+      });
+    });
+  });
+
+  // S-9 (stock-items-single-fetch): /stock-items 以外の保護ルートは従来どおり
+  // getClaims() で判定し、getSession() は呼ばない。上の getClaims 系テストは
+  // この変更に合わせて送り先を /invite に付け替えてある。
+  describe("S-9: /stock-items 以外の保護ルートは getClaims() で判定する", () => {
+    it.each(["/", "/invite", "/no-group"])(
+      "%s では getClaims を呼び、getSession は呼ばない",
+      async (path) => {
+        getClaimsMock.mockResolvedValue({
+          data: { claims: { sub: "user-1" } },
+          error: null,
+        });
+        const { middleware } = await import("./middleware");
+
+        const req = makeRequest(path);
+        const res = await middleware(req);
+
+        expect(res.status).toBe(200);
+        expect(getClaimsMock).toHaveBeenCalledTimes(1);
+        expect(getSessionMock).not.toHaveBeenCalled();
+        expect(req.headers.get("x-pp-authenticated")).toBe("1");
+      },
+    );
+
+    it("/stock-items/<子パス> は /stock-items と同一ではないので getClaims で判定する", async () => {
       getClaimsMock.mockResolvedValue({
         data: { claims: { sub: "user-1" } },
         error: null,
       });
       const { middleware } = await import("./middleware");
 
-      await middleware(req);
+      await middleware(makeRequest("/stock-items/abc"));
 
-      expect(req.headers.get("x-pp-initial-items")).toBeNull();
-      errorSpy.mockRestore();
+      expect(getClaimsMock).toHaveBeenCalledTimes(1);
+      expect(getSessionMock).not.toHaveBeenCalled();
     });
   });
 });

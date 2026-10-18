@@ -103,6 +103,45 @@ func TestJWTAuth(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, rec.Code)
 	})
 
+	t.Run("token_signed_with_other_key", func(t *testing.T) {
+		// 形式は正しく exp も期限内だが、検証用とは別の鍵で署名されたトークン。
+		// Frontend の /stock-items は署名検証を Go API に一任しているため、
+		// ここで 401 を返して後続のハンドラを呼ばないことが在庫漏えい防止の要
+		userID := uuid.New()
+		groupID := uuid.New()
+		forged := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"sub": userID.String(),
+			"exp": time.Now().Add(time.Hour).Unix(),
+		})
+		token, err := forged.SignedString([]byte("attacker-secret-key"))
+		require.NoError(t, err)
+
+		handlerCalled := false
+		e := echo.New()
+		e.Use(middleware.NewJWTAuth(middleware.JWTAuthConfig{
+			KeyFunc: testKeyFunc,
+			GroupRepo: &mockGroupRepo{
+				findMembershipsFn: func(_ context.Context, _ uuid.UUID) ([]repository.GroupMembership, error) {
+					return []repository.GroupMembership{{GroupID: groupID, Name: "家", Role: "owner"}}, nil
+				},
+			},
+			RequireGroup: true,
+		}))
+		e.GET("/test", func(c *echo.Context) error {
+			handlerCalled = true
+			return c.String(http.StatusOK, "ok")
+		})
+		rec := httptest.NewRecorder()
+
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("X-Active-Group-ID", groupID.String())
+		e.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusUnauthorized, rec.Code)
+		assert.False(t, handlerCalled, "handler must not run for a token signed with another key")
+	})
+
 	t.Run("valid_token_no_group_required", func(t *testing.T) {
 		userID := uuid.New()
 		token := makeToken(t, userID.String(), time.Now().Add(time.Hour))

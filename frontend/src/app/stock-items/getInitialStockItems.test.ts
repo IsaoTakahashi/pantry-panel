@@ -1,22 +1,29 @@
 import { stringToBase64URL } from "@supabase/ssr";
 import type { Session } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchStockItems } from "@/lib/api";
+import { fetchStockItems, HttpError } from "@/lib/api";
 import { buildSessionCookies } from "@/lib/sessionCookie";
-import type { StockItem } from "@/types/stockItem";
 
 const SUPABASE_URL = "https://abcdefghijklmnop.supabase.co";
 const ACTIVE_GROUP_COOKIE = "pantry-panel-active-group";
-const INITIAL_ITEMS_HEADER_NAME = "x-pp-initial-items";
 
 const mockCookiesGet = vi.fn();
-const mockHeadersGet = vi.fn();
 vi.mock("next/headers", () => ({
   cookies: () => Promise.resolve({ get: mockCookiesGet }),
-  headers: () => Promise.resolve({ get: mockHeadersGet }),
 }));
 
-vi.mock("@/lib/api", () => ({ fetchStockItems: vi.fn() }));
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
+  fetchStockItems: vi.fn(),
+}));
+
+// redirect() は実際には例外を投げて制御を止める。モックも同じ挙動にする。
+const mockRedirect = vi.fn((url: string) => {
+  throw new Error(`NEXT_REDIRECT:${url}`);
+});
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => mockRedirect(url),
+}));
 
 // stock-items-ttfb-reduction Phase 2 (tasks.md 3.1): getInitialStockItems.ts は
 // もう Supabase クライアントを一切生成・呼び出してはならない
@@ -39,8 +46,20 @@ function authTokenCookieEntries(accessToken: string): Record<string, string> {
   return Object.fromEntries(cookies.map((c) => [c.name, c.value]));
 }
 
-function encodeInitialItemsHeader(items: unknown): string {
-  return stringToBase64URL(JSON.stringify(items));
+function jwtWithPayload(payload: unknown): string {
+  return `h.${stringToBase64URL(JSON.stringify(payload))}.s`;
+}
+
+const nowSec = () => Math.floor(Date.now() / 1000);
+
+function setupCookies(accessToken: string) {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE_URL;
+  mockCookiesGet.mockImplementation(
+    cookieMap({
+      [ACTIVE_GROUP_COOKIE]: "group-1",
+      ...authTokenCookieEntries(accessToken),
+    }),
+  );
 }
 
 describe("getInitialStockItems", () => {
@@ -226,7 +245,7 @@ describe("getInitialStockItems", () => {
       await getInitialStockItems();
 
       expect(errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining("fetchStockItems"),
+        expect.stringContaining("fetchStockItems failed"),
         fetchError,
       );
       errorSpy.mockRestore();
@@ -234,121 +253,114 @@ describe("getInitialStockItems", () => {
     });
   });
 
-  // stock-items-ttfb-reduction Phase 2 (tasks.md 5.1): middleware が並行取得
-  // した在庫データを x-pp-initial-items ヘッダーで渡してきた場合、それを
-  // そのまま使い、追加の Supabase 呼び出し・Lambda 呼び出しを一切行わない。
-  describe("x-pp-initial-items ヘッダーの読み取り（middlewareからの事前取得データ）", () => {
-    it("ヘッダーが存在するとき、そのデータをそのまま返し、cookie・fetchStockItemsを一切呼ばない", async () => {
-      const items: StockItem[] = [
-        {
-          id: "1",
-          name: "商品A",
-          category: "調味料",
-          imageUrl: null,
-          sourceUrl: null,
-          wantToBuy: false,
-          createdAt: "2026-01-01T00:00:00Z",
-          updatedAt: "2026-01-01T00:00:00Z",
-          sortedAt: "2026-01-01T00:00:00Z",
-        },
-      ];
-      mockHeadersGet.mockImplementation((name: string) =>
-        name === INITIAL_ITEMS_HEADER_NAME
-          ? encodeInitialItemsHeader(items)
-          : undefined,
-      );
+  describe("401 の分岐（Go API の 401 がトークン無効の根拠）", () => {
+    it("401 でトークンの exp が未来のとき、/auth/clear-session へ redirect し、null を resolve しない", async () => {
+      setupCookies(jwtWithPayload({ exp: nowSec() + 3600 }));
+      vi.mocked(fetchStockItems).mockRejectedValue(new HttpError(401));
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const { getInitialStockItems } = await import("./getInitialStockItems");
 
-      const result = await getInitialStockItems();
-
-      expect(result).toEqual(items);
-      expect(mockCookiesGet).not.toHaveBeenCalled();
-      expect(fetchStockItems).not.toHaveBeenCalled();
+      await expect(getInitialStockItems()).rejects.toThrow(
+        "NEXT_REDIRECT:/auth/clear-session",
+      );
+      expect(mockRedirect).toHaveBeenCalledWith("/auth/clear-session");
+      expect(errSpy).toHaveBeenCalledWith(
+        expect.stringContaining("401 with unexpired token, redirecting"),
+      );
+      errSpy.mockRestore();
     });
 
-    it("ヘッダーの中身が空配列のときも、空配列をそのまま返す（0件は有効なデータであり、フォールバックしてはならない）", async () => {
-      mockHeadersGet.mockImplementation((name: string) =>
-        name === INITIAL_ITEMS_HEADER_NAME
-          ? encodeInitialItemsHeader([])
-          : undefined,
-      );
+    it("401 で exp が読み取れないトークン(payload 壊れ)のとき、redirect する", async () => {
+      setupCookies("not-a-jwt");
+      vi.mocked(fetchStockItems).mockRejectedValue(new HttpError(401));
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      await expect(getInitialStockItems()).rejects.toThrow("NEXT_REDIRECT");
+      expect(mockRedirect).toHaveBeenCalledWith("/auth/clear-session");
+    });
+
+    it("401 で exp が無いトークンのとき、redirect する", async () => {
+      setupCookies(jwtWithPayload({ sub: "u" }));
+      vi.mocked(fetchStockItems).mockRejectedValue(new HttpError(401));
+      const { getInitialStockItems } = await import("./getInitialStockItems");
+
+      await expect(getInitialStockItems()).rejects.toThrow("NEXT_REDIRECT");
+      expect(mockRedirect).toHaveBeenCalledWith("/auth/clear-session");
+    });
+
+    it("401 で exp が過去のとき、null を返し redirect しない", async () => {
+      setupCookies(jwtWithPayload({ exp: nowSec() - 10 }));
+      vi.mocked(fetchStockItems).mockRejectedValue(new HttpError(401));
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
       const { getInitialStockItems } = await import("./getInitialStockItems");
 
       const result = await getInitialStockItems();
 
-      expect(result).toEqual([]);
-      expect(fetchStockItems).not.toHaveBeenCalled();
+      expect(result).toBeNull();
+      expect(mockRedirect).not.toHaveBeenCalled();
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining("401 with expired token, returning null"),
+      );
+      logSpy.mockRestore();
+    });
+
+    it("401 で exp が現在時刻ちょうどのとき、期限切れ側として null を返す", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+      try {
+        setupCookies(jwtWithPayload({ exp: Math.floor(Date.now() / 1000) }));
+        vi.mocked(fetchStockItems).mockRejectedValue(new HttpError(401));
+        const { getInitialStockItems } = await import("./getInitialStockItems");
+
+        expect(await getInitialStockItems()).toBeNull();
+        expect(mockRedirect).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 
-  // stock-items-ttfb-reduction Phase 2 (tasks.md 5.2): ヘッダーが存在しない
-  // 場合（サイズ超過・フェッチ失敗・middleware側の異常等）は、既存の
-  // cookieベースのフォールバック取得を行う。フォールバックは認証検証を
-  // やり直さない（spec.md MUST: 既に検証済みのセッション情報を再利用する。
-  // readAccessTokenFromCookies は Supabase を呼ばずローカルの cookie を
-  // 読むだけであり、この要件を満たす）。
-  describe("x-pp-initial-items ヘッダーが無いときのフォールバック取得", () => {
-    it("ヘッダーが存在しないとき、cookieベースのフォールバック取得が行われる", async () => {
-      process.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE_URL;
-      mockHeadersGet.mockReturnValue(undefined);
-      mockCookiesGet.mockImplementation(
-        cookieMap({
-          [ACTIVE_GROUP_COOKIE]: "group-1",
-          ...authTokenCookieEntries("tok"),
-        }),
-      );
-      const items: StockItem[] = [];
-      vi.mocked(fetchStockItems).mockResolvedValue(items);
+  describe("401 以外の失敗は null（redirect しない）", () => {
+    it.each([
+      ["403", new HttpError(403)],
+      ["500", new HttpError(500)],
+      ["timeout", new DOMException("timed out", "TimeoutError")],
+      ["network", new TypeError("fetch failed")],
+    ])("%s のとき null を返し、失敗ログを出す", async (_label, error) => {
+      setupCookies(jwtWithPayload({ exp: nowSec() + 3600 }));
+      vi.mocked(fetchStockItems).mockRejectedValue(error);
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const { getInitialStockItems } = await import("./getInitialStockItems");
 
-      const result = await getInitialStockItems();
-
-      expect(result).toEqual(items);
-      expect(fetchStockItems).toHaveBeenCalledWith("tok", "group-1");
+      expect(await getInitialStockItems()).toBeNull();
+      expect(mockRedirect).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("fetchStockItems failed, returning null"),
+        error,
+      );
+      errorSpy.mockRestore();
     });
+  });
 
-    it("ヘッダーの値がbase64/JSONとしてデコードできないとき、フォールバック取得が行われる（middleware側の異常等）", async () => {
-      process.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE_URL;
-      mockHeadersGet.mockImplementation((name: string) =>
-        name === INITIAL_ITEMS_HEADER_NAME ? "not-a-valid-value" : undefined,
-      );
-      mockCookiesGet.mockImplementation(
-        cookieMap({
-          [ACTIVE_GROUP_COOKIE]: "group-1",
-          ...authTokenCookieEntries("tok"),
-        }),
-      );
-      const items: StockItem[] = [];
-      vi.mocked(fetchStockItems).mockResolvedValue(items);
-      const { getInitialStockItems } = await import("./getInitialStockItems");
+  it("件数が多くても fetchStockItems を 1 回だけ呼び、全件を返す", async () => {
+    setupCookies(jwtWithPayload({ exp: nowSec() + 3600 }));
+    const many = Array.from({ length: 500 }, (_, i) => ({
+      id: String(i),
+      name: `item-${i}`,
+      category: "調味料",
+      imageUrl: null,
+      sourceUrl: null,
+      wantToBuy: false,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      sortedAt: "2026-01-01T00:00:00Z",
+    }));
+    vi.mocked(fetchStockItems).mockResolvedValue(many);
+    const { getInitialStockItems } = await import("./getInitialStockItems");
 
-      const result = await getInitialStockItems();
+    const result = await getInitialStockItems();
 
-      expect(result).toEqual(items);
-      expect(fetchStockItems).toHaveBeenCalledWith("tok", "group-1");
-    });
-
-    it("ヘッダーの値が配列でないJSONのとき、フォールバック取得が行われる", async () => {
-      process.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE_URL;
-      mockHeadersGet.mockImplementation((name: string) =>
-        name === INITIAL_ITEMS_HEADER_NAME
-          ? encodeInitialItemsHeader({ not: "an array" })
-          : undefined,
-      );
-      mockCookiesGet.mockImplementation(
-        cookieMap({
-          [ACTIVE_GROUP_COOKIE]: "group-1",
-          ...authTokenCookieEntries("tok"),
-        }),
-      );
-      const items: StockItem[] = [];
-      vi.mocked(fetchStockItems).mockResolvedValue(items);
-      const { getInitialStockItems } = await import("./getInitialStockItems");
-
-      const result = await getInitialStockItems();
-
-      expect(result).toEqual(items);
-      expect(fetchStockItems).toHaveBeenCalledWith("tok", "group-1");
-    });
+    expect(result).toHaveLength(500);
+    expect(fetchStockItems).toHaveBeenCalledTimes(1);
   });
 });

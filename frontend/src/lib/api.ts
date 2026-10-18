@@ -16,6 +16,16 @@ function apiHeaders(accessToken?: string, activeGroupId?: string): HeadersInit {
   return headers;
 }
 
+class HttpError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`HTTP ${status}`);
+    this.name = "HttpError";
+    this.status = status;
+  }
+}
+
 async function fetchHealth(): Promise<HealthResponse> {
   const response = await fetch(`${API_BASE_URL}/health`);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -32,7 +42,7 @@ async function fetchStockItems(
     headers: apiHeaders(accessToken, activeGroupId),
     signal: AbortSignal.timeout(STOCK_ITEMS_FETCH_TIMEOUT_MS),
   });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (!response.ok) throw new HttpError(response.status);
   return response.json();
 }
 
@@ -292,6 +302,7 @@ export {
   extractFromUrlStream,
   fetchHealth,
   fetchStockItems,
+  HttpError,
   searchImages,
   updateStockItem,
 };
