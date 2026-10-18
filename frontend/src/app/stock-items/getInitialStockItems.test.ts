@@ -276,6 +276,7 @@ describe("getInitialStockItems", () => {
       const { getInitialStockItems } = await import("./getInitialStockItems");
 
       await expect(getInitialStockItems()).rejects.toThrow("NEXT_REDIRECT");
+      expect(mockRedirect).toHaveBeenCalledWith("/auth/clear-session");
     });
 
     it("401 で exp が無いトークンのとき、redirect する", async () => {
@@ -284,6 +285,7 @@ describe("getInitialStockItems", () => {
       const { getInitialStockItems } = await import("./getInitialStockItems");
 
       await expect(getInitialStockItems()).rejects.toThrow("NEXT_REDIRECT");
+      expect(mockRedirect).toHaveBeenCalledWith("/auth/clear-session");
     });
 
     it("401 で exp が過去のとき、null を返し redirect しない", async () => {

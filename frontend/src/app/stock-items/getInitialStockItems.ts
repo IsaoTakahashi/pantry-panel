@@ -20,19 +20,24 @@ function readJwtExp(token: string): number | null {
   }
 }
 
-// stock-items ページの Server Component から呼ばれる（Issue #182）。cookie に
-// 保存されたアクティブグループIDがあれば、Go API から商品一覧を取得して SSR
-// HTML に埋め込む。cookie未設定・access_token未確認・API失敗のいずれの場合も
-// null を返す（best-effort。クライアント側の useStockItems が通常の
-// fetchフローにフォールバックするため、ここでは例外を投げない）。
+// stock-items ページの Server Component から呼ばれる（Issue #182）。cookie の
+// アクティブグループIDとアクセストークンで Go API を 1 回だけ呼び、商品一覧を
+// SSR HTML に埋め込む。
 //
-// stock-items-ttfb-reduction Phase 2 (tasks.md 3.1): 以前は
-// supabase.auth.getSession() を呼んでいたが、Supabase クライアントの生成・
-// 呼び出し自体を廃止した。middleware.ts が getClaims() で既に検証・
-// リフレッシュ済みの auth-token cookie を、Supabase を介さず直接
-// readAccessTokenFromCookies() でパースして access_token を取り出す
-// （Server Component はどのみち cookie を書き換えられずリフレッシュは
-// 行えないため、ここで Supabase クライアントを生成する理由が元々無かった）。
+// 戻り値と例外:
+// - 401 かつトークンの exp が期限内、または exp を読み取れない場合は
+//   redirect("/auth/clear-session") により例外（NEXT_REDIRECT）を投げる。
+//   呼び出し側は try/catch で握りつぶしてはならない。
+// - それ以外の失敗（cookie未設定・401で期限切れ・403・5xx・タイムアウト等）は
+//   すべて null を返す。クライアント側の useStockItems が通常の fetch に
+//   フォールバックする。
+//
+// 認証の扱い: この経路でトークンを検証するのは Go API だけである。
+// /stock-items の middleware は getSession() を使い、署名検証をせず期限切れ
+// なら更新するのみ。ここで読む JWT の exp も署名検証なしのデコードであり、
+// 信頼の根拠ではない（401 を受けたあとの分岐判定にのみ使う）。
+// Supabase クライアントは生成せず、readAccessTokenFromCookies() で cookie を
+// 直接パースする。
 export async function getInitialStockItems(): Promise<StockItem[] | null> {
   const cookieStore = await cookies();
   const activeGroupId = cookieStore.get(ACTIVE_GROUP_COOKIE_NAME)?.value;
@@ -67,10 +72,6 @@ export async function getInitialStockItems(): Promise<StockItem[] | null> {
   if (!accessToken) return null;
 
   const fetchStart = performance.now();
-  const logDur = () =>
-    console.log(
-      `getInitialStockItems: fetchStockItems;dur=${(performance.now() - fetchStart).toFixed(1)}`,
-    );
   try {
     return await fetchStockItems(accessToken, activeGroupId);
   } catch (err) {
@@ -98,6 +99,8 @@ export async function getInitialStockItems(): Promise<StockItem[] | null> {
     );
     return null;
   } finally {
-    logDur();
+    console.log(
+      `getInitialStockItems: fetchStockItems;dur=${(performance.now() - fetchStart).toFixed(1)}`,
+    );
   }
 }
