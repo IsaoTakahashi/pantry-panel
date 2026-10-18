@@ -38,4 +38,4 @@
 
 ## ユーザーシナリオとテスト設計
 
-（テスト設計フェーズで test-design agent が作成する）
+シナリオが 6 件以上のため、[`e2e-design.md`](./e2e-design.md) に切り出している（`.claude/rules/testing.md`）。

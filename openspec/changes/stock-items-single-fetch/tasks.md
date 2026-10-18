@@ -22,15 +22,20 @@
 ## 5. page（getInitialStockItems）
 
 - [ ] 5.1 `x-pp-initial-items` の読み取りを削除し、cookie のトークンで Go API を 1 回だけ呼ぶ形にする。成功時に在庫が返り、Go API の呼び出しが 1 回であることをユニットテストで確認する
-- [ ] 5.2 401 を受けたとき、cookie のアクセストークンの `exp` が期限内なら 3.1 のルートへ `redirect()` し、期限切れなら `null` を返す。両方の分岐をユニットテストで確認する
+- [ ] 5.2 401 を受けたとき、cookie のアクセストークン（JWT payload）の `exp` が期限内、または `exp` を読み取れないなら 3.1 のルートへ `redirect()` し、期限切れ（`exp <= 現在時刻`）なら `null` を返す。各分岐をユニットテストで確認する（`redirect` のモックは例外を投げるものにする）
 - [ ] 5.3 401 以外の失敗（403・5xx・タイムアウト）は今と同じく `null` を返すことをユニットテストで確認する。各分岐で区別できる構造化ログが出ることも確認する
 
-## 6. 回帰確認
+## 6. Go API のテスト追加・E2E
 
-- [ ] 6.1 `e2e/ssr-stock-items.spec.ts`（JS 無効でも初期 HTML に在庫が描画される）を含め、`cd frontend && npx playwright test` がローカルで通ることを確認する
-- [ ] 6.2 フロントエンドの Biome・tsc・Vitest がすべて通り、PR の CI が通ることを `gh pr checks` で確認する
+- [ ] 6.1 `backend/middleware/auth_test.go` に、形式は正しく期限内だが検証用とは別の鍵で署名された JWT で 401 になり、後続のハンドラが呼ばれないテストを追加する（Go API の挙動は変えない）。`go test ./...` が通ることで確認する
+- [ ] 6.2 E2E（mock project）に e2e-design.md の S-5 を追加する: 期限内のまま署名部だけを書き換えたトークンと activeGroupId cookie で `/stock-items` を開き、在庫が HTML に載らず、cookie が消され、`/login` に着地してループしないこと。テストが通ることで確認する
 
-## 7. 変更後の確認（マージ後）
+## 7. 回帰確認
 
-- [ ] 7.1 本番の Vercel ランタイムログで、`/stock-items` の 1 アクセスあたりの Go API 呼び出しが 1 回であること、middleware からの JWKS 取得がないことを確認する
-- [ ] 7.2 1.1 と同じ方法・条件で変更後を計測し、変更前と比較して Issue #306 に記録する。同じ条件での中央値が 20% 以上悪化していたら、巻き戻す前にユーザーに相談する
+- [ ] 7.1 `e2e/ssr-stock-items.spec.ts`（JS 無効でも初期 HTML に在庫が描画される）を含め、`cd frontend && npx playwright test` がローカルで通ることを確認する
+- [ ] 7.2 フロントエンドの Biome・golangci-lint・tsc・Vitest がすべて通り、PR の CI が通ることを `gh pr checks` で確認する
+
+## 8. 変更後の確認（マージ後）
+
+- [ ] 8.1 本番の Vercel ランタイムログで、`/stock-items` の 1 アクセスあたりの Go API 呼び出しが 1 回であること、middleware からの JWKS 取得がないことを確認する
+- [ ] 8.2 1.1 と同じ方法・条件で変更後を計測し、変更前と比較して Issue #306 に記録する。同じ条件での中央値が 20% 以上悪化していたら、巻き戻す前にユーザーに相談する

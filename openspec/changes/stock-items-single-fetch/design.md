@@ -17,7 +17,7 @@
 **Non-Goals:**
 - middleware の実行リージョン・ランタイムの変更（#307）
 - `/stock-items` 以外の保護ルートの検証方式の変更
-- Go API の変更
+- Go API の挙動の変更（ただし、別の鍵で署名された期限内トークンが 401 になることのテストは追加する）
 
 ## Decisions
 
@@ -33,7 +33,8 @@
 ### D3: SSR の 401 は `exp` で分岐する
 - 期限内のトークンで 401 → 確定的に無効。cookie を消して `/login` へリダイレクトする Route Handler に `redirect()` する
 - 期限切れのトークンで 401 → middleware の更新が一時障害で失敗した fail open のケース。`null` を返してクライアントの `useStockItems` に任せる
-- `exp` は cookie のトークンの payload を base64url デコードして読む（署名検証はしない。判断材料は「期限内かどうか」だけで、信頼の根拠ではない）
+- `exp` は cookie のトークンの payload を base64url デコードして読む（署名検証はしない。判断材料は「期限内かどうか」だけで、信頼の根拠ではない）。page はこの `exp` だけで判定し、セッションの `expires_at` は使わない。`exp <= 現在時刻` を期限切れとする（境界はログアウトさせない側に倒す）
+- `exp` を読み取れないトークン（payload が壊れている、`exp` が無い）で 401 → 確定的に無効として、期限内と同じく cookie を消して `/login` へ送る（一時障害で起きる状態ではないため）
 - 代替案: middleware の判定結果を内部ヘッダーで page に渡す → 偽装対策を含め受け渡しの契約が増える。`exp` は page 側だけで判定できるため不要
 
 ### D4: cookie を消す Route Handler
