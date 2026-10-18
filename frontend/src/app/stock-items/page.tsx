@@ -17,6 +17,14 @@ import StockItemsClient from "./StockItemsClient";
 // `layout.tsx` の `export const instant = false` は Cache Components の
 // prerender エラーを解消する（ビルドを通す）が、この streaming 挙動までは
 // 抑止しない。両方が揃って初めて設計目標が満たされる。
+// このページはユーザーごとのデータをリクエストごとに Suspense の外で取得する
+// （JS無効でも初期HTMLに在庫を載せる要件のため、上記のとおり設計上そうする）。
+// Cache Components は開発時に各 Page セグメントを検証し、この取得を
+// 「Suspense 外の uncached data」としてエラーにする。ルート layout.tsx の
+// `instant = false` は page セグメント自身の検証までは免除しないため、ここでも
+// 指定する。本番の挙動（ルート layout が既にブロックしている）は変わらない。
+export const instant = false;
+
 export default async function StockItemsPage() {
   const initialItems = await getInitialStockItems();
   return <StockItemsClient initialItems={initialItems} />;
