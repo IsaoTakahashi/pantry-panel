@@ -32,8 +32,8 @@
 
 ## 7. 回帰確認
 
-- [ ] 7.1 `e2e/ssr-stock-items.spec.ts`（JS 無効でも初期 HTML に在庫が描画される）を含め、`cd frontend && npx playwright test` がローカルで通ることを確認する
-- [ ] 7.2 フロントエンドの Biome・golangci-lint・tsc・Vitest がすべて通り、PR の CI が通ることを `gh pr checks` で確認する
+- [x] 7.1 `e2e/ssr-stock-items.spec.ts`（JS 無効でも初期 HTML に在庫が描画される）を含め、`cd frontend && npx playwright test` がローカルで通ることを確認する
+- [x] 7.2 フロントエンドの Biome・golangci-lint・tsc・Vitest がすべて通り、PR の CI が通ることを `gh pr checks` で確認する
 
 ## 8. 変更後の確認（マージ後）
 
