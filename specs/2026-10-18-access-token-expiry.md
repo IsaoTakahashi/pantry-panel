@@ -8,6 +8,12 @@
 
 Supabase Auth のアクセストークン有効期限（JWT expiry）を **3600 秒（1 時間）→ 86400 秒（24 時間）** に変更する。
 
+## 設定場所
+
+ダッシュボードの **Authentication → Sessions**（`/dashboard/project/<ref>/auth/sessions`）で設定する（2026-10-18 に変更済み）。
+
+Supabase のドキュメントには「Project Settings → JWT Keys → Legacy JWT Secret」と書かれている。しかし JWT Signing Keys に移行済みのこのプロジェクトでは、そのタブに入力欄が無い。Management API で変える場合の項目名は `jwt_exp`（`PATCH /v1/projects/{ref}/config/auth`）。
+
 ## 背景（実測）
 
 2026-10-18 に Supabase の edge logs と Vercel のランタイムログを突き合わせ、実ユーザーの `/stock-items` 初回表示 1 件を時系列で追った（Hobby プランのログ保持は 1 時間のため n=1）。
