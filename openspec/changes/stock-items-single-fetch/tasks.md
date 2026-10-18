@@ -14,10 +14,10 @@
 
 ## 4. middleware（/stock-items）
 
-- [ ] 4.1 `/stock-items` では `getClaims()` の代わりに `getSession()` を使う。期限内なら Supabase と通信せずに通過し `x-pp-authenticated: 1` を付けること、期限切れなら更新して新しい cookie を返すことをユニットテストで確認する
-- [ ] 4.2 `getSession()` のエラー分類（retryable / refresh discarded は fail open、それ以外のエラーは cookie を消して `/login`、セッションなしは `/login`）を実装し、それぞれをユニットテストで確認する
-- [ ] 4.3 在庫の先読み（`fetchStockItems` の並列発射）、`x-pp-initial-items` の付与・削除、関連するシリアライズ処理を削除する。`/stock-items` へのリクエストで middleware が Go API を呼ばないことをユニットテストで確認する
-- [ ] 4.4 `/stock-items` 以外の保護ルート（`/`・`/invite`・`/no-group`）は今の `getClaims()` の挙動のままであることを、既存のユニットテストがすべて通ることで確認する
+- [x] 4.1 `/stock-items` では `getClaims()` の代わりに `getSession()` を使う。期限内なら Supabase と通信せずに通過し `x-pp-authenticated: 1` を付けること、期限切れなら更新して新しい cookie を返すことをユニットテストで確認する
+- [x] 4.2 `getSession()` のエラー分類（retryable / refresh discarded は fail open、それ以外のエラーは cookie を消して `/login`、セッションなしは `/login`）を実装し、それぞれをユニットテストで確認する
+- [x] 4.3 在庫の先読み（`fetchStockItems` の並列発射）、`x-pp-initial-items` の付与・削除、関連するシリアライズ処理を削除する。`/stock-items` へのリクエストで middleware が Go API を呼ばないことをユニットテストで確認する
+- [x] 4.4 `/stock-items` 以外の保護ルート（`/`・`/invite`・`/no-group`）は今の `getClaims()` の挙動のままであることを、既存のユニットテストがすべて通ることで確認する
 
 ## 5. page（getInitialStockItems）
 
