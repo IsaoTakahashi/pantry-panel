@@ -1,7 +1,7 @@
 # stock-items-ssr-prefetch Specification
 
 ## Purpose
-`/stock-items` の初回表示で、認証検証と在庫データ取得を並行して行い、初期HTMLに実データを埋め込んだまま応答までの時間を短縮する。
+`/stock-items` の初回表示で、初期HTMLに実データを埋め込んだまま応答までの時間を短縮する。サーバー側の在庫取得は 1 アクセスにつき 1 回とし、トークンの検証はその Go API 呼び出しが担う（Issue #306 で middleware の先読みと並行取得を廃止）。
 
 ## Requirements
 
