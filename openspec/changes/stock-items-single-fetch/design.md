@@ -54,6 +54,7 @@
 
 - [`getSession()` は cookie を検証しない] → `/stock-items` で middleware を通過しても、データは Go API の検証を通らないと取れない。`x-pp-authenticated` は画面の初期状態のヒントにのみ使う（spec `ssr-session-auth` に明記）
 - [Go API の JWKS 取得失敗（未知の鍵 ID 等）でも 401 になる] → 期限内トークンなら `/login` へ送られる。鍵ローテーション時の一時的な事象で、再ログインで回復する。発生頻度は低いため許容する
+- [Lambda 起動時の JWKS 取得が失敗し、直後の取り直しも失敗すると、正規のトークンでも 401 になる] → keyfunc v3.8.2 の既定値（`NoErrorReturnFirstHTTPReq = true`、未知の鍵 ID での取り直しは 5 分に 1 回まで）による。Supabase Auth の障害時などに、ログイン済みのユーザーが強制ログアウトされうる（以前は fail open だった）。この PR ではリスクとして明示して受け入れ、Go 側で 503 を返して page 側で fail open する修正は Issue #309 で行う（ユーザー判断、2026-10-19）
 - [署名が不正な cookie を持つリクエストで、画面の枠の描画に `x-pp-authenticated=1` が使われる] → 本番のストリーミング応答では、PPR の静的シェル（在庫データを含まない枠）が 200 で先に返りうる。ただし在庫データは載らず、同じ応答内の redirect digest によりクライアントが直ちに `/auth/clear-session` → `/login` へ遷移するため、枠は一瞬表示されうるだけで、在庫の漏えいや操作可能な状態にはならない
 - [ウォームアップ（`/api/warm/stock-items`）の効果が変わる] → ウォームアップは `/stock-items` を内部で叩くだけなので、新しい経路をそのまま温める
 
