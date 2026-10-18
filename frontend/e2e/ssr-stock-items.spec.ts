@@ -1,6 +1,8 @@
+import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
+import { createChunks, stringToBase64URL } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 
 // Issue #182: middleware→layout→AuthContext→AuthGuard→useStockItems→page.tsx
@@ -106,6 +108,151 @@ test.describe("SSR stock-items (Issue #182)", () => {
       const response = await page.goto("/stock-items");
       if (!response) throw new Error("no response from /stock-items");
       await expect(page.getByRole("article", { name: itemName })).toBeVisible();
+
+      await context.close();
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
+// 実際にログインして得たセッションのうち、アクセストークンの署名部だけを
+// 同じ長さの乱数に置き換えた storageState を組み立てる。header / payload
+// （`exp`）と `expires_at` は期限内のまま残すため、middleware の getSession()
+// は期限内として通し、署名を検証するのは Go API だけになる。
+// activeGroupId cookie が無いと page は Go API を呼ばずに null を返し、
+// 検証が空振りするため必ずセットする。
+async function buildForgedStorageState(origin: string) {
+  const supabaseUrl = process.env.E2E_SUPABASE_URL;
+  const supabaseAnonKey = process.env.E2E_SUPABASE_ANON_KEY;
+  const testEmail = process.env.E2E_TEST_EMAIL;
+  const testPassword = process.env.E2E_TEST_PASSWORD;
+  if (!supabaseUrl || !supabaseAnonKey || !testEmail || !testPassword) {
+    throw new Error("E2E env vars not set");
+  }
+  const groupFile = path.join(process.cwd(), ".auth", "group.json");
+  const { id: groupId } = JSON.parse(fs.readFileSync(groupFile, "utf8")) as {
+    id: string;
+  };
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: testEmail,
+    password: testPassword,
+  });
+  if (error || !data.session) {
+    throw new Error(`sign-in failed: ${error?.message}`);
+  }
+
+  const [header, payload, signature] = data.session.access_token.split(".");
+  const signatureBytes = Buffer.from(signature, "base64url").length;
+  let forgedSignature = randomBytes(signatureBytes).toString("base64url");
+  while (forgedSignature === signature) {
+    forgedSignature = randomBytes(signatureBytes).toString("base64url");
+  }
+  const forgedSession = {
+    ...data.session,
+    access_token: `${header}.${payload}.${forgedSignature}`,
+  };
+  const { exp } = JSON.parse(
+    Buffer.from(payload, "base64url").toString("utf8"),
+  ) as { exp: number };
+  if (exp <= Math.floor(Date.now() / 1000) + 60) {
+    throw new Error("access token is about to expire; forged test is invalid");
+  }
+
+  const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+  const cookieKey = `sb-${projectRef}-auth-token`;
+  const originUrl = new URL(origin);
+  const expires = Math.floor(Date.now() / 1000) + 60 * 60;
+  const cookieBase = {
+    domain: originUrl.hostname,
+    path: "/",
+    expires,
+    httpOnly: false,
+    secure: originUrl.protocol === "https:",
+    sameSite: "Lax" as const,
+  };
+  const chunks = createChunks(
+    cookieKey,
+    `base64-${stringToBase64URL(JSON.stringify(forgedSession))}`,
+  );
+
+  return {
+    groupId,
+    storageState: {
+      cookies: [
+        ...chunks.map((chunk) => ({
+          ...cookieBase,
+          name: chunk.name,
+          value: chunk.value,
+        })),
+        { ...cookieBase, name: "pantry-panel-active-group", value: groupId },
+      ],
+      origins: [
+        {
+          origin: originUrl.origin,
+          localStorage: [
+            { name: "pantry-panel:active-group-id", value: groupId },
+          ],
+        },
+      ],
+    },
+  };
+}
+
+const AUTH_TOKEN_COOKIE = /^sb-.+-auth-token(\.\d+)?$/;
+
+test.describe("SSR stock-items: 署名が不正なトークン (Issue #306)", () => {
+  // Scenario: S-5
+  test("S-5: 期限内だが署名が不正なトークンでは在庫が HTML に載らず、cookie が消されて /login に着地する", async ({
+    browser,
+    baseURL,
+  }) => {
+    if (!baseURL) throw new Error("baseURL is not configured");
+    const itemName = `forged-sig-seed-${Date.now()}`;
+    const { cleanup } = await seedItem(itemName);
+
+    try {
+      const { storageState } = await buildForgedStorageState(baseURL);
+      // storageState はプロジェクト既定（.auth/user.json）を継承させず、
+      // 明示的に渡す（decision-log 2026-09-10）
+      const context = await browser.newContext({ storageState });
+
+      // (1) リダイレクトを追わずに /stock-items の応答そのものを見る
+      const direct = await context.request.get("/stock-items", {
+        maxRedirects: 0,
+      });
+      expect(direct.status()).toBeGreaterThanOrEqual(300);
+      expect(direct.status()).toBeLessThan(400);
+      expect(new URL(direct.headers().location ?? "", baseURL).pathname).toBe(
+        "/auth/clear-session",
+      );
+      expect(await direct.text()).not.toContain(itemName);
+
+      // (2) JS 有効のブラウザで開き、/login に着地して留まることを確認する
+      const page = await context.newPage();
+      const documentBodies: string[] = [];
+      page.on("response", async (response) => {
+        if (response.request().resourceType() !== "document") return;
+        if (response.status() >= 300 && response.status() < 400) return;
+        documentBodies.push(await response.text().catch(() => ""));
+      });
+
+      await page.goto("/stock-items");
+      await expect(page).toHaveURL(/\/login$/);
+      // /login から /stock-items へ押し戻されるループが起きないこと
+      await page.waitForTimeout(2_000);
+      await expect(page).toHaveURL(/\/login$/);
+
+      const remaining = (await context.cookies()).filter((cookie) =>
+        AUTH_TOKEN_COOKIE.test(cookie.name),
+      );
+      expect(remaining).toEqual([]);
+      for (const body of documentBodies) {
+        expect(body).not.toContain(itemName);
+      }
+      await expect(page.getByText(itemName)).toHaveCount(0);
 
       await context.close();
     } finally {

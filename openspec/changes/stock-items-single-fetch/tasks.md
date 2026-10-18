@@ -27,8 +27,8 @@
 
 ## 6. Go API のテスト追加・E2E
 
-- [ ] 6.1 `backend/middleware/auth_test.go` に、形式は正しく期限内だが検証用とは別の鍵で署名された JWT で 401 になり、後続のハンドラが呼ばれないテストを追加する（Go API の挙動は変えない）。`go test ./...` が通ることで確認する
-- [ ] 6.2 E2E（mock project）に e2e-design.md の S-5 を追加する: 期限内のまま署名部だけを書き換えたトークンと activeGroupId cookie で `/stock-items` を開き、在庫が HTML に載らず、cookie が消され、`/login` に着地してループしないこと。テストが通ることで確認する
+- [x] 6.1 `backend/middleware/auth_test.go` に、形式は正しく期限内だが検証用とは別の鍵で署名された JWT で 401 になり、後続のハンドラが呼ばれないテストを追加する（Go API の挙動は変えない）。`go test ./...` が通ることで確認する
+- [x] 6.2 E2E（mock project）に e2e-design.md の S-5 を追加する: 期限内のまま署名部だけを書き換えたトークンと activeGroupId cookie で `/stock-items` を開き、在庫が HTML に載らず、cookie が消され、`/login` に着地してループしないこと。テストが通ることで確認する
 
 ## 7. 回帰確認
 
