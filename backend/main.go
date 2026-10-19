@@ -76,13 +76,15 @@ func main() {
 			slog.Error("failed to initialize JWKS", "error", err)
 			os.Exit(1)
 		}
+		// 鍵を解決できない（JWKS 障害・未知の kid）ときに 401 ではなく 503 を返すため、鍵ストアを先に引くラッパーで包む
+		keyFunc := jwtmiddleware.NewKeyStoreFirstKeyfunc(given)
 		jwtGroupMW = jwtmiddleware.NewJWTAuth(jwtmiddleware.JWTAuthConfig{
-			KeyFunc:      given.Keyfunc,
+			KeyFunc:      keyFunc,
 			GroupRepo:    groupRepo,
 			RequireGroup: true,
 		})
 		jwtOnlyMW = jwtmiddleware.NewJWTAuth(jwtmiddleware.JWTAuthConfig{
-			KeyFunc:      given.Keyfunc,
+			KeyFunc:      keyFunc,
 			GroupRepo:    groupRepo,
 			RequireGroup: false,
 		})
