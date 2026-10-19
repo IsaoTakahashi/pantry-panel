@@ -9,7 +9,7 @@
 
 ## 3. 回帰確認
 
-- [ ] 3.1 ローカルで `cd frontend && npx playwright test --project=mock` が通ること（Go バックエンドを起動して実行し、終わったら止める）、PR の CI が通ることを `gh pr checks` で確認する
+- [x] 3.1 ローカルで `cd frontend && npx playwright test --project=mock` が通ること（Go バックエンドを起動して実行し、終わったら止める）、PR の CI が通ることを `gh pr checks` で確認する（**注**: ローカルの mock E2E は、Go バックエンドの認証設定（`SUPABASE_JWKS_URL`）を読み込めず実行できなかったため、CI の e2e（mock）と e2e-preview の全件パスで代替した。今回は UI の変更なし）
 
 ## 4. マージ後の確認
 
