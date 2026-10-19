@@ -324,6 +324,7 @@ describe("getInitialStockItems", () => {
     it.each([
       ["403", new HttpError(403)],
       ["500", new HttpError(500)],
+      ["503 (signing key unavailable)", new HttpError(503)],
       ["timeout", new DOMException("timed out", "TimeoutError")],
       ["network", new TypeError("fetch failed")],
     ])("%s のとき null を返し、失敗ログを出す", async (_label, error) => {

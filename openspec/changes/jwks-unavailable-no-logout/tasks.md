@@ -5,7 +5,7 @@
 
 ## 2. フロントエンド
 
-- [ ] 2.1 `frontend/src/app/stock-items/getInitialStockItems.test.ts` に、Go API が 503 を返したとき（トークンは期限内）`redirect` を呼ばず `null` を返すテストを追加する。テストが通ることで確認する（実装は既存の「401 以外 → null」で満たされる見込み。満たされなければ実装を直す）
+- [x] 2.1 `frontend/src/app/stock-items/getInitialStockItems.test.ts` に、Go API が 503 を返したとき（トークンは期限内）`redirect` を呼ばず `null` を返すテストを追加する。テストが通ることで確認する（実装は既存の「401 以外 → null」で満たされる見込み。満たされなければ実装を直す）
 
 ## 3. 回帰確認
 
