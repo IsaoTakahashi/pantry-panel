@@ -1,6 +1,6 @@
 ## Context
 
-背景は proposal.md の「Why」を参照。`backend/middleware/auth.go` の `NewJWTAuth` は、`jwt.Parse` のエラーをすべて 401 にしている。keyfunc v3.8.2 の `Keyfunc` は、ストレージから鍵を読めないとき `errors.Join(err, ErrKeyfunc)` を返し、その `err` には jwkset の `ErrKeyNotFound` が含まれる（JWKS が空のときも、未知の kid のときも同じ）。golang-jwt v5 の `jwt.Parse` は keyfunc のエラーを `ErrTokenUnverifiable` と一緒に包むので、`errors.Is` で判別できる。
+背景は proposal.md の「Why」を参照。`backend/middleware/auth.go` の `NewJWTAuth` は、`jwt.Parse` のエラーをすべて 401 にしている。keyfunc v3.8.2 の `Keyfunc` は、ストレージから鍵を読めないとき取り直し（refresh）を試み、失敗すると `errors.Join(err, ErrKeyfunc)` を返す。jwkset の `ErrKeyNotFound` がそのエラーに含まれるのは、実際に取り直しを行ったそのリクエストだけである。障害中の 2 回目以降のリクエストは、取り直しの制限（rate limiter）待ちで失敗し、`ErrKeyNotFound` を含まない。そのため `errors.Is` だけでは判別できない（却下した当初の D1 の前提。D1「経緯」と e2e-design.md「前提」を参照）。D1 が先に鍵ストアを引くのはこのためである。
 
 ## Goals / Non-Goals
 
@@ -33,4 +33,5 @@
 ## Risks / Trade-offs
 
 - [攻撃者が未知の kid のトークンを送ると 503 になる] → 在庫は返らず、ログアウトもしない。JWKS の取り直しは keyfunc の制限（5 分に 1 回）を超えて増えない。ログに残るので観測できる
+- [期限内だが、Supabase が JWKS から外した鍵（失効・ローテーションで消えた鍵）で署名されたトークンは、「未知の kid」として 401 ではなく 503 になり、強制ログアウトされない] → Next の middleware は期限内のトークンを `/stock-items` でネットワークなしに通すので、そのユーザーはアクセストークンが期限切れになるまでエラー表示になり、その後は通常の更新で回復する。在庫データは返らないので、許容する
 - [鍵ローテーション直後に、新しい kid の正規トークンが最大 5 分ほど 503 になる] → 以前は 401 で強制ログアウトされていたので、エラー表示で済む今回のほうが影響は小さい

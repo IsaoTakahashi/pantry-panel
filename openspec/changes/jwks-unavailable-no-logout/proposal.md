@@ -22,7 +22,7 @@ Go API の JWKS 取得（`backend/main.go` の `keyfunc.NewDefaultOverrideCtx`�
 
 ## Impact
 
-- コード: `backend/middleware/auth.go`（とテスト）、`backend/go.mod`、`frontend/src/app/stock-items/getInitialStockItems.test.ts`（503 のケース）。`getInitialStockItems.ts` は 401 以外を `null` にしているので、変更は不要の見込み
+- コード: `backend/middleware/auth.go`（とテスト）、`backend/middleware/keyfunc.go`（新規のラッパー）、`backend/main.go`（組み込み）、`backend/go.mod`、`frontend/src/app/stock-items/getInitialStockItems.test.ts`（503 のケース）。`getInitialStockItems.ts` は 401 以外を `null` にしているので、変更は不要の見込み
 - Go API のすべての JWT 保護エンドポイントで、鍵を解決できないときのステータスが 401 から 503 に変わる。クライアント（`useStockItems` 等）は 401 を特別扱いしていないので、表示は今と同じエラーになる
 - 攻撃者が未知の kid のトークンを送った場合も 503 になる。在庫データは返らず、ログアウトもしない。JWKS の取り直しは 5 分に 1 回の制限があるので、外部から取り直しを増幅させることはできない
 
