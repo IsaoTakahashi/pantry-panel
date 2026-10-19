@@ -2,6 +2,8 @@
 package middleware
 
 import (
+	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -40,6 +42,12 @@ func NewJWTAuth(cfg JWTAuthConfig) echo.MiddlewareFunc {
 
 			token, err := jwt.Parse(tokenStr, cfg.KeyFunc,
 				jwt.WithValidMethods([]string{"RS256", "HS256", "ES256"}))
+			if errors.Is(err, ErrSigningKeyUnavailable) {
+				// トークンの不備ではなく鍵を解決できない（JWKS 障害など）。401 にすると
+				// フロントエンドが有効なユーザーを強制ログアウトさせるので 503 にする。理由はログにだけ出す
+				slog.WarnContext(c.Request().Context(), "JWT signing key unavailable", "error", err)
+				return c.JSON(http.StatusServiceUnavailable, apierror.ErrorResponse{Message: "Service Unavailable"})
+			}
 			if err != nil || !token.Valid {
 				return c.JSON(http.StatusUnauthorized, apierror.ErrorResponse{Message: "Unauthorized"})
 			}

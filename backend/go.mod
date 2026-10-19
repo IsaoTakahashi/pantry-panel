@@ -3,6 +3,7 @@ module github.com/IsaoTakahashi/pantry-panel/backend
 go 1.26.2
 
 require (
+	github.com/MicahParks/jwkset v0.11.3
 	github.com/MicahParks/keyfunc/v3 v3.8.2
 	github.com/anthropics/anthropic-sdk-go v1.78.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -17,7 +18,6 @@ require (
 require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
-	github.com/MicahParks/jwkset v0.11.3 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.2 // indirect
