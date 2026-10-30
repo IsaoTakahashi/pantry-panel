@@ -20,13 +20,13 @@
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.115.0",
     "motion": "^14.0.0",
-    "next": "16.4.1",
+    "next": "16.4.3",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-icons": "^5.6.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
+    "@biomejs/biome": "2.6.3",
     "@playwright/test": "^1.60.0",
     "@serwist/next": "^9.5.11",
     "@tailwindcss/postcss": "^4",
