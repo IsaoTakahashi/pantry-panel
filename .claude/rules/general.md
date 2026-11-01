@@ -28,9 +28,14 @@ Unit を厚く、Integration 中程度、E2E を薄く保つ（テストピラ�
 
 ## CI (GitHub Actions)
 
-- **ci.yml**: frontend (Biome → tsc → Vitest) / backend (golangci-lint → go test → testcontainers) を並列実行
-- **e2e.yml**: main への PR 時のみ Playwright E2E
-- **deploy-backend.yml**: `backend/**` push → ECR → Lambda 自動デプロイ（OIDC、`workflow_dispatch` で手動再実行可）
+- **ci.yml**: frontend (Biome → tsc → build → Vitest) / backend (golangci-lint → go test（testcontainers 含む）→ build) を並列実行。変更パスで job を絞る
+- **e2e.yml**: main への PR 時に Playwright E2E（`mock` project、localhost）
+- **e2e-preview.yml**: main への PR 時に Vercel Preview + preview Lambda に対して Playwright E2E（`preview` project）
+- **preview-backend.yml**: `backend/**` を含む PR で preview Lambda にデプロイ
+- **deploy-backend.yml**: `backend/**` の main push → ECR → Lambda 自動デプロイ（OIDC、`workflow_dispatch` で手動再実行可）
+- **_deploy-backend.yml**: 上記 2 つの deploy から呼ばれる reusable workflow（build/push → Lambda 更新 → `/health` smoke test）
+- **learning.yml**: Phase 3 学習実装（`-tags=learning` / `vitest.learning.config.ts`）の隔離テスト
+- **harness-check.yml**: ブランチ名規則と `Closes #N` の有無を PR コメントで警告（advisory、マージはブロックしない）
 
 ## ブランチ・Issue・PR の運用
 
@@ -54,6 +59,8 @@ Unit を厚く、Integration 中程度、E2E を薄く保つ（テストピラ�
 ## 設計・変更管理ワークフロー
 
 要件探索から実装完了まで、以下のツールを組み合わせて進める。
+
+`superpowers:*` スキルは repo に含まれない外部プラグイン（`superpowers`）で、各自の環境にユーザー単位でインストールしておく前提。未インストールの環境（クラウドセッション等）では呼び出せないため、その場合は該当フェーズを手動で同等に進める。
 
 | フェーズ | ツール | タイミング |
 |---------|--------|-----------|

@@ -148,7 +148,8 @@ aws lambda wait function-updated --function-name pantry-panel-backend
 | testcontainers-go | https://golang.testcontainers.org/ | 公式ドキュメント |
 | golangci-lint | https://golangci-lint.run/docs/ | 公式ドキュメント |
 | Supabase | https://supabase.com/docs | DB 接続・Realtime |
-| AWS App Runner | https://docs.aws.amazon.com/apprunner/ | デプロイ先 |
+| AWS Lambda | https://docs.aws.amazon.com/lambda/ | デプロイ先 |
+| Lambda Web Adapter | https://github.com/awslabs/aws-lambda-web-adapter | Echo を Lambda 上で動かすアダプタ |
 
 ## リアルタイム同期フロー
 
