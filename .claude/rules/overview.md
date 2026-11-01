@@ -1,20 +1,31 @@
 # Overview
 
-家庭の食品・日用品の在庫を管理するWebアプリ。認証なし・家族共用の想定（Google 認証は wishlist で別途検討中）。
+家庭の食品・日用品の在庫を管理するWebアプリ。Google ログイン（Supabase Auth）必須で、データは**グループ**（家族）単位で分離する。
 
 ## アーキテクチャ
 
 ```
+[Supabase Auth (Google OAuth)]
+        │ JWT（cookie に保持、@supabase/ssr）
+        ▼
 [Next.js (Vercel)] ───────────────► [Supabase Realtime (Phase 3.5)]
-        │                              ▲
+        │ Authorization: Bearer <JWT>     ▲
         ▼                              │
 [Go API (AWS Lambda + LWA)]            │
+   ├── JWT 検証 + グループ所属チェック  │
    └── REST endpoints (CRUD)           │
         │                              │
         ▼                              │
 [Supabase Postgres] ───────────────────┘
+   ├── RLS でグループ単位にアクセス制御
    └── Direct row changes broadcast via Realtime
 ```
+
+## 認証・グループ
+
+- Frontend は `@supabase/ssr` で cookie ベースのセッションを持ち、`middleware.ts` と `AuthGuard` で未認証時をログイン画面へ誘導する
+- Backend は `backend/middleware/auth.go` で JWT（Supabase JWKS）を検証し、`stock_items` 等のエンドポイントはアクティブグループへの所属を要求する
+- グループは作成・切り替え・招待（`/api/groups`、`/api/invitations`）に対応。詳細は `specs/features.md` の Phase 6 を参照
 
 ## 技術スタック
 
@@ -24,6 +35,7 @@
 | Backend API | Go (Echo) / **AWS Lambda + Lambda Web Adapter** (container image, ECR) |
 | API 形式 | REST のみ。リアルタイムは Frontend が Supabase Realtime に直接購読（Phase 3.5） |
 | Database | Supabase Postgres（Lambda は **Supavisor Session Pooler** 経由で接続、IPv4） |
+| 認証 | Supabase Auth（Google OAuth）+ Go 側 JWT 検証 + Postgres RLS |
 | インフラ | Vercel + AWS Lambda + Supabase |
 
 ## リアルタイム同期の仕組み
