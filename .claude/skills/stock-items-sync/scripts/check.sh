@@ -19,6 +19,7 @@ EXPECT=(
   "Current:fail"
   "Fixed:pass"
   "RealtimeOnlyGuard:fail"
+  "PerPathGuard:fail"
 )
 
 # Code the model describes, and the commit at which the model was last
@@ -27,6 +28,7 @@ SYNC_COMMIT=26b115f71464d32ab421ecc17de0e33708f98fea
 COVERED=(
   frontend/src/app/stock-items/useStockItems.ts
   frontend/src/lib/useStockItemsRealtime.ts
+  frontend/src/contexts/AuthContext.tsx
   backend/handler/stock_item.go
   backend/repository/stock_item_pg.go
 )
