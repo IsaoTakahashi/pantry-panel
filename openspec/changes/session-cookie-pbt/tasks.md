@@ -4,10 +4,10 @@
 
 ## 2. 往復のプロパティ
 
-- [ ] 2.1 `frontend/src/lib/sessionCookie.property.test.ts` を作り、project ref・JWT 形式の `access_token`・Unicode を含む `user_metadata`・長さ指定のパディングの生成器を定義する。chunk が 1 個のケースと複数個のケースの両方が生成されることを `fc.statistics` などで確認する
-- [ ] 2.2 往復: `buildSessionCookies` で作った cookie を `readAccessTokenFromCookies` で読むと元の `access_token` に戻る、を `fc.asyncProperty` で検証する（`await fc.assert`）。テストが通ることで確認する
-- [ ] 2.3 分割境界: `MAX_CHUNK_SIZE` の倍数の両側（境界のすぐ内側の 1 chunk・すぐ外側の 2 chunk）の長さの cookie 値でも往復が成り立つことを検証する。両側のケースが実際に生成されていることを `expect` で判定する。テストが通ることで確認する
-- [ ] 2.4 旧形式: `base64-` 接頭辞なしの生 JSON の cookie から `access_token` を読めることを、分割なしと分割あり（Unicode を多く含む生 JSON を `createChunks` で分割。長さがちょうど `MAX_CHUNK_SIZE` の倍数のケースを含む）の両方で検証する。テストが通ることで確認する
+- [x] 2.1 `frontend/src/lib/sessionCookie.property.test.ts` を作り、project ref・JWT 形式の `access_token`・Unicode を含む `user_metadata`・長さ指定のパディングの生成器を定義する。chunk が 1 個のケースと複数個のケースの両方が生成されることを `fc.statistics` などで確認する
+- [x] 2.2 往復: `buildSessionCookies` で作った cookie を `readAccessTokenFromCookies` で読むと元の `access_token` に戻る、を `fc.asyncProperty` で検証する（`await fc.assert`）。テストが通ることで確認する
+- [x] 2.3 分割境界: `MAX_CHUNK_SIZE` の倍数の両側（境界のすぐ内側の 1 chunk・すぐ外側の 2 chunk）の長さの cookie 値でも往復が成り立つことを検証する。両側のケースが実際に生成されていることを `expect` で判定する。テストが通ることで確認する
+- [x] 2.4 旧形式: `base64-` 接頭辞なしの生 JSON の cookie から `access_token` を読めることを、分割なしと分割あり（Unicode を多く含む生 JSON を `createChunks` で分割。長さがちょうど `MAX_CHUNK_SIZE` の倍数のケースを含む）の両方で検証する。テストが通ることで確認する
 
 ## 3. 混入と壊れた入力のプロパティ
 
