@@ -1,6 +1,6 @@
 ## 1. 導入
 
-- [ ] 1.1 `frontend` に `fast-check@4.10.2` を devDependencies として追加する（`npm i -D`、package-lock も更新）。`node_modules/fast-check` が存在し、`npm test` が既存のまま通ることで確認する
+- [x] 1.1 `frontend` に `fast-check@4.10.2` を devDependencies として追加する（`npm i -D`、package-lock も更新）。`node_modules/fast-check` が存在し、`npm test` が既存のまま通ることで確認する
 
 ## 2. 往復のプロパティ
 
