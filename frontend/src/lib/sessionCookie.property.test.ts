@@ -335,4 +335,282 @@ describe("sessionCookie のプロパティ", () => {
       );
     });
   });
+
+  describe("S-3: 他の cookie が混ざっていても正しい cookie からトークンを選ぶ", () => {
+    // 対象のキーそのもの、または対象のキーの chunk に見える名前は除く。
+    const unrelatedCookiesArb = (key: string) =>
+      fc.array(
+        fc.record({
+          name: fc
+            .string({ minLength: 1, maxLength: 40 })
+            .filter((name) => name !== key && !name.startsWith(`${key}.`)),
+          value: fc.string({ minLength: 1, maxLength: 200 }),
+        }),
+        { maxLength: 5 },
+      );
+
+    it("無関係な cookie・別の project ref の cookie を足しても結果が変わらない", async () => {
+      const arb = anySessionArb.chain((target) =>
+        fc.record({
+          target: fc.constant(target),
+          other: anySessionArb.filter((other) => other.ref !== target.ref),
+          unrelated: unrelatedCookiesArb(cookieKeyOf(target.ref)),
+        }),
+      );
+
+      await fc.assert(
+        fc.asyncProperty(arb, async ({ target, other, unrelated }) => {
+          const url = supabaseUrlOf(target.ref);
+          const targetCookies = buildSessionCookies(url, target.session);
+          const otherCookies = buildSessionCookies(
+            supabaseUrlOf(other.ref),
+            other.session,
+          );
+
+          const alone = await readAccessTokenFromCookies(
+            url,
+            jarFrom(targetCookies),
+          );
+          const mixed = await readAccessTokenFromCookies(
+            url,
+            jarFrom([...unrelated, ...otherCookies, ...targetCookies]),
+          );
+
+          expect(alone).toBe(target.session.access_token);
+          expect(mixed).toBe(alone);
+        }),
+        { numRuns: 50 },
+      );
+    });
+
+    it("分割されていない cookie と .N の chunk が同時にあると、分割されていない方が使われる", async () => {
+      const arb = fc
+        .record({
+          unsplit: singleChunkSessionArb,
+          chunked: paddedSessionArb(100, 0, 500),
+          chunkSize: fc.integer({ min: 24, max: 120 }),
+        })
+        .filter(
+          ({ unsplit, chunked }) =>
+            unsplit.session.access_token !== chunked.session.access_token,
+        );
+
+      await fc.assert(
+        fc.asyncProperty(arb, async ({ unsplit, chunked, chunkSize }) => {
+          const url = supabaseUrlOf(unsplit.ref);
+          const key = cookieKeyOf(unsplit.ref);
+          const unsplitCookies = buildSessionCookies(url, unsplit.session);
+          expect(unsplitCookies.map((c) => c.name)).toEqual([key]);
+          // chunkSize を小さくして、同じキーの .0, .1, ... に必ず分割する
+          const chunkCookies = createChunks(
+            key,
+            encodedValueOf(chunked.session),
+            chunkSize,
+          );
+          expect(chunkCookies.length).toBeGreaterThanOrEqual(2);
+
+          // chunk だけなら chunk 側のトークンが読める（chunk 自体は正しい）
+          const chunksOnly = await readAccessTokenFromCookies(
+            url,
+            jarFrom(chunkCookies),
+          );
+          const both = await readAccessTokenFromCookies(
+            url,
+            jarFrom([...chunkCookies, ...unsplitCookies]),
+          );
+
+          expect(chunksOnly).toBe(chunked.session.access_token);
+          expect(both).toBe(unsplit.session.access_token);
+        }),
+        { numRuns: 50 },
+      );
+    });
+  });
+
+  describe("S-4: 壊れた cookie でも例外を投げず、別のトークンも返さない", () => {
+    // 古い chunk・欠けを手早く作るため、小さいセッションを小さい chunkSize で
+    // 分割する（createChunks の第 3 引数）。base64- 形式と生 JSON の両方。
+    const chunkedArb = fc
+      .record({
+        generated: paddedSessionArb(100, 0, 500),
+        format: fc.constantFrom("base64", "raw"),
+        chunkSize: fc.integer({ min: 24, max: 120 }),
+      })
+      .map(({ generated, format, chunkSize }) => {
+        const encode = (session: Session) =>
+          format === "base64"
+            ? encodedValueOf(session)
+            : JSON.stringify(session);
+        return { ...generated, encode, chunkSize };
+      });
+
+    it("末尾に古い .N が残っていても、正しいトークンか null だけを返す", async () => {
+      const arb = fc.record({
+        current: chunkedArb,
+        old: paddedSessionArb(100, 0, 3000),
+        extra: fc.array(fc.string({ unit: "binary", minLength: 1 }), {
+          maxLength: 3,
+        }),
+      });
+
+      await fc.assert(
+        fc.asyncProperty(arb, async ({ current, old, extra }) => {
+          const key = cookieKeyOf(current.ref);
+          const chunks = createChunks(
+            key,
+            current.encode(current.session),
+            current.chunkSize,
+          );
+          // 以前のセッションの chunk のうち、今の chunk 数より後ろの番号のもの
+          // と、任意の文字列を、連番の続き（.n, .n+1, ...）として残す
+          const oldValues = createChunks(
+            key,
+            current.encode(old.session),
+            current.chunkSize,
+          )
+            .slice(chunks.length)
+            .map((c) => c.value);
+          const staleValues = [...oldValues, ...extra];
+          fc.pre(chunks.length >= 2 && staleValues.length > 0);
+          const stale = staleValues.map((value, i) => ({
+            name: `${key}.${chunks.length + i}`,
+            value,
+          }));
+
+          const token = await readAccessTokenFromCookies(
+            supabaseUrlOf(current.ref),
+            jarFrom([...chunks, ...stale]),
+          );
+
+          expect([current.session.access_token, null]).toContain(token);
+        }),
+        { numRuns: 100 },
+      );
+    });
+
+    it("途中の chunk（.0 を含む）が欠けていても、正しいトークンか null だけを返す", async () => {
+      const arb = fc.record({ current: chunkedArb, missing: fc.nat() });
+
+      await fc.assert(
+        fc.asyncProperty(arb, async ({ current, missing }) => {
+          const chunks = createChunks(
+            cookieKeyOf(current.ref),
+            current.encode(current.session),
+            current.chunkSize,
+          );
+          fc.pre(chunks.length >= 2);
+          const removed = missing % chunks.length;
+
+          const token = await readAccessTokenFromCookies(
+            supabaseUrlOf(current.ref),
+            jarFrom(chunks.filter((_, i) => i !== removed)),
+          );
+
+          expect([current.session.access_token, null]).toContain(token);
+        }),
+        { numRuns: 100 },
+      );
+    });
+
+    function parsesToStringAccessToken(value: string): boolean {
+      try {
+        const parsed: unknown = JSON.parse(value);
+        return (
+          typeof (parsed as { access_token?: unknown } | null)?.access_token ===
+          "string"
+        );
+      } catch {
+        return false;
+      }
+    }
+
+    const notJsonArb = fc
+      .string({ unit: "grapheme", minLength: 1 })
+      .filter((value) => {
+        try {
+          JSON.parse(value);
+          return false;
+        } catch {
+          return true;
+        }
+      });
+
+    const malformedValueArb = fc.oneof(
+      // 任意の文字列（生 JSON として扱われる）
+      fc
+        .string({ unit: "binary", minLength: 1 })
+        .filter((value) => !parsesToStringAccessToken(value)),
+      // base64- + 任意の文字列（base64url として不正な文字を含む）
+      fc.string({ unit: "binary", minLength: 1 }).map((v) => `base64-${v}`),
+      // base64- + base64url の文字だけの文字列（UTF-8 / JSON として不正）
+      base64UrlArb(1, 200).map((v) => `base64-${v}`),
+      // base64url としては正しいが、JSON として不正
+      notJsonArb.map((v) => `base64-${stringToBase64URL(v)}`),
+    );
+
+    it("cookie 値が任意の文字列・base64url / JSON として不正な値のとき null を返す", async () => {
+      const arb = fc.record({
+        ref: projectRefArb,
+        value: malformedValueArb,
+        chunked: fc.boolean(),
+      });
+
+      await fc.assert(
+        fc.asyncProperty(arb, async ({ ref, value, chunked }) => {
+          const key = cookieKeyOf(ref);
+          const name = chunked ? `${key}.0` : key;
+
+          const token = await readAccessTokenFromCookies(
+            supabaseUrlOf(ref),
+            jarFrom([{ name, value }]),
+          );
+
+          expect(token).toBeNull();
+        }),
+        { numRuns: 200 },
+      );
+    });
+
+    it("access_token が文字列でない・欠けているとき null を返す", async () => {
+      const replacementArb = fc.oneof(
+        fc.constant({ kind: "missing" as const }),
+        fc.record({
+          kind: fc.constant("replaced" as const),
+          value: fc.jsonValue().filter((v) => typeof v !== "string"),
+        }),
+      );
+      const arb = fc.record({
+        generated: anySessionArb,
+        replacement: replacementArb,
+        format: fc.constantFrom("base64", "raw"),
+      });
+
+      await fc.assert(
+        fc.asyncProperty(arb, async ({ generated, replacement, format }) => {
+          const { access_token: _removed, ...rest } = generated.session;
+          const broken = (replacement.kind === "missing"
+            ? rest
+            : {
+                ...rest,
+                access_token: replacement.value,
+              }) as unknown as Session;
+          const url = supabaseUrlOf(generated.ref);
+          const cookies =
+            format === "base64"
+              ? buildSessionCookies(url, broken)
+              : [
+                  {
+                    name: cookieKeyOf(generated.ref),
+                    value: JSON.stringify(broken),
+                  },
+                ];
+
+          const token = await readAccessTokenFromCookies(url, jarFrom(cookies));
+
+          expect(token).toBeNull();
+        }),
+        { numRuns: 100 },
+      );
+    });
+  });
 });
