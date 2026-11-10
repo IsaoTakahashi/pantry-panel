@@ -66,3 +66,5 @@ logs/
 
 # direnv
 .envrc
+# verify skill evidence (traces contain auth headers — never commit)
+.verify-evidence/

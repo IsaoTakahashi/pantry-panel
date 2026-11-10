@@ -55,3 +55,5 @@ public/sw.js
 public/sw.js.map
 public/swe-worker-*.js
 public/swe-worker-*.js.map
+# verify skill scratch journeys (copied in by .claude/skills/verify/scripts/drive.sh)
+/e2e/verify-scratch
