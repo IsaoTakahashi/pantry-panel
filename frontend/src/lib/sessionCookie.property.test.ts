@@ -536,6 +536,8 @@ describe("sessionCookie のプロパティ", () => {
       });
 
     const malformedValueArb = fc.oneof(
+      // 空文字（combineChunks が値なしとして扱う）
+      fc.constant(""),
       // 任意の文字列（生 JSON として扱われる）
       fc
         .string({ unit: "binary", minLength: 1 })
