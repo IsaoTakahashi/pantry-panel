@@ -14,6 +14,8 @@ load_verify_env
 run_id=$(date +%Y%m%d-%H%M%S)
 evid="$EVIDENCE_ROOT/$run_id"
 mkdir -p "$evid/screenshots"
+# An interrupted run must not leave journeys inside frontend/e2e for the normal suite.
+trap 'rm -rf "$SCRATCH_DIR"' EXIT
 
 # Journeys live in the skill dir but must run from inside frontend/e2e so
 # @playwright/test resolves from frontend/node_modules.
@@ -38,7 +40,6 @@ status=0
     --output="$evid/test-results" "${targets[@]}"
 ) 2>&1 | tee "$evid/playwright.log" || status=$?
 
-rm -rf "$SCRATCH_DIR"
 cp "$STATE_DIR/backend.log" "$evid/backend.log" 2>/dev/null || true
 cp "$STATE_DIR/frontend.log" "$evid/frontend.log" 2>/dev/null || true
 

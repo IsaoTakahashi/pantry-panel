@@ -19,6 +19,9 @@ mkdir -p "$STATE_DIR"
 # next dev rewrites the managed block in frontend/AGENTS.md; cleanup restores this copy.
 cp "$ROOT/frontend/AGENTS.md" "$STATE_DIR/AGENTS.md.orig"
 
+# No-op when cached; a Playwright bump (npm install / Renovate) otherwise fails drive.sh.
+(cd "$ROOT/frontend" && ./node_modules/.bin/playwright install chromium >/dev/null)
+
 echo "verify: building backend"
 go -C "$ROOT/backend" build -o "$STATE_DIR/pantry-backend" .
 

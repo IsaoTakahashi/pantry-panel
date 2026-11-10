@@ -33,6 +33,9 @@ load_verify_env() {
   # Override frontend/.env.local, which may point at the prod Lambda.
   export NEXT_PUBLIC_API_BASE_URL="http://localhost:$BACKEND_PORT"
   unset CORS_ALLOWED_ORIGINS
+  # Any of these makes playwright.config.ts / global-setup.ts target the Vercel
+  # preview + preview Lambda instead of this local instance.
+  unset PREVIEW_URL PREVIEW_BACKEND_URL VERCEL_BYPASS_TOKEN RUN_SW_E2E
 
   local missing=""
   for v in DATABASE_URL E2E_SUPABASE_URL E2E_SUPABASE_ANON_KEY E2E_TEST_EMAIL E2E_TEST_PASSWORD; do
