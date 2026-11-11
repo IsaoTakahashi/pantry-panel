@@ -51,6 +51,10 @@ interface SessionParts {
   name: string;
 }
 
+// fast-check（4.10.2）の既定 size（"small"）では、maxLength をそれより大きく
+// 指定しても文字列の長さは最大 2 * minLength + 10 までしか生成されない。
+// maxNameLength は実際に生成される範囲（minNameLength = 0 なら 10、30 なら 70）
+// に合わせて指定する。
 function sessionPartsArb(maxNameLength: number, minNameLength = 0) {
   return fc.record({
     ref: projectRefArb,
@@ -117,7 +121,7 @@ function boundarySessionArb(
   sideArb: fc.Arbitrary<"inside" | "outside">,
 ): fc.Arbitrary<Generated> {
   return fc
-    .record({ parts: sessionPartsArb(150), k: kArb, side: sideArb })
+    .record({ parts: sessionPartsArb(10), k: kArb, side: sideArb })
     .map(({ parts, k, side }) => ({
       ref: parts.ref,
       session: sessionWithJsonBytes(parts, jsonBytesForBoundary(k, side)),
@@ -142,14 +146,14 @@ function paddedSessionArb(
 
 // cookie が 1 個になるセッション（境界のすぐ内側 3179 を含む）。
 const singleChunkSessionArb: fc.Arbitrary<Generated> = fc.oneof(
-  paddedSessionArb(100, 0, 1000),
+  paddedSessionArb(10, 0, 1000),
   boundarySessionArb(fc.constant(1), fc.constant("inside")),
 );
 
 // cookie が 2 個以上になるセッション（境界のすぐ外側 3181、2 chunk / 3 chunk
 // の境界の両側、さらに大きいものを含む）。
 const multiChunkSessionArb: fc.Arbitrary<Generated> = fc.oneof(
-  paddedSessionArb(500, 3000, 12000),
+  paddedSessionArb(10, 3000, 12000),
   boundarySessionArb(fc.constant(1), fc.constant("outside")),
   boundarySessionArb(
     fc.integer({ min: 2, max: 3 }),
@@ -369,7 +373,7 @@ describe("sessionCookie のプロパティ", () => {
     // MAX_CHUNK_SIZE ちょうどとその -1 は分割されない上限、+1 以降は分割される。
     const rawJsonBoundaryArb = fc
       .record({
-        parts: sessionPartsArb(1500, 30),
+        parts: sessionPartsArb(70, 30),
         extraK: fc.integer({ min: 0, max: 1 }),
         offset: fc.integer({ min: -1, max: 1 }),
       })
@@ -469,7 +473,7 @@ describe("sessionCookie のプロパティ", () => {
       const arb = fc
         .record({
           unsplit: singleChunkSessionArb,
-          chunked: paddedSessionArb(100, 0, 500),
+          chunked: paddedSessionArb(10, 0, 500),
           chunkSize: fc.integer({ min: 24, max: 120 }),
         })
         .filter(
@@ -514,7 +518,7 @@ describe("sessionCookie のプロパティ", () => {
     // 分割する（createChunks の第 3 引数）。base64- 形式と生 JSON の両方。
     const chunkedArb = fc
       .record({
-        generated: paddedSessionArb(100, 0, 500),
+        generated: paddedSessionArb(10, 0, 500),
         format: fc.constantFrom("base64", "raw"),
         chunkSize: fc.integer({ min: 24, max: 120 }),
       })
@@ -529,7 +533,7 @@ describe("sessionCookie のプロパティ", () => {
     it("末尾に古い .N が残っていても、正しいトークンか null だけを返す", async () => {
       const arb = fc.record({
         current: chunkedArb,
-        old: paddedSessionArb(100, 0, 3000),
+        old: paddedSessionArb(10, 0, 3000),
         extra: fc.array(fc.string({ unit: "binary", minLength: 1 }), {
           maxLength: 3,
         }),
