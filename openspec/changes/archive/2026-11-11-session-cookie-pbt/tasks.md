@@ -19,4 +19,4 @@
 
 - [x] 4.1 実装を一時的に壊して（`base64-` を除去しない、結合後の文字列を切り詰める）、2.x / 3.x のプロパティが失敗することを確認し、元に戻す（変更はコミットしない）。PR に確認結果を記載する
 - [x] 4.2 `sessionCookie.property.test.ts` の実行時間が 5 秒以内に収まることを `npx vitest run src/lib/sessionCookie.property.test.ts` の出力で確認する（超える場合は `numRuns` を調整する）
-- [ ] 4.3 `npx biome check`・`npx tsc --noEmit`・`npm test` がローカルで通り、push 後に `gh pr checks --watch` で CI が通ることを確認する
+- [x] 4.3 `npx biome check`・`npx tsc --noEmit`・`npm test` がローカルで通り、push 後に `gh pr checks --watch` で CI が通ることを確認する
