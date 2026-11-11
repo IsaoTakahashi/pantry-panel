@@ -26,6 +26,8 @@ SSR の初回取得（`getInitialStockItems.ts`）は、Supabase クライアン
 
 テストの追加のみで、spec レベルの振る舞いは変わらないため、`.openspec.yaml` に `skip_specs: true` を設定する。
 
+archive 時の追記: 振る舞いは変えていないが、ユーザーシナリオ S-1〜S-4 は、これまでどの spec にも書かれていなかった既存の振る舞いだった。そのため、ユーザーの判断で `openspec/specs/stock-items-ssr-prefetch/spec.md` に要件「SSR はセッション cookie からアクセストークンを読み取り、読めないときはクライアント取得に任せる」として昇格した。
+
 ## Impact
 
 - `frontend/package.json` / `package-lock.json`: `fast-check` を devDependencies に追加
