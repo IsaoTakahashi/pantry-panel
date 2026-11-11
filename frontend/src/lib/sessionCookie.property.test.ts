@@ -15,11 +15,15 @@ const BASE64URL_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_".split("");
 const REF_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789".split("");
 
+// fast-check（4.10.2）の既定 size（"small"）では、maxLength をそれより大きく
+// 指定しても文字列の長さは最大 2 * minLength + 10 までしか生成されない。
+// このファイルの maxLength は実際に生成される範囲に合わせて指定する。
+
 // project ref は英小文字と数字のラベル（new URL() が例外を投げない範囲）。
 const projectRefArb = fc.string({
   unit: fc.constantFrom(...REF_ALPHABET),
   minLength: 1,
-  maxLength: 20,
+  maxLength: 12,
 });
 
 function supabaseUrlOf(ref: string): string {
@@ -40,7 +44,7 @@ function base64UrlArb(minLength: number, maxLength: number) {
 
 // JWT 形式（base64url 3 区画を "." でつないだ文字列）。
 const accessTokenArb = fc
-  .tuple(base64UrlArb(10, 60), base64UrlArb(20, 200), base64UrlArb(20, 90))
+  .tuple(base64UrlArb(10, 30), base64UrlArb(20, 50), base64UrlArb(20, 50))
   .map((segments) => segments.join("."));
 
 interface SessionParts {
@@ -51,10 +55,8 @@ interface SessionParts {
   name: string;
 }
 
-// fast-check（4.10.2）の既定 size（"small"）では、maxLength をそれより大きく
-// 指定しても文字列の長さは最大 2 * minLength + 10 までしか生成されない。
-// maxNameLength は実際に生成される範囲（minNameLength = 0 なら 10、30 なら 70）
-// に合わせて指定する。
+// maxNameLength は 2 * minNameLength + 10 以下（minNameLength = 0 なら 10、
+// 30 なら 70）で指定する。
 function sessionPartsArb(maxNameLength: number, minNameLength = 0) {
   return fc.record({
     ref: projectRefArb,
@@ -428,9 +430,9 @@ describe("sessionCookie のプロパティ", () => {
       fc.array(
         fc.record({
           name: fc
-            .string({ minLength: 1, maxLength: 40 })
+            .string({ minLength: 1, maxLength: 12 })
             .filter((name) => name !== key && !name.startsWith(`${key}.`)),
-          value: fc.string({ minLength: 1, maxLength: 200 }),
+          value: fc.string({ minLength: 1, maxLength: 12 }),
         }),
         { maxLength: 5 },
       );
@@ -631,7 +633,7 @@ describe("sessionCookie のプロパティ", () => {
       // base64- + 任意の文字列（base64url として不正な文字を含む）
       fc.string({ unit: "binary", minLength: 1 }).map((v) => `base64-${v}`),
       // base64- + base64url の文字だけの文字列（UTF-8 / JSON として不正）
-      base64UrlArb(1, 200).map((v) => `base64-${v}`),
+      base64UrlArb(1, 12).map((v) => `base64-${v}`),
       // base64url としては正しいが、JSON として不正
       notJsonArb.map((v) => `base64-${stringToBase64URL(v)}`),
     );
