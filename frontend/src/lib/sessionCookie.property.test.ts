@@ -64,9 +64,9 @@ function sessionPartsArb(maxNameLength: number, minNameLength = 0) {
   });
 }
 
-// padding を user_metadata の Unicode 文字列より前に置く。生 JSON を
-// createChunks で分割するとき（S-2）、分割位置が padding ではなく Unicode の
-// 部分に来るようにするため。
+// padding は JSON の長さを調整するための ASCII（"a" の繰り返し）。S-1 では
+// base64- 形式の cookie 値の長さ、S-2 では生 JSON を URI エンコードした長さを
+// MAX_CHUNK_SIZE の境界に合わせるのに使う。
 function makeSession(parts: SessionParts, padding: string): Session {
   return {
     access_token: parts.accessToken,
@@ -262,75 +262,157 @@ describe("sessionCookie のプロパティ", () => {
       );
     });
 
-    // 生 JSON は URI エンコードで長さが変わるため、createChunks の "%" エスケープ・
-    // Unicode 境界での分割の分岐を通る。"a" は URI エンコードで 1 文字のままなので、
-    // encodeURIComponent 後の長さをちょうど k * MAX_CHUNK_SIZE（とその ±1）にできる。
-    const rawJsonSplitArb = fc
+    // createChunks の分割位置（非最終 chunk の encodeURIComponent 後の長さ L）は
+    // 次の 3 通り。chunkSize を cs とする。
+    // - L === cs: そのまま切れた
+    // - L === cs-1, cs-2: "%XX" の途中で切れたので "%" の手前に詰めた
+    // - L <= cs-3: 多バイト文字の UTF-8 の途中で切れて decodeURIComponent が
+    //   URIError を投げたので、"%XX" 3 文字ずつ削り直した（ASCII の "%XX" は 1 つ
+    //   で必ずデコードできるので、ASCII のエスケープの詰めではここに来ない）
+    type Cut = "clean" | "escapeTrim" | "unicodeReslice";
+
+    function cutsOf(chunks: { value: string }[], chunkSize: number): Cut[] {
+      return chunks.slice(0, -1).map((c) => {
+        const len = encodeURIComponent(c.value).length;
+        if (len === chunkSize) return "clean";
+        if (len >= chunkSize - 2) return "escapeTrim";
+        return "unicodeReslice";
+      });
+    }
+
+    // 1〜4 バイトの UTF-8 になる文字と、複数のコードポイントからなる絵文字。
+    const MULTIBYTE_UNITS = [
+      "é",
+      "ß",
+      "€",
+      "あ",
+      "漢",
+      "字",
+      "🍣",
+      "🍎",
+      "👨‍👩‍👧",
+      "🇯🇵",
+    ];
+
+    // 日本語・絵文字を必ず含む生 JSON を、小さい chunkSize（S-4 と同じ
+    // createChunks の第 3 引数）で必ず分割する。user_metadata.name の多バイト
+    // 文字の部分（encodeURIComponent 後 1 文字あたり 6〜36 文字）は chunkSize の
+    // 上限より長いので、分割位置が多バイト文字の途中に来るケースを含む。
+    const unicodeSplitArb = fc
+      .record({
+        parts: sessionPartsArb(10),
+        multibyte: fc.string({
+          unit: fc.constantFrom(...MULTIBYTE_UNITS),
+          minLength: 20,
+          maxLength: 50,
+        }),
+        chunkSize: fc.integer({ min: 24, max: 120 }),
+      })
+      .map(({ parts, multibyte, chunkSize }) => {
+        const session = makeSession(
+          { ...parts, name: `${parts.name}${multibyte}` },
+          "",
+        );
+        const chunks = createChunks(
+          cookieKeyOf(parts.ref),
+          JSON.stringify(session),
+          chunkSize,
+        );
+        return { ref: parts.ref, session, chunkSize, chunks };
+      });
+
+    it("生成器が多バイト文字の途中での削り直しと、ASCII の %XX の途中での詰めの両方を実際に生成する", () => {
+      const samples = fc.sample(unicodeSplitArb, { numRuns: 200, seed: 1 });
+      const cutsWith = (kind: Cut) =>
+        samples.flatMap(({ chunks, chunkSize }) => {
+          const cuts = cutsOf(chunks, chunkSize);
+          return chunks.slice(0, -1).filter((_, i) => cuts[i] === kind);
+        });
+      const isAscii = (ch: string | undefined) =>
+        (ch?.codePointAt(0) ?? 0x80) < 0x80;
+
+      const resliced = cutsWith("unicodeReslice");
+      // 削り直した chunk は多バイト文字の直前で終わる（デコード後の末尾が非 ASCII
+      // になるものを含む）
+      expect(resliced.length).toBeGreaterThan(0);
+      expect(
+        resliced.some(({ value }) => !isAscii(Array.from(value).at(-1))),
+      ).toBe(true);
+      // ASCII のエスケープ（"%22" など）の途中で切れて詰めたもの
+      const asciiEscapeTrim = samples.filter(({ chunks, chunkSize }) => {
+        const cuts = cutsOf(chunks, chunkSize);
+        return cuts.some(
+          (cut, i) => cut === "escapeTrim" && isAscii(chunks[i + 1].value[0]),
+        );
+      });
+      expect(asciiEscapeTrim.length).toBeGreaterThan(0);
+    });
+
+    it("日本語・絵文字を含む生 JSON を小さい chunkSize で分割した cookie から access_token を読める", async () => {
+      await fc.assert(
+        fc.asyncProperty(unicodeSplitArb, async ({ ref, session, chunks }) => {
+          expect(chunks.length).toBeGreaterThanOrEqual(2);
+
+          const token = await readAccessTokenFromCookies(
+            supabaseUrlOf(ref),
+            jarFrom(chunks),
+          );
+
+          expect(token).toBe(session.access_token);
+        }),
+        { numRuns: 100 },
+      );
+    });
+
+    // 既定の MAX_CHUNK_SIZE で、encodeURIComponent 後の長さをちょうど
+    // k * MAX_CHUNK_SIZE とその ±1 にする（"a" は URI エンコードで 1 文字のまま）。
+    // MAX_CHUNK_SIZE ちょうどとその -1 は分割されない上限、+1 以降は分割される。
+    const rawJsonBoundaryArb = fc
       .record({
         parts: sessionPartsArb(1500, 30),
-        sizing: fc.oneof(
-          fc.constant({ kind: "free" as const }),
-          fc.record({
-            kind: fc.constant("boundary" as const),
-            extraK: fc.integer({ min: 0, max: 1 }),
-            offset: fc.integer({ min: -1, max: 1 }),
-          }),
-        ),
+        extraK: fc.integer({ min: 0, max: 1 }),
+        offset: fc.integer({ min: -1, max: 1 }),
       })
-      .map(({ parts, sizing }) => {
+      .map(({ parts, extraK, offset }) => {
         const encodedLength = (s: Session) =>
           encodeURIComponent(JSON.stringify(s)).length;
-        if (sizing.kind === "free") {
-          return { ref: parts.ref, session: makeSession(parts, "") };
-        }
         const base = encodedLength(makeSession(parts, ""));
-        const k = Math.ceil((base + 1) / MAX_CHUNK_SIZE) + sizing.extraK;
-        const target = k * MAX_CHUNK_SIZE + sizing.offset;
+        const k = Math.ceil((base + 1) / MAX_CHUNK_SIZE) + extraK;
+        const target = k * MAX_CHUNK_SIZE + offset;
+        const session = makeSession(parts, "a".repeat(target - base));
         return {
           ref: parts.ref,
-          session: makeSession(parts, "a".repeat(target - base)),
+          session,
+          encodedLength: encodedLength(session),
+          chunks: createChunks(cookieKeyOf(parts.ref), JSON.stringify(session)),
         };
       });
 
-    function rawJsonChunks({ ref, session }: Generated) {
-      return createChunks(cookieKeyOf(ref), JSON.stringify(session));
-    }
+    it("生成器が MAX_CHUNK_SIZE ちょうど（分割なし）と、その 2 倍以上の倍数（分割あり）の長さを実際に生成する", () => {
+      const samples = fc.sample(rawJsonBoundaryArb, { numRuns: 200, seed: 1 });
+      const exactLengths = samples
+        .map((s) => s.encodedLength)
+        .filter((len) => len % MAX_CHUNK_SIZE === 0);
 
-    it("生成器がちょうど MAX_CHUNK_SIZE の倍数の長さと、Unicode 境界で短くなった chunk を実際に生成する", () => {
-      const samples = fc.sample(rawJsonSplitArb, { numRuns: 200, seed: 1 });
-
-      const exactMultiple = samples.filter(({ session }) => {
-        const len = encodeURIComponent(JSON.stringify(session)).length;
-        return len % MAX_CHUNK_SIZE === 0;
-      });
-      const shortenedByUnicode = samples.filter((g) => {
-        const chunks = rawJsonChunks(g);
-        return chunks
-          .slice(0, -1)
-          .some((c) => encodeURIComponent(c.value).length < MAX_CHUNK_SIZE);
-      });
-
-      const exactLengths = exactMultiple.map(
-        ({ session }) => encodeURIComponent(JSON.stringify(session)).length,
-      );
-      // ちょうど MAX_CHUNK_SIZE（分割されない上限）と、2 倍以上（分割される）の両方
       expect(exactLengths).toContain(MAX_CHUNK_SIZE);
       expect(exactLengths.some((len) => len >= 2 * MAX_CHUNK_SIZE)).toBe(true);
-      expect(shortenedByUnicode.length).toBeGreaterThan(0);
+      expect(samples.some((s) => s.chunks.length === 1)).toBe(true);
+      expect(samples.some((s) => s.chunks.length >= 3)).toBe(true);
     });
 
-    it("Unicode を多く含む生 JSON を createChunks で分割した cookie から access_token を読める", async () => {
+    it("長さが MAX_CHUNK_SIZE の倍数とその ±1 の生 JSON を既定の chunkSize で createChunks した cookie から access_token を読める", async () => {
       await fc.assert(
-        fc.asyncProperty(rawJsonSplitArb, async (generated) => {
-          const cookies = rawJsonChunks(generated);
+        fc.asyncProperty(
+          rawJsonBoundaryArb,
+          async ({ ref, session, chunks }) => {
+            const token = await readAccessTokenFromCookies(
+              supabaseUrlOf(ref),
+              jarFrom(chunks),
+            );
 
-          const token = await readAccessTokenFromCookies(
-            supabaseUrlOf(generated.ref),
-            jarFrom(cookies),
-          );
-
-          expect(token).toBe(generated.session.access_token);
-        }),
+            expect(token).toBe(session.access_token);
+          },
+        ),
         { numRuns: 60 },
       );
     });
