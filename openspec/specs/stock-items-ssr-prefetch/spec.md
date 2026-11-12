@@ -26,3 +26,23 @@
 #### Scenario: 件数の多いグループでも在庫の取得は 1 回
 - **WHEN** 82 件以上の在庫を持つグループに所属し、有効なセッションを持つユーザーが `/stock-items` にアクセスする
 - **THEN** サーバー側での Go API の在庫一覧取得は 1 回だけ行われ、初期 HTML にそのグループの全在庫が描画される
+
+### Requirement: SSR はセッション cookie からアクセストークンを読み取り、読めないときはクライアント取得に任せる
+
+`/stock-items` の SSR は、Supabase クライアントを介さずに `sb-{project-ref}-auth-token` のセッション cookie からアクセストークンを読み取り、在庫の取得に使う SHALL。cookie の大きさ（分割されていない 1 個か、`.0`、`.1`、… の複数 chunk か）や形式（`base64-` 接頭辞付き、または接頭辞のない旧形式の生 JSON）によって、読み取れるかどうかが変わってはならない MUST NOT。cookie が壊れている・欠けているときは、例外を投げずに SSR での取得をあきらめ、クライアント側の取得に任せる SHALL。このとき、そのセッションのものではない値をアクセストークンとして使ってはならない MUST NOT（誤ったトークンは Go API の 401 を経由して強制ログアウトにつながるため）。
+
+#### Scenario: セッションの大きさに関係なくアクセストークンを読み取る
+- **WHEN** 有効なセッションを持つユーザーが `/stock-items` にアクセスし、セッション cookie が `user_metadata` の大きさ（日本語・絵文字を含む）によって分割されていない 1 個、または複数の chunk になっている
+- **THEN** SSR は元のセッションの `access_token` を読み取り、それを使って在庫を取得する
+
+#### Scenario: 旧形式（生 JSON）の cookie からもアクセストークンを読み取る
+- **WHEN** `base64-` 接頭辞のない生 JSON のセッション cookie（分割されていない、または分割されている）を持つユーザーが `/stock-items` にアクセスする
+- **THEN** SSR は生 JSON の `access_token` を読み取る
+
+#### Scenario: 他の cookie が混ざっていても正しい cookie からトークンを選ぶ
+- **WHEN** セッション cookie に加えて、無関係な名前の cookie、別の Supabase プロジェクトの `sb-{other}-auth-token`、または同じキーの分割されていない cookie と chunk が同時にある
+- **THEN** 無関係な cookie・別プロジェクトの cookie は結果に影響せず、同じキーの分割されていない cookie と chunk が同時にあるときは分割されていない方からトークンを読み取る
+
+#### Scenario: cookie が壊れていても SSR は落ちず、クライアント取得にフォールバックする
+- **WHEN** 古い chunk が末尾に残っている、途中の chunk が欠けている、cookie 値が base64url / JSON として不正、または `access_token` が文字列でない・欠けている状態で `/stock-items` にアクセスする
+- **THEN** SSR は例外を投げず、そのセッションの `access_token` 以外の値を使わない。トークンを読み取れないときは Go API を呼ばずに初期在庫なしで描画し、クライアント側が通常どおり在庫を取得する
