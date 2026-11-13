@@ -1,6 +1,6 @@
 [tools]
 node = "24"
-go = "1.27.2"
+go = "1.27.4"
 golangci-lint = "2"
 lefthook = "latest"
 java = "temurin-21.0.13+9.0.LTS"
