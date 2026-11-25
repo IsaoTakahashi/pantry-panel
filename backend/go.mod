@@ -1,6 +1,6 @@
 module github.com/IsaoTakahashi/pantry-panel/backend
 
-go 1.26.2
+go 1.26.11
 
 require (
 	github.com/MicahParks/jwkset v0.12.0
