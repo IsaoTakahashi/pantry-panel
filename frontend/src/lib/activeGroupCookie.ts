@@ -8,6 +8,7 @@ export const ACTIVE_GROUP_COOKIE_NAME = "pantry-panel-active-group";
 const ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
 
 export function setActiveGroupCookie(groupId: string): void {
+  // biome-ignore lint/suspicious/noDocumentCookie: getActiveGroupCookie must read synchronously, which the async Cookie Store API cannot do
   document.cookie = `${ACTIVE_GROUP_COOKIE_NAME}=${encodeURIComponent(groupId)}; path=/; max-age=${ONE_YEAR_SECONDS}; SameSite=Lax`;
 }
 
@@ -21,5 +22,6 @@ export function getActiveGroupCookie(): string | undefined {
 }
 
 export function clearActiveGroupCookie(): void {
+  // biome-ignore lint/suspicious/noDocumentCookie: kept on document.cookie to match setActiveGroupCookie
   document.cookie = `${ACTIVE_GROUP_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
 }

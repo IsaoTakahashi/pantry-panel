@@ -7,7 +7,7 @@ import {
 } from "./activeGroupCookie";
 
 afterEach(() => {
-  document.cookie = `${ACTIVE_GROUP_COOKIE_NAME}=; path=/; max-age=0`;
+  clearActiveGroupCookie();
 });
 
 describe("activeGroupCookie", () => {
@@ -31,6 +31,7 @@ describe("activeGroupCookie", () => {
   });
 
   it("getActiveGroupCookie ignores unrelated cookies", () => {
+    // biome-ignore lint/suspicious/noDocumentCookie: seeds a cookie the module under test does not own
     document.cookie = "unrelated=value; path=/";
     expect(getActiveGroupCookie()).toBeUndefined();
   });
