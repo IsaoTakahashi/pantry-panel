@@ -30,6 +30,10 @@ vi.mock("@/lib/authApi", () => ({
 vi.mock("next/navigation", () => ({ useRouter: vi.fn() }));
 
 import { useRouter } from "next/navigation";
+import {
+  clearActiveGroupCookie,
+  setActiveGroupCookie,
+} from "@/lib/activeGroupCookie";
 import { fetchMyGroups } from "@/lib/authApi";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
@@ -95,6 +99,15 @@ function InitialGroupCapture({
   return null;
 }
 
+function InitialAuthenticatedCapture({
+  onReady,
+}: {
+  onReady: (initialAuthenticated: boolean) => void;
+}) {
+  onReady(useAuth().initialAuthenticated);
+  return null;
+}
+
 function renderWithAuth() {
   return render(
     <AuthProvider>
@@ -113,13 +126,13 @@ beforeEach(() => {
     replace: mockReplace,
   } as never);
   localStorage.clear();
-  document.cookie = "pantry-panel-active-group=; path=/; max-age=0";
+  clearActiveGroupCookie();
 });
 
 afterEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
-  document.cookie = "pantry-panel-active-group=; path=/; max-age=0";
+  clearActiveGroupCookie();
 });
 
 // resolve/reject を外部から任意タイミングで発火できる Promise。
@@ -487,7 +500,7 @@ describe("AuthContext", () => {
   });
 
   it("groups確定時、cookie と localStorage が食い違う場合は cookie を優先する（D1）", async () => {
-    document.cookie = "pantry-panel-active-group=g2; path=/";
+    setActiveGroupCookie("g2");
     localStorage.setItem("pantry-panel:active-group-id", "g1");
     const session = { access_token: "tok", user: { id: "u1" } };
     mockGetSession.mockResolvedValue({ data: { session } });
@@ -514,33 +527,33 @@ describe("AuthContext", () => {
   });
 
   it("initialAuthenticated=true を渡すと session 解決前でも AuthGuard 判定用の initialAuthenticated が true になる", () => {
-    let captured: { initialAuthenticated: boolean } | null = null;
-    function Capture() {
-      const { initialAuthenticated } = useAuth();
-      captured = { initialAuthenticated };
-      return null;
-    }
+    let captured: boolean | undefined;
     render(
       <AuthProvider initialAuthenticated initialGroupId={undefined}>
-        <Capture />
+        <InitialAuthenticatedCapture
+          onReady={(value) => {
+            captured = value;
+          }}
+        />
       </AuthProvider>,
     );
-    expect(captured).toEqual({ initialAuthenticated: true });
+    expect(captured).toBe(true);
   });
 
   it("initialGroupId を渡すと context の initialGroupId に反映される", () => {
-    let captured: { initialGroupId: string | undefined } | null = null;
-    function Capture() {
-      const { initialGroupId } = useAuth();
-      captured = { initialGroupId };
-      return null;
-    }
+    let captured: InitialGroupCaptureHandle | null = null;
     render(
       <AuthProvider initialAuthenticated={false} initialGroupId="ssr-group-1">
-        <Capture />
+        <InitialGroupCapture
+          onReady={(handle) => {
+            captured = handle;
+          }}
+        />
       </AuthProvider>,
     );
-    expect(captured).toEqual({ initialGroupId: "ssr-group-1" });
+    expect((captured as InitialGroupCaptureHandle | null)?.initialGroupId).toBe(
+      "ssr-group-1",
+    );
   });
 
   it("switchGroup は active group cookie も書き込む", async () => {
