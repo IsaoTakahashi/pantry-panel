@@ -90,6 +90,6 @@ icons: {
 
 1. `public/icon.svg` を作成（背景付き: `<rect fill="#00d1b2"/>` + ピクトグラム）
 2. Node.js スクリプト（sharp）で SVG → PNG をエクスポート（192px / 512px）
-3. `favicon.ico` を 32px PNG から生成（sharp で PNG 出力 → `to-ico` パッケージで ICO 変換）
+3. `favicon.ico` を 32px で生成（sharp で RGBA を出力し、`scripts/generate-icons.mjs` 内で 32bpp BMP の ICO に書き出す。`to-ico` は修正版のない脆弱な依存を抱えていたため #342 で削除）
 4. manifest.ts・layout.tsx を更新
 5. 旧 `icon.png` を削除
